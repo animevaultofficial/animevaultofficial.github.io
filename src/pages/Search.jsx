@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import PremiumAnimeCard from '../components/PremiumAnimeCard';
 import { searchAnime, fetchTrendingMedia } from '../api/anilist';
+import { searchMoviesAndSeries, fetchLatestMovies, fetchLatestTVShows } from '../api/movies';
 import { getFavoritesLocal, addFavoriteLocal, removeFavoriteLocal } from '../api/db';
-import { Search as SearchIcon, Filter, TrendingUp, Calendar, Star, Zap, ChevronRight, Clock, AlertTriangle, Sparkles } from 'lucide-react';
+import { Search as SearchIcon, Filter, TrendingUp, Calendar, Star, Zap, ChevronRight, Clock, AlertTriangle, Sparkles, Film } from 'lucide-react';
 
 const GENRES = [
   'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy',
@@ -12,7 +13,7 @@ const GENRES = [
   'Psychological', 'Historical', 'Music', 'Military'
 ];
 
-const TYPES = ['ANIME', 'MANGA'];
+const TYPES = ['ANIME', 'MANGA', 'MOVIES/SERIES'];
 const SORT_OPTIONS = [
   { value: 'TRENDING', label: 'Trending' },
   { value: 'POPULARITY', label: 'Popularity' },
@@ -102,8 +103,17 @@ function Search() {
     try {
       setLoading(true);
       setError('');
-      const data = await fetchTrendingMedia(typeToLoad);
-      setResults(data);
+      let data;
+      if (typeToLoad === 'MOVIES/SERIES') {
+        const [movies, tv] = await Promise.all([
+          fetchLatestMovies(1),
+          fetchLatestTVShows(1),
+        ]);
+        data = [...(movies || []), ...(tv || [])];
+      } else {
+        data = await fetchTrendingMedia(typeToLoad);
+      }
+      setResults(data || []);
     } catch (err) {
       setError(err.message || 'Failed to load trending');
     } finally {
@@ -126,17 +136,30 @@ function Search() {
         });
       }
 
-      const data = await searchAnime(
-        trimmedSearch || null, 
-        typeFilter, 
-        genreFilter || null, 
-        1, 
-        50,
-        sortFilter,
-        statusFilter === 'All' ? null : statusFilter,
-        yearFilter === 'All' ? null : parseInt(yearFilter)
-      );
-      setResults(data);
+      let data;
+      if (typeFilter === 'MOVIES/SERIES') {
+        if (trimmedSearch) {
+          data = await searchMoviesAndSeries(trimmedSearch);
+        } else {
+          const [movies, tv] = await Promise.all([
+            fetchLatestMovies(1, genreFilter || ''),
+            fetchLatestTVShows(1, genreFilter || ''),
+          ]);
+          data = [...(movies || []), ...(tv || [])];
+        }
+      } else {
+        data = await searchAnime(
+          trimmedSearch || null, 
+          typeFilter, 
+          genreFilter || null, 
+          1, 
+          50,
+          sortFilter,
+          statusFilter === 'All' ? null : statusFilter,
+          yearFilter === 'All' ? null : parseInt(yearFilter)
+        );
+      }
+      setResults(data || []);
     } catch (err) {
       setError(err.message || 'Search failed');
     } finally {
@@ -174,23 +197,23 @@ function Search() {
     updateSearchParams({ nextGenre: newGenre });
   }
 
-  function getTitle(anime) {
-    return anime?.title?.english || anime?.title?.romaji || anime?.title?.native || anime?.name || 'Unknown Title';
+  function getTitle(item) {
+    return item?.title?.english || item?.title?.romaji || item?.title?.native || item?.title || item?.name || 'Unknown Title';
   }
   
-  function getImage(anime) {
-    return anime?.coverImage?.extraLarge || anime?.coverImage?.large || anime?.poster || '';
+  function getImage(item) {
+    return item?.coverImage?.extraLarge || item?.coverImage?.large || item?.poster || '';
   }
 
-  function toggleFavorite(anime) {
+  function toggleFavorite(item) {
     setFavoritesData(prev => {
-      const isFav = prev.animes.some(item => item.id === anime.id);
+      const isFav = prev.animes.some(f => f.id === item.id);
       let newFavs;
       if (isFav) {
-        newFavs = prev.animes.filter(item => item.id !== anime.id);
-        removeFavoriteLocal('animes', anime.id);
+        newFavs = prev.animes.filter(f => f.id !== item.id);
+        removeFavoriteLocal('animes', item.id);
       } else {
-        const newItem = { id: anime.id, title: getTitle(anime), image: getImage(anime) };
+        const newItem = { id: item.id, title: getTitle(item), image: getImage(item) };
         newFavs = [...prev.animes, newItem];
         addFavoriteLocal('animes', newItem);
       }
@@ -200,7 +223,13 @@ function Search() {
     });
   }
 
-  const placeholders = [
+  const placeholders = selectedType === 'MOVIES/SERIES' ? [
+    'Search for "Interstellar"',
+    'Search for "Breaking Bad"',
+    'Search for "Action Movies"',
+    'Search for "Marvel"',
+    'Search for "Studio Ghibli Movies"'
+  ] : [
     'Search for "Solo Leveling"',
     'Search for "One Piece"',
     'Search for "Romance Anime"',
@@ -267,7 +296,7 @@ function Search() {
                     updateSearchParams({ nextType: t });
                   }}
                 >
-                  {t}
+                  {t === 'MOVIES/SERIES' ? <><Film size={14} /> Movies/Series</> : t}
                 </button>
               ))}
             </div>
@@ -296,65 +325,71 @@ function Search() {
           </div>
 
           {/* Status */}
-          <div className="sidebar-section">
-            <h3 className="sidebar-section-title">
-              <Calendar size={16} />
-              Status
-            </h3>
-            <div className="status-selector">
-              {STATUS_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  className={`status-option ${status === opt.value ? 'active' : ''}`}
-                  onClick={() => {
-                    setStatus(opt.value);
-                    updateSearchParams({ nextStatus: opt.value });
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          {selectedType !== 'MOVIES/SERIES' && (
+            <div className="sidebar-section">
+              <h3 className="sidebar-section-title">
+                <Calendar size={16} />
+                Status
+              </h3>
+              <div className="status-selector">
+                {STATUS_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    className={`status-option ${status === opt.value ? 'active' : ''}`}
+                    onClick={() => {
+                      setStatus(opt.value);
+                      updateSearchParams({ nextStatus: opt.value });
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Year */}
-          <div className="sidebar-section">
-            <h3 className="sidebar-section-title">
-              <Star size={16} />
-              Year
-            </h3>
-            <select
-              className="year-selector"
-              value={year}
-              onChange={(e) => {
-                setYear(e.target.value);
-                updateSearchParams({ nextYear: e.target.value });
-              }}
-            >
-              {YEAR_OPTIONS.map(yr => (
-                <option key={yr} value={yr}>{yr}</option>
-              ))}
-            </select>
-          </div>
+          {selectedType !== 'MOVIES/SERIES' && (
+            <div className="sidebar-section">
+              <h3 className="sidebar-section-title">
+                <Star size={16} />
+                Year
+              </h3>
+              <select
+                className="year-selector"
+                value={year}
+                onChange={(e) => {
+                  setYear(e.target.value);
+                  updateSearchParams({ nextYear: e.target.value });
+                }}
+              >
+                {YEAR_OPTIONS.map(yr => (
+                  <option key={yr} value={yr}>{yr}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Genres */}
-          <div className="sidebar-section">
-            <h3 className="sidebar-section-title">
-              <Sparkles size={16} />
-              Genres
-            </h3>
-            <div className="genre-grid">
-              {GENRES.map(g => (
-                <button 
-                  key={g}
-                  className={`genre-pill ${selectedGenre === g ? 'active' : ''}`}
-                  onClick={() => handleGenreToggle(g)}
-                >
-                  {g}
-                </button>
-              ))}
+          {selectedType !== 'MOVIES/SERIES' && (
+            <div className="sidebar-section">
+              <h3 className="sidebar-section-title">
+                <Sparkles size={16} />
+                Genres
+              </h3>
+              <div className="genre-grid">
+                {GENRES.map(g => (
+                  <button 
+                    key={g}
+                    className={`genre-pill ${selectedGenre === g ? 'active' : ''}`}
+                    onClick={() => handleGenreToggle(g)}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Main Content */}
@@ -362,8 +397,8 @@ function Search() {
           {/* Hero Search */}
           <section className="premium-hero">
             <div className="hero-content">
-              <h1>Discover Your Next Favorite Anime</h1>
-              <p>Explore over 100,000+ anime and manga titles, updated daily</p>
+              <h1>{selectedType === 'MOVIES/SERIES' ? 'Discover Movies & Series' : 'Discover Your Next Favorite Anime'}</h1>
+              <p>{selectedType === 'MOVIES/SERIES' ? 'Explore movies and TV series from TMDB, updated daily' : 'Explore over 100,000+ anime and manga titles, updated daily'}</p>
               <form className="hero-search-form" onSubmit={handleSearchSubmit}>
                 <SearchIcon className="hero-search-icon" size={24} />
                 <input
@@ -392,18 +427,37 @@ function Search() {
 
               {/* Hero Stats */}
               <div className="hero-stats">
-                <div className="hero-stat">
-                  <span className="stat-number">100K+</span>
-                  <span className="stat-label">Anime</span>
-                </div>
-                <div className="hero-stat">
-                  <span className="stat-number">50K+</span>
-                  <span className="stat-label">Manga</span>
-                </div>
-                <div className="hero-stat">
-                  <span className="stat-number">Daily</span>
-                  <span className="stat-label">Updates</span>
-                </div>
+                {selectedType === 'MOVIES/SERIES' ? (
+                  <>
+                    <div className="hero-stat">
+                      <span className="stat-number">500K+</span>
+                      <span className="stat-label">Movies</span>
+                    </div>
+                    <div className="hero-stat">
+                      <span className="stat-number">100K+</span>
+                      <span className="stat-label">Series</span>
+                    </div>
+                    <div className="hero-stat">
+                      <span className="stat-number">Daily</span>
+                      <span className="stat-label">Updates</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="hero-stat">
+                      <span className="stat-number">100K+</span>
+                      <span className="stat-label">Anime</span>
+                    </div>
+                    <div className="hero-stat">
+                      <span className="stat-number">50K+</span>
+                      <span className="stat-label">Manga</span>
+                    </div>
+                    <div className="hero-stat">
+                      <span className="stat-number">Daily</span>
+                      <span className="stat-label">Updates</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </section>
@@ -504,13 +558,33 @@ function Search() {
               {!loading && !error && results.length > 0 && (
                 <div className="premium-results-grid">
                   {results.map((media) => (
-                    <PremiumAnimeCard
-                      key={media.id}
-                      anime={media}
-                      isFavorite={favoritesData.animes.some(item => item.id === media.id)}
-                      onToggleFavorite={toggleFavorite}
-                      linkPrefix={selectedType === 'MANGA' ? '/manga/' : '/anime/'}
-                    />
+                    selectedType === 'MOVIES/SERIES' ? (
+                      <Link
+                        key={`movie-${media.tmdbId || media.id}`}
+                        to={`/watch/${media.mediaType === 'series' ? 'series' : 'movie'}/${media.tmdbId}`}
+                        className="premium-anime-card"
+                      >
+                        <div className="premium-card-thumbnail">
+                          <img src={getImage(media)} alt={getTitle(media)} className="premium-card-image" />
+                          <div className="premium-card-score">HD</div>
+                        </div>
+                        <div className="premium-card-details">
+                          <h3 className="premium-card-title">{getTitle(media)}</h3>
+                          <div className="premium-card-genres">
+                            <span className="premium-genre-tag">{media.mediaType === 'series' ? 'Series' : 'Movie'}</span>
+                            {media.year && <span className="premium-genre-tag">{media.year}</span>}
+                          </div>
+                        </div>
+                      </Link>
+                    ) : (
+                      <PremiumAnimeCard
+                        key={media.id}
+                        anime={media}
+                        isFavorite={favoritesData.animes.some(item => item.id === media.id)}
+                        onToggleFavorite={toggleFavorite}
+                        linkPrefix={selectedType === 'MANGA' ? '/manga/' : '/anime/'}
+                      />
+                    )
                   ))}
                 </div>
               )}

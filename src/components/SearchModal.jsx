@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, Star } from 'lucide-react';
+import { Search, X, Star, Film } from 'lucide-react';
 import { searchAnime } from '../api/anilist';
+import { searchMoviesAndSeries } from '../api/movies';
 
 const HISTORY_KEY = 'animevault_search_history';
 const MAX_HISTORY = 12;
@@ -41,9 +42,21 @@ export default function SearchModal({ onClose }) {
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const data = await searchAnime(query.trim(), 'ANIME', null, 1, 12);
+        const [animeData, movieData] = await Promise.all([
+          searchAnime(query.trim(), 'ANIME', null, 1, 6),
+          searchMoviesAndSeries(query.trim()),
+        ]);
         if (mounted) {
-          setResults(data || []);
+          // Merge results: anime first, then movies/series
+          const animeItems = (animeData || []).map(item => ({
+            ...item,
+            _type: 'anime',
+          }));
+          const movieItems = (movieData || []).map(item => ({
+            ...item,
+            _type: item.mediaType === 'series' ? 'series' : 'movie',
+          }));
+          setResults([...animeItems, ...movieItems]);
         }
       } catch (err) {
         console.error('Search error:', err);
@@ -89,8 +102,13 @@ export default function SearchModal({ onClose }) {
       setHistory(next);
     }
     onClose();
-    // Navigate to anime details page
-    navigate(`/anime/${media.id}`);
+    if (media._type === 'movie') {
+      navigate(`/watch/movie/${media.tmdbId || media.id}`);
+    } else if (media._type === 'series') {
+      navigate(`/watch/series/${media.tmdbId || media.id}`);
+    } else {
+      navigate(`/anime/${media.id}`);
+    }
   };
 
   const handleHistoryClick = useCallback((term) => {
@@ -101,21 +119,31 @@ export default function SearchModal({ onClose }) {
   const handleKey = (e) => {
     if (e.key === 'Escape') onClose();
     if (e.key === 'Enter' && query.trim()) {
-      const trimmed = query.trim();
-      addToHistory(trimmed);
-      onClose();
-      navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+    const trimmed = query.trim();
+    addToHistory(trimmed);
+    onClose();
+    navigate(`/search?q=${encodeURIComponent(trimmed)}`);
     }
   };
 
   const showHistory = !query && history.length > 0;
 
   function getTitle(media) {
-    return media?.title?.english || media?.title?.romaji || media?.title?.native || media?.name || 'Unknown Title';
+    return media?.title?.english || media?.title?.romaji || media?.title?.native || media?.title || media?.name || 'Unknown Title';
   }
 
   function getImage(media) {
-    return media?.coverImage?.extraLarge || media?.coverImage?.large || '';
+    return media?.coverImage?.extraLarge || media?.coverImage?.large || media?.poster || '';
+  }
+
+  function getType(media) {
+    if (media._type === 'movie') return 'Movie';
+    if (media._type === 'series') return 'Series';
+    return 'Anime';
+  }
+
+  function getYear(media) {
+    return media?.seasonYear || media?.year || media?.releaseInfo || '';
   }
 
   return (
@@ -129,7 +157,7 @@ export default function SearchModal({ onClose }) {
           <input
             ref={inputRef}
             className="search-input"
-            placeholder="Search anime..."
+            placeholder="Search anime, movies, series..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKey}
@@ -156,7 +184,7 @@ export default function SearchModal({ onClose }) {
           {!loading &&
             results.map((media) => (
               <div
-                key={media.id}
+                key={`${media._type}-${media.id}`}
                 className="search-result"
                 onClick={() => handleSelect(media)}
               >
@@ -170,7 +198,7 @@ export default function SearchModal({ onClose }) {
                 <div className="search-result-info">
                   <div className="search-result-title">{getTitle(media)}</div>
                   <div className="search-result-meta">
-                    {media.seasonYear || ''}
+                    {getYear(media)}
                     {media.averageScore ? (
                       <>
                         {' '}
@@ -181,11 +209,13 @@ export default function SearchModal({ onClose }) {
                     )}
                   </div>
                 </div>
-                <span
-                  className={`search-result-type type-anime`}
-                >
-                  Anime
-                </span>
+              <span className={`search-result-type type-${media._type}`}>
+                {media._type === 'movie' || media._type === 'series' ? (
+                  <><Film size={12} /> {getType(media)}</>
+                ) : (
+                  getType(media)
+                )}
+              </span>
               </div>
             ))}
 

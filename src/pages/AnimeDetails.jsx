@@ -42,7 +42,7 @@ function extractNumericId(id) {
   return match ? match[1] : null;
 }
 
-/** Build an instant episode list from AniList metadata — no scraper needed */
+ /** Build an instant episode list from AniList metadata — no scraper needed */
 function buildEpisodeList(media) {
   // For airing shows, nextAiringEpisode.episode - 1 = last aired episode
   let count = media.episodes;
