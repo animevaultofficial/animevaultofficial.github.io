@@ -69,7 +69,7 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen }) {
   if (embedUrl) {
     const isMiruro = embedUrl.includes('miruro.ro');
 
-    // Zen Mode: strip ad params, use sandboxed iframe, and optionally proxy
+    // Zen Mode: strip ad params, optionally proxy
     let zenEmbedUrl = embedUrl;
     if (isZen) {
       zenEmbedUrl = stripAdParams(embedUrl);
@@ -94,7 +94,6 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen }) {
               }}
               partition="persist:player"
               allowpopups="false"
-              sandbox="allow-scripts allow-same-origin allow-forms"
               allowfullscreen
               title={title}
             />
@@ -108,8 +107,6 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen }) {
             title={title}
             referrerPolicy={isZen ? "no-referrer" : "no-referrer-when-downgrade"}
             loading="lazy"
-            // Zen Mode: restrict what the iframe can do to block ads but allow video playback features
-            sandbox={isZen ? "allow-scripts allow-same-origin allow-forms allow-popups allow-presentation" : undefined}
           />
         )}
         {isZen && (
@@ -119,7 +116,7 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen }) {
             fontSize: '11px', padding: '4px 8px', borderRadius: '4px',
             zIndex: 10, pointerEvents: 'none', fontFamily: 'monospace'
           }}>
-            🛡️ Zen • Sandboxed
+            🛡️ Zen Mode
           </div>
         )}
       </div>
