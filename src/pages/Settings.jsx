@@ -1,4 +1,6 @@
 
+import '../styles/settings.css';
+import ToggleSwitch from '../components/ToggleSwitch';
 import { useState, useEffect } from 'react';
 import {
   Settings as SettingsIcon,
@@ -226,85 +228,28 @@ export default function Settings() {
   }
 
   return (
-    <div className="settings-container" style={{
-      maxWidth: '1280px',
-      margin: '40px auto 80px',
-      padding: '0 20px',
-      color: '#fff',
-      display: 'flex',
-      gap: '32px',
-      flexWrap: 'wrap',
-    }}>
+    <div className="discord-settings-layout">
       {/* Sidebar */}
-      <div style={{
-        width: '240px',
-        flexShrink: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-      }}>
-        <Link to="/profile" style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          color: 'var(--text-secondary)',
-          textDecoration: 'none',
-          marginBottom: '16px',
-          fontWeight: '600',
-        }}>
+      <div className="discord-settings-sidebar"><div className="discord-sidebar-content">
+        <Link to="/profile" className="discord-sidebar-item" style={{ marginBottom: "16px" }}>
           <ArrowLeft size={18} />
           Back to Profile
         </Link>
 
-        <div style={{
-          fontSize: '1.75rem',
-          fontWeight: '900',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          marginBottom: '24px',
-        }}>
-          <SettingsIcon size={28} style={{ color: 'var(--red)' }} />
-          Settings
-        </div>
+        <div className="discord-sidebar-category" style={{ marginBottom: "12px", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px", color: "var(--text-primary)" }}><SettingsIcon size={20} /> Settings</div>
 
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                padding: '12px 16px',
-                borderRadius: '12px',
-                background: activeTab === tab.id ? 'var(--red-dim)' : 'rgba(255,255,255,0.02)',
-                color: activeTab === tab.id ? 'var(--red2)' : 'var(--text-secondary)',
-                border: activeTab === tab.id ? '1px solid var(--red)' : '1px solid transparent',
-                cursor: 'pointer',
-                fontWeight: '700',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                transition: 'all 0.2s ease',
-                textAlign: 'left',
-              }}
-            >
-              <Icon size={18} />
-              {tab.label}
-            </button>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`discord-sidebar-item ${activeTab === tab.id ? "active" : ""}`}> <Icon size={18} /> {tab.label} </button>
           );
         })}
       </div>
-
+      </div>
       {/* Main Content */}
-      <div style={{ flex: 1, minWidth: '0' }}>
+      <div className="discord-settings-main"><div className="discord-main-content">
         {/* Save/Reset Buttons */}
-        <div style={{
-          display: 'flex',
-          gap: '12px',
-          justifyContent: 'flex-end',
-          marginBottom: '24px',
-        }}>
+        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginBottom: "24px" }}>
           {saveStatus && (
             <span style={{
               alignSelf: 'center',
@@ -314,60 +259,18 @@ export default function Settings() {
               {saveStatus}
             </span>
           )}
-          <button
-            onClick={handleReset}
-            style={{
-              padding: '10px 20px',
-              borderRadius: '10px',
-              background: 'rgba(255,255,255,0.05)',
-              color: 'var(--text-secondary)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'all 0.2s',
-            }}
-          >
-            <RefreshCw size={16} />
-            Reset to Defaults
-          </button>
-          <button
-            onClick={handleSave}
-            style={{
-              padding: '10px 20px',
-              borderRadius: '10px',
-              background: 'var(--red)',
-              color: '#fff',
-              border: 'none',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: 'var(--red-glow)',
-              transition: 'all 0.2s',
-            }}
-          >
-            <Save size={16} />
-            Save Changes
-          </button>
+          <button onClick={handleReset} className="discord-btn-outline" style={{ display: "flex", alignItems: "center", gap: "8px" }}> <RefreshCw size={16} /> Reset to Defaults </button>
+          <button onClick={handleSave} className="discord-btn-primary" style={{ display: "flex", alignItems: "center", gap: "8px" }}> <Save size={16} /> Save Changes </button>
         </div>
 
         {/* Tab Content */}
-        <div style={{
-          background: 'var(--surface)',
-          borderRadius: '16px',
-          padding: '28px',
-          border: '1px solid var(--border)',
-        }}>
+        <div className="discord-card" style={{ background: "transparent", padding: 0, border: "none" }}>
           {activeTab === 'personalization' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '8px' }}>Personalization</h2>
+              <h2 className="discord-section-title">Personalization</h2>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '12px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Theme
                 </label>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -399,7 +302,7 @@ export default function Settings() {
 
               {theme === 'custom' && (
                 <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>Custom Colors</h3>
+                  <h3 className="discord-section-subtitle" style={{ color: "Custom Colors" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Custom Colors</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
                     {Object.entries(DEFAULT_CUSTOM_VARS).map(([key, _]) => (
                       <div key={key}>
@@ -434,7 +337,7 @@ export default function Settings() {
               )}
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '12px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Accent Color
                 </label>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -462,7 +365,7 @@ export default function Settings() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Font Size
                 </label>
                 <select
@@ -473,15 +376,7 @@ export default function Settings() {
                     const sizeMap = { small: '14px', medium: '16px', large: '18px' };
                     document.documentElement.style.fontSize = sizeMap[e.target.value];
                   }}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: '#fff',
-                    outline: 'none',
-                    width: '200px',
-                  }}
+                  className="discord-select"
                 >
                   {FONT_SIZES.map((size) => (
                     <option key={size} value={size}>
@@ -495,10 +390,10 @@ export default function Settings() {
 
           {activeTab === 'home' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '8px' }}>Home Page</h2>
+              <h2 className="discord-section-title">Home Page</h2>
 
               <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>Home Rows</h3>
+                <h3 className="discord-section-subtitle" style={{ color: "Home Rows" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Home Rows</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {homeLayout.order.map((rowId, index) => {
                     const row = HOME_ROWS.find(r => r.id === rowId);
@@ -571,111 +466,65 @@ export default function Settings() {
 
           {activeTab === 'profile' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '8px' }}>Profile Settings</h2>
+              <h2 className="discord-section-title">Profile Settings</h2>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Username
                 </label>
                 <input
                   type="text"
                   value={usernameInput}
                   onChange={(e) => setUsernameInput(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.95rem',
-                  }}
+                  className="discord-input"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Email
                 </label>
                 <input
                   type="email"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.95rem',
-                  }}
+                  className="discord-input"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Bio
                 </label>
                 <textarea
                   value={bioInput}
                   onChange={(e) => setBioInput(e.target.value)}
                   rows={4}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.95rem',
-                    resize: 'vertical',
-                  }}
+                  className="discord-input"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Avatar URL
                 </label>
                 <input
                   type="text"
                   value={avatarUrl}
                   onChange={(e) => setAvatarUrl(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.95rem',
-                  }}
+                  className="discord-input"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Banner URL
                 </label>
                 <input
                   type="text"
                   value={bannerUrl}
                   onChange={(e) => setBannerUrl(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    color: '#fff',
-                    outline: 'none',
-                    fontSize: '0.95rem',
-                  }}
+                  className="discord-input"
                 />
               </div>
 
@@ -701,20 +550,13 @@ export default function Settings() {
               </button>
 
               <div style={{ marginTop: '16px', padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>Profile Visibility</h3>
+                <h3 className="discord-section-subtitle" style={{ color: "Profile Visibility" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Profile Visibility</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
                     <select
                       value={settings.profileVisibility}
                       onChange={(e) => setSettings({ ...settings, profileVisibility: e.target.value })}
-                      style={{
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: '#fff',
-                        outline: 'none',
-                      }}
+                      className="discord-select"
                     >
                       <option value="public">Public</option>
                       <option value="private">Private</option>
@@ -748,10 +590,10 @@ export default function Settings() {
 
           {activeTab === 'security' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '8px' }}>Security Settings</h2>
+              <h2 className="discord-section-title">Security Settings</h2>
 
               <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>Password</h3>
+                <h3 className="discord-section-subtitle" style={{ color: "Password" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Password</h3>
                 <button
                   style={{
                     padding: '10px 20px',
@@ -769,7 +611,7 @@ export default function Settings() {
               </div>
 
               <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>Two-Factor Authentication (2FA)</h3>
+                <h3 className="discord-section-subtitle" style={{ color: "Two-Factor Authentication (2FA)" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Two-Factor Authentication (2FA)</h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{
                     width: '48px',
@@ -801,7 +643,7 @@ export default function Settings() {
               </div>
 
               <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>Session Management</h3>
+                <h3 className="discord-section-subtitle" style={{ color: "Session Management" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Session Management</h3>
                 <button
                   style={{
                     padding: '10px 20px',
@@ -818,7 +660,7 @@ export default function Settings() {
               </div>
 
               <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(239,68,68,0.2)' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '8px', color: '#ef4444' }}>Danger Zone</h3>
+                <h3 className="discord-section-subtitle" style={{ color: "Danger Zone" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Danger Zone</h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
                   Permanently delete your account and all associated data
                 </p>
@@ -841,24 +683,16 @@ export default function Settings() {
 
           {activeTab === 'playback' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '8px' }}>Playback Settings</h2>
+              <h2 className="discord-section-title">Playback Settings</h2>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Default Video Quality
                 </label>
                 <select
                   value={settings.defaultQuality}
                   onChange={(e) => setSettings({ ...settings, defaultQuality: e.target.value })}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: '#fff',
-                    outline: 'none',
-                    width: '200px',
-                  }}
+                  className="discord-select"
                 >
                   {QUALITIES.map((quality) => (
                     <option key={quality} value={quality}>
@@ -893,21 +727,13 @@ export default function Settings() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Default Playback Speed
                 </label>
                 <select
                   value={settings.playbackSpeed}
                   onChange={(e) => setSettings({ ...settings, playbackSpeed: parseFloat(e.target.value) })}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: '#fff',
-                    outline: 'none',
-                    width: '200px',
-                  }}
+                  className="discord-select"
                 >
                   {PLAYBACK_SPEEDS.map((speed) => (
                     <option key={speed} value={speed}>
@@ -919,24 +745,16 @@ export default function Settings() {
 
               <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 300px' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>Subtitles</h3>
+                  <h3 className="discord-section-subtitle" style={{ color: "Subtitles" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Subtitles</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                      <label className="discord-input-label">
                         Default Language
                       </label>
                       <select
                         value={settings.subtitleLanguage}
                         onChange={(e) => setSettings({ ...settings, subtitleLanguage: e.target.value })}
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          color: '#fff',
-                          outline: 'none',
-                          width: '200px',
-                        }}
+                        className="discord-select"
                       >
                         {LANGUAGES.map((lang) => (
                           <option key={lang} value={lang}>
@@ -947,21 +765,13 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                      <label className="discord-input-label">
                         Font Size
                       </label>
                       <select
                         value={settings.subtitleFontSize}
                         onChange={(e) => setSettings({ ...settings, subtitleFontSize: e.target.value })}
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          color: '#fff',
-                          outline: 'none',
-                          width: '200px',
-                        }}
+                        className="discord-select"
                       >
                         {FONT_SIZES.map((size) => (
                           <option key={size} value={size}>
@@ -972,7 +782,7 @@ export default function Settings() {
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                      <label className="discord-input-label">
                         Background Opacity: {Math.round(settings.subtitleOpacity * 100)}%
                       </label>
                       <input
@@ -989,24 +799,16 @@ export default function Settings() {
                 </div>
 
                 <div style={{ flex: '1 1 300px' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>Audio</h3>
+                  <h3 className="discord-section-subtitle" style={{ color: "Audio" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Audio</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                      <label className="discord-input-label">
                         Default Language
                       </label>
                       <select
                         value={settings.audioLanguage}
                         onChange={(e) => setSettings({ ...settings, audioLanguage: e.target.value })}
-                        style={{
-                          padding: '10px 14px',
-                          borderRadius: '10px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          color: '#fff',
-                          outline: 'none',
-                          width: '200px',
-                        }}
+                        className="discord-select"
                       >
                         {LANGUAGES.map((lang) => (
                           <option key={lang} value={lang}>
@@ -1033,10 +835,10 @@ export default function Settings() {
 
           {activeTab === 'library' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '8px' }}>Library & Collections</h2>
+              <h2 className="discord-section-title">Library & Collections</h2>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '12px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Favorite Genres
                 </label>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -1063,21 +865,13 @@ export default function Settings() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Default Sort Order
                 </label>
                 <select
                   value={settings.defaultSortOrder}
                   onChange={(e) => setSettings({ ...settings, defaultSortOrder: e.target.value })}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: '#fff',
-                    outline: 'none',
-                    width: '200px',
-                  }}
+                  className="discord-select"
                 >
                   {SORT_ORDERS.map((order) => (
                     <option key={order} value={order}>
@@ -1088,21 +882,13 @@ export default function Settings() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Default Collection Privacy
                 </label>
                 <select
                   value={settings.defaultCollectionPrivacy}
                   onChange={(e) => setSettings({ ...settings, defaultCollectionPrivacy: e.target.value })}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: '#fff',
-                    outline: 'none',
-                    width: '200px',
-                  }}
+                  className="discord-select"
                 >
                   <option value="public">Public</option>
                   <option value="private">Private</option>
@@ -1120,7 +906,7 @@ export default function Settings() {
               </label>
 
               <div style={{ marginTop: '16px', padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>Backup & Restore</h3>
+                <h3 className="discord-section-subtitle" style={{ color: "Backup & Restore" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Backup & Restore</h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
                   Backup your library, watch history, and settings to a JSON file
                 </p>
@@ -1171,7 +957,7 @@ export default function Settings() {
 
           {activeTab === 'notifications' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '8px' }}>Notifications</h2>
+              <h2 className="discord-section-title">Notifications</h2>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', width: 'fit-content' }}>
@@ -1206,21 +992,13 @@ export default function Settings() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                <label className="discord-input-label">
                   Reminder Timing
                 </label>
                 <select
                   value={settings.reminderTiming}
                   onChange={(e) => setSettings({ ...settings, reminderTiming: e.target.value })}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: '#fff',
-                    outline: 'none',
-                    width: '200px',
-                  }}
+                  className="discord-select"
                 >
                   {REMINDER_TIMINGS.map((timing) => (
                     <option key={timing} value={timing}>
@@ -1237,25 +1015,17 @@ export default function Settings() {
 
           {activeTab === 'app' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '8px' }}>App Settings</h2>
+              <h2 className="discord-section-title">App Settings</h2>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '24px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                  <label className="discord-input-label">
                     Language
                   </label>
                   <select
                     value={settings.language}
                     onChange={(e) => setSettings({ ...settings, language: e.target.value })}
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#fff',
-                      outline: 'none',
-                      width: '100%',
-                    }}
+                    className="discord-select"
                   >
                     {LANGUAGES.map((lang) => (
                       <option key={lang} value={lang}>
@@ -1266,21 +1036,13 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                  <label className="discord-input-label">
                     Region
                   </label>
                   <select
                     value={settings.region}
                     onChange={(e) => setSettings({ ...settings, region: e.target.value })}
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: '10px',
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: '#fff',
-                      outline: 'none',
-                      width: '100%',
-                    }}
+                    className="discord-select"
                   >
                     {REGIONS.map((region) => (
                       <option key={region} value={region}>
@@ -1293,7 +1055,7 @@ export default function Settings() {
 
               {window.electron && (
                 <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>Ad Blocker</h3>
+                  <h3 className="discord-section-subtitle" style={{ color: "Ad Blocker" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Ad Blocker</h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <div style={{
                       padding: '16px',
@@ -1377,7 +1139,7 @@ export default function Settings() {
 
           {activeTab === 'advanced' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '8px' }}>Advanced Settings</h2>
+              <h2 className="discord-section-title">Advanced Settings</h2>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', width: 'fit-content' }}>
@@ -1407,7 +1169,7 @@ export default function Settings() {
                 borderRadius: '12px',
                 border: '1px solid rgba(255,255,255,0.08)',
               }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '8px' }}>API Keys (Coming Soon)</h3>
+                <h3 className="discord-section-subtitle" style={{ color: "API Keys (Coming Soon)" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>API Keys (Coming Soon)</h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                   Manage your API keys for developers
                 </p>
@@ -1416,6 +1178,7 @@ export default function Settings() {
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }
