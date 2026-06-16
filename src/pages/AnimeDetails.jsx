@@ -448,6 +448,73 @@ function AnimeDetails() {
   return (
     <div className="details-page-v2">
 
+      {/* ── Hero Banner ── */}
+      <div className="detail-hero-v2">
+        <img
+          className="detail-banner-v2"
+          src={anime.coverImage?.large}
+          alt="Anime cover"
+        />
+        <div className="detail-hero-overlay-v2" />
+
+        <div className="detail-hero-content-v2">
+          <img
+            className="detail-poster-v2"
+            src={anime.coverImage?.large}
+            alt={animeTitle}
+          />
+          <div className="detail-info-v2">
+            <div className="detail-meta-v2">
+              <span className="score"><Star size={16} fill="currentColor" /> {anime.averageScore}%</span>
+              <span><Tv size={16} /> {anime.format}</span>
+              <span><Users size={16} /> {anime.status}</span>
+              {anime.seasonYear && <span><Calendar size={16} /> {anime.seasonYear}</span>}
+              {anime.nextAiringEpisode && (
+                <span style={{ color: 'var(--brand-color)' }}>
+                  EP {anime.nextAiringEpisode.episode} airing soon
+                </span>
+              )}
+            </div>
+            <h1 className="detail-title-v2">
+            {animeTitle}
+            <small style={{ fontSize: '0.6em', marginLeft: '0.5rem', color: 'var(--text-secondary)' }}>
+              watching in anime vault
+            </small>
+          </h1>
+            <div className="detail-actions-v2">
+              <button
+                className="btn-play-v2"
+                onClick={() => {
+                  if (!user) {
+                    setAuthTab('login');
+                    setShowAuthModal(true);
+                    return;
+                  }
+                  if (episodes.length > 0) selectEpisode(episodes[0]);
+                }}
+              >
+                <Play size={20} fill="currentColor" /> Watch Now
+              </button>
+              <button 
+                className="btn-info-v2"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '8px',
+                  color: isLiked(anime.id, 'anime') ? '#ff1a75' : 'var(--text-secondary)',
+                  borderColor: isLiked(anime.id, 'anime') ? '#ff1a75' : 'var(--glass-border)',
+                  background: isLiked(anime.id, 'anime') ? 'rgba(255,26,117,0.1)' : 'var(--glass)',
+                  boxShadow: isLiked(anime.id, 'anime') ? '0 0 10px rgba(255,26,117,0.2)' : 'none',
+                  transition: 'all 0.2s ease', cursor: 'pointer'
+                }}
+                onClick={() => toggleLike(anime.id, 'anime', safeTitle(anime.title), anime.coverImage?.large)}
+              >
+                <Heart size={20} fill={isLiked(anime.id, 'anime') ? '#ff1a75' : 'none'} /> 
+                {isLiked(anime.id, 'anime') ? 'Liked' : 'Like'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ── Video Player ── */}
       <div className="player-section-v2" style={{ paddingBottom: '1.5rem' }}>
         {!user ? (
@@ -631,73 +698,6 @@ function AnimeDetails() {
         )}
       </div>
 
-      {/* ── Hero Banner ── */}
-      <div className="detail-hero-v2">
-        <img
-          className="detail-banner-v2"
-          src={anime.coverImage?.large}
-          alt="Anime cover"
-        />
-        <div className="detail-hero-overlay-v2" />
-
-        <div className="detail-hero-content-v2">
-          <img
-            className="detail-poster-v2"
-            src={anime.coverImage?.large}
-            alt={animeTitle}
-          />
-          <div className="detail-info-v2">
-            <div className="detail-meta-v2">
-              <span className="score"><Star size={16} fill="currentColor" /> {anime.averageScore}%</span>
-              <span><Tv size={16} /> {anime.format}</span>
-              <span><Users size={16} /> {anime.status}</span>
-              {anime.seasonYear && <span><Calendar size={16} /> {anime.seasonYear}</span>}
-              {anime.nextAiringEpisode && (
-                <span style={{ color: 'var(--brand-color)' }}>
-                  EP {anime.nextAiringEpisode.episode} airing soon
-                </span>
-              )}
-            </div>
-            <h1 className="detail-title-v2">
-            {animeTitle}
-            <small style={{ fontSize: '0.6em', marginLeft: '0.5rem', color: 'var(--text-secondary)' }}>
-              watching in anime vault
-            </small>
-          </h1>
-            <div className="detail-actions-v2">
-              <button
-                className="btn-play-v2"
-                onClick={() => {
-                  if (!user) {
-                    setAuthTab('login');
-                    setShowAuthModal(true);
-                    return;
-                  }
-                  if (episodes.length > 0) selectEpisode(episodes[0]);
-                }}
-              >
-                <Play size={20} fill="currentColor" /> Watch Now
-              </button>
-              <button 
-                className="btn-info-v2"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '8px',
-                  color: isLiked(anime.id, 'anime') ? '#ff1a75' : 'var(--text-secondary)',
-                  borderColor: isLiked(anime.id, 'anime') ? '#ff1a75' : 'var(--glass-border)',
-                  background: isLiked(anime.id, 'anime') ? 'rgba(255,26,117,0.1)' : 'var(--glass)',
-                  boxShadow: isLiked(anime.id, 'anime') ? '0 0 10px rgba(255,26,117,0.2)' : 'none',
-                  transition: 'all 0.2s ease', cursor: 'pointer'
-                }}
-                onClick={() => toggleLike(anime.id, 'anime', safeTitle(anime.title), anime.coverImage?.large)}
-              >
-                <Heart size={20} fill={isLiked(anime.id, 'anime') ? '#ff1a75' : 'none'} /> 
-                {isLiked(anime.id, 'anime') ? 'Liked' : 'Like'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* ── Main Grid ── */}
       <div className={`detail-layout-v2 ${zenMode ? 'zen-layout' : ''}`}>
         {/* ── Main Content ── */}
@@ -740,53 +740,51 @@ function AnimeDetails() {
           })()}
 
           {/* Episodes */}
-          {!zenMode && (
-            <div className="details-section-v2">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <h2 style={{ margin: 0 }}>
-                  Episodes
-                  <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
-                    ({episodes.length})
-                  </span>
-                </h2>
+          <div className="details-section-v2">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <h2 style={{ margin: 0 }}>
+                Episodes
+                <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
+                  ({episodes.length})
+                </span>
+              </h2>
 
-                {/* Episode page selector for long shows */}
-                {totalPages > 1 && (
-                  <div className="ep-page-selector">
-                    {Array.from({ length: totalPages }, (_, i) => (
-                      <button
-                        key={i}
-                        className={`ep-page-btn ${epPage === i ? 'active' : ''}`}
-                        onClick={() => setEpPage(i)}
-                      >
-                        {i * EP_PAGE_SIZE + 1}–{Math.min((i + 1) * EP_PAGE_SIZE, episodes.length)}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="episodes-container-v2">
-                {visibleEpisodes.length > 0 ? (
-                  <div className="episodes-grid-v2">
-                    {visibleEpisodes.map(ep => (
-                      <button
-                        key={ep.id}
-                        className={`episode-btn-v2 ${currentEpisode?.id === ep.id ? 'active' : ''} ${progress[anime.id] >= ep.number ? 'watched' : ''}`}
-                        onClick={() => selectEpisode(ep)}
-                      >
-                        <span className="episode-label">EP</span>
-                        <span className="episode-number">{ep.number}</span>
-                        {progress[anime.id] >= ep.number && <CheckCircle2 size={12} className="check" />}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p>No episodes available for this title yet.</p>
-                )}
-              </div>
+              {/* Episode page selector for long shows */}
+              {totalPages > 1 && (
+                <div className="ep-page-selector">
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      key={i}
+                      className={`ep-page-btn ${epPage === i ? 'active' : ''}`}
+                      onClick={() => setEpPage(i)}
+                    >
+                      {i * EP_PAGE_SIZE + 1}–{Math.min((i + 1) * EP_PAGE_SIZE, episodes.length)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+
+            <div className="episodes-container-v2">
+              {visibleEpisodes.length > 0 ? (
+                <div className="episodes-grid-v2">
+                  {visibleEpisodes.map(ep => (
+                    <button
+                      key={ep.id}
+                      className={`episode-btn-v2 ${currentEpisode?.id === ep.id ? 'active' : ''} ${progress[anime.id] >= ep.number ? 'watched' : ''}`}
+                      onClick={() => selectEpisode(ep)}
+                    >
+                      <span className="episode-label">EP</span>
+                      <span className="episode-number">{ep.number}</span>
+                      {progress[anime.id] >= ep.number && <CheckCircle2 size={12} className="check" />}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p>No episodes available for this title yet.</p>
+              )}
+            </div>
+          </div>
           
           <CommentsSection mediaId={anime.id} />
         </div>

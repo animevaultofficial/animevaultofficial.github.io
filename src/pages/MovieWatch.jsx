@@ -385,7 +385,6 @@ function MovieWatch() {
                     src={currentEmbedUrl}
                     partition="persist:player"
                     allowpopups="false"
-                    sandbox="allow-scripts allow-same-origin allow-forms"
                     title={meta?.name || meta?.title}
                     allowfullscreen
                     style={{

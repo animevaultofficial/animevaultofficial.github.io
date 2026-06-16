@@ -116,7 +116,7 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen }) {
             fontSize: '11px', padding: '4px 8px', borderRadius: '4px',
             zIndex: 10, pointerEvents: 'none', fontFamily: 'monospace'
           }}>
-            🛡️ Zen Mode
+            🛡️
           </div>
         )}
       </div>
