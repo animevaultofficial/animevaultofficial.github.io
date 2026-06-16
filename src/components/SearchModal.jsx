@@ -82,7 +82,6 @@ export default function SearchModal({ onClose }) {
   }, []);
 
   const handleSelect = (media) => {
-    // Don't navigate to anime details, just close modal for now
     const trimmed = query.trim();
     if (trimmed) {
       const next = [trimmed, ...history.filter((h) => h !== trimmed)].slice(0, MAX_HISTORY);
@@ -90,6 +89,8 @@ export default function SearchModal({ onClose }) {
       setHistory(next);
     }
     onClose();
+    // Navigate to anime details page
+    navigate(`/anime/${media.id}`);
   };
 
   const handleHistoryClick = useCallback((term) => {

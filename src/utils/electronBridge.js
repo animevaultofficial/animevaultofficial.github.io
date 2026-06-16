@@ -15,9 +15,6 @@ const _electronAPI = typeof window !== 'undefined' && window.electronAPI ? windo
 export function setAnimeActivity(activity) {
   if (_electronAPI && typeof _electronAPI.setAnimeActivity === 'function') {
     _electronAPI.setAnimeActivity(activity);
-  } else {
-    // Browser fallback – no Electron, just log for debugging.
-    console.warn('electronBridge: setAnimeActivity called in a non-Electron environment', activity);
   }
 }
 
@@ -36,8 +33,6 @@ export function updateAnimeActivityTime(currentTime, duration) {
 export function clearAnimeActivity() {
   if (_electronAPI && typeof _electronAPI.clearAnimeActivity === 'function') {
     _electronAPI.clearAnimeActivity();
-  } else {
-    console.warn('electronBridge: clearAnimeActivity called in a non-Electron environment');
   }
 }
 

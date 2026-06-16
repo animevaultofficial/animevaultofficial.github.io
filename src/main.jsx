@@ -20,6 +20,17 @@ probeMirrors().catch(() => {});
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+// Register the ad-blocking service worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      console.log('[SW] Ad-blocker registered');
+    }).catch(err => {
+      console.warn('[SW] Registration failed:', err.message);
+    });
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

@@ -34,6 +34,14 @@ function safeTitle(title) {
   return title.english || title.romaji || title.native || 'Unknown Title';
 }
 
+/** Extract numeric ID from a potentially prefixed ID (e.g., "mal-12345" -> 12345) */
+function extractNumericId(id) {
+  if (!id) return null;
+  const str = String(id).trim();
+  const match = str.match(/(\d+)$/);
+  return match ? match[1] : null;
+}
+
 /** Build an instant episode list from AniList metadata — no scraper needed */
 function buildEpisodeList(media) {
   // For airing shows, nextAiringEpisode.episode - 1 = last aired episode
@@ -156,7 +164,7 @@ function AnimeDetails() {
   const [error, setError] = useState('');
   const [episodes, setEpisodes] = useState([]);
   const [currentEpisode, setCurrentEpisode] = useState(null);
-  const [zenMode, setZenMode] = useState(false);
+  const [zenMode, setZenMode] = useState(true);
   const [progress, setProgress] = useState(() =>
     JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}')
   );
@@ -340,9 +348,19 @@ function AnimeDetails() {
   // ───── Compute embed URL for current episode + server ─────
   function getEmbedAnimeId() {
     if (!anime) return null;
+    // Try the route ID first, strip any "mal-" prefix to get numeric ID for embed servers
     const routeId = String(id || anime.id || '').trim();
-    if (routeId && !routeId.startsWith('mal-')) return routeId;
-    return anime.id && !String(anime.id).startsWith('mal-') ? String(anime.id) : null;
+    if (routeId) {
+      const numericId = extractNumericId(routeId);
+      if (numericId) return numericId;
+    }
+    // Fallback to anime.id, also strip "mal-" if present
+    if (anime.id) {
+      const animeIdStr = String(anime.id).trim();
+      const numericId = extractNumericId(animeIdStr);
+      if (numericId) return numericId;
+    }
+    return null;
   }
 
   function getEmbedUrl() {

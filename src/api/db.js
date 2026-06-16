@@ -1,18 +1,6 @@
 
-import { neon } from '@neondatabase/serverless';
-import bcrypt from 'bcryptjs';
-
-// Initialize database connection
-const DATABASE_URL = import.meta.env.VITE_DATABASE_URL || 
-  'postgresql://neondb_owner:npg_cprHoA5wBt0Z@ep-lively-surf-apnkb5f1-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
-
-let sql = null;
-try {
-  sql = neon(DATABASE_URL);
-  console.log('[AnimeVault DB] Connected to Neon database successfully');
-} catch (error) {
-  console.error('[AnimeVault DB] Failed to initialize database:', error);
-}
+// 🚀 AnimeVault - Simple localStorage-based auth with optional Neon DB backend
+// For self-hosting: set VITE_DATABASE_URL env var for Neon PostgreSQL
 
 // LocalStorage fallback keys
 const STORAGE_KEYS = {
@@ -30,6 +18,54 @@ const STORAGE_KEYS = {
   LIKED_ITEMS: 'animevault_liked_items'
 };
 
+// Simple hash for passwords (browser-safe, no node deps)
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return 'hash_' + Math.abs(hash).toString(36);
+}
+
+// Try to connect to Neon DB if configured
+let sql = null;
+try {
+  const DATABASE_URL = import.meta.env.VITE_DATABASE_URL;
+  if (DATABASE_URL) {
+    // Dynamic import to avoid bundling neon in browser when not used
+    import('@neondatabase/serverless').then(mod => {
+      sql = mod.neon(DATABASE_URL);
+      console.log('[AnimeVault DB] Neon DB available');
+    }).catch(() => {
+      console.log('[AnimeVault DB] Neon not available, using localStorage');
+    });
+  }
+} catch (e) {
+  console.log('[AnimeVault DB] Using localStorage fallback');
+}
+
+// LocalStorage users storage
+const USERS_KEY = 'animevault_users';
+
+function getUsers() {
+  try {
+    const data = localStorage.getItem(USERS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveUsers(users) {
+  try {
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  } catch (e) {
+    console.error('Failed to save users:', e);
+  }
+}
+
 // User Functions
 export async function userSignup(username, password) {
   const trimmedUser = (username || '').trim();
@@ -37,77 +73,86 @@ export async function userSignup(username, password) {
   if (password.length < 6) return { success: false, message: 'Password must be at least 6 characters.' };
   if (trimmedUser.length < 3) return { success: false, message: 'Username must be at least 3 characters.' };
 
-  const saltRounds = 10;
-  const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-  if (!sql) {
-    return { success: false, message: 'Database connection failed. Please try again later.' };
-  }
-
-  try {
-    const isAdmin = false;
-    const result = await sql`
-      INSERT INTO users (username, password, is_admin)
-      VALUES (${trimmedUser}, ${hashedPassword}, ${isAdmin})
-      RETURNING id, username, avatar, banner, is_admin
-    `;
-    const user = result[0];
-    return { success: true, user };
-  } catch (e) {
-    const msg = e?.message || '';
-    if (msg.toLowerCase().includes('duplicate') || msg.toLowerCase().includes('unique')) {
-      return { success: false, message: 'Username already taken.' };
+  // Try Neon first if available
+  if (sql) {
+    try {
+      const hashedPassword = simpleHash(password);
+      const result = await sql`
+        INSERT INTO users (username, password, is_admin)
+        VALUES (${trimmedUser}, ${hashedPassword}, false)
+        RETURNING id, username, avatar, banner, is_admin
+      `;
+      const user = result[0];
+      return { success: true, user };
+    } catch (e) {
+      const msg = e?.message || '';
+      console.warn('[AnimeVault DB] Neon signup failed, falling back:', msg);
     }
-    console.error('[AnimeVault DB] Signup failed:', msg);
-    return { success: false, message: 'Signup failed. Please try again later.' };
   }
+
+  // LocalStorage fallback
+  const users = getUsers();
+  if (users.find(u => u.username.toLowerCase() === trimmedUser.toLowerCase())) {
+    return { success: false, message: 'Username already taken.' };
+  }
+
+  const newUser = {
+    id: Date.now(),
+    username: trimmedUser,
+    password: simpleHash(password),
+    avatar: null,
+    banner: null,
+    is_admin: false,
+    created_at: new Date().toISOString()
+  };
+  users.push(newUser);
+  saveUsers(users);
+
+  const { password: _, ...safeUser } = newUser;
+  return { success: true, user: safeUser };
 }
 
 export async function userLogin(username, password) {
   const trimmedUser = (username || '').trim();
   if (!trimmedUser || !password) return { success: false, message: 'All fields are required.' };
 
-  if (!sql) {
-    return { success: false, message: 'Database connection failed. Please try again later.' };
-  }
-
-  try {
-    const result = await sql`
-      SELECT id, username, password, avatar, banner, is_admin FROM users
-      WHERE username = ${trimmedUser}
-    `;
-    
-    if (!result.length) {
-      return { success: false, message: 'Account does not exist. Please sign up first.' };
-    }
-    
-    const storedPassword = result[0].password;
-    let isValid = false;
-
-    if (storedPassword.startsWith('$2a$') || storedPassword.startsWith('$2b$') || storedPassword.startsWith('$2y$')) {
-      isValid = await bcrypt.compare(password, storedPassword);
-    } else {
-      isValid = storedPassword === btoa(password) || storedPassword === password;
-      if (isValid) {
-        const newHashedPassword = await bcrypt.hash(password, 10);
-        try {
-          await sql`UPDATE users SET password = ${newHashedPassword} WHERE id = ${result[0].id}`;
-        } catch (e) {}
+  // Try Neon first if available
+  if (sql) {
+    try {
+      const result = await sql`
+        SELECT id, username, password, avatar, banner, is_admin FROM users
+        WHERE username = ${trimmedUser}
+      `;
+      if (result.length) {
+        const storedHash = result[0].password;
+        const inputHash = simpleHash(password);
+        if (storedHash === inputHash) {
+          const { password: _, ...user } = result[0];
+          return { success: true, user };
+        }
+        return { success: false, message: 'Invalid password. Please try again.' };
       }
+    } catch (e) {
+      console.warn('[AnimeVault DB] Neon login failed, falling back:', e?.message);
     }
-    
-    if (!isValid) {
-      return { success: false, message: 'Invalid password. Please try again.' };
-    }
-    
-    const user = { ...result[0] };
-    delete user.password;
-    return { success: true, user };
-  } catch (e) {
-    console.error('[AnimeVault DB] Login failed:', e?.message);
-    return { success: false, message: 'Login failed. Please try again later.' };
   }
+
+  // LocalStorage fallback
+  const users = getUsers();
+  const user = users.find(u => u.username.toLowerCase() === trimmedUser.toLowerCase());
+  if (!user) {
+    return { success: false, message: 'Account does not exist. Please sign up first.' };
+  }
+
+  const inputHash = simpleHash(password);
+  if (user.password !== inputHash) {
+    return { success: false, message: 'Invalid password. Please try again.' };
+  }
+
+  const { password: _, ...safeUser } = user;
+  return { success: true, user: safeUser };
 }
+
 
 export async function getProfile(userIdOrUsername) {
   if (!sql) {

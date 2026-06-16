@@ -5,6 +5,7 @@ import { Settings } from 'lucide-react';
 
 import '@vidstack/react/player/styles/default/theme.css';
 import electronBridge from '../utils/electronBridge';
+import { getProxiedEmbedUrl, stripAdParams, isCleanServer } from '../utils/adProxy';
 
 // Check if we're in Electron environment
 const isElectron = typeof window !== 'undefined' && window.electronAPI !== undefined;
@@ -16,6 +17,7 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen }) {
   const [videoUrl, setVideoUrl] = useState('');
   const [qualities, setQualities] = useState([]);
   const playerRef = useRef(null);
+  const iframeRef = useRef(null);
 
   useEffect(() => {
     if (!sources || sources.length === 0) return;
@@ -67,6 +69,15 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen }) {
   if (embedUrl) {
     const isMiruro = embedUrl.includes('miruro.ro');
 
+    // Zen Mode: strip ad params, use sandboxed iframe, and optionally proxy
+    let zenEmbedUrl = embedUrl;
+    if (isZen) {
+      zenEmbedUrl = stripAdParams(embedUrl);
+      // For known ad-heavy servers, route through CORS proxy
+      // (disabled by default - enable via useProxy=true if corsproxy.io is up)
+      // zenEmbedUrl = getProxiedEmbedUrl(embedUrl, true);
+    }
+
     return (
       <div 
         className={`player-wrap video-player-wrapper-v2 embed-container ${isZen ? 'zen-active' : ''}`}
@@ -74,7 +85,7 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen }) {
       >
         {isElectron ? (
           <webview
-              src={embedUrl}
+              src={zenEmbedUrl}
               className="embed-iframe"
               style={isMiruro ? { marginTop: '-100px', height: 'calc(100% + 100px)' } : {
                 width: '100%',
@@ -89,15 +100,27 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen }) {
             />
         ) : (
           <iframe
-            src={embedUrl}
+            ref={iframeRef}
+            src={zenEmbedUrl}
             className="embed-iframe"
             style={isMiruro ? { marginTop: '-100px', height: 'calc(100% + 100px)' } : {}}
-            allowFullScreen
-            allow="autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"
+            allow={isZen ? "autoplay; fullscreen; picture-in-picture; encrypted-media" : "autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"}
             title={title}
-            referrerPolicy="no-referrer-when-downgrade"
+            referrerPolicy={isZen ? "no-referrer" : "no-referrer-when-downgrade"}
             loading="lazy"
+            // Zen Mode: restrict what the iframe can do to block ads but allow video playback features
+            sandbox={isZen ? "allow-scripts allow-same-origin allow-forms allow-popups allow-presentation" : undefined}
           />
+        )}
+        {isZen && (
+          <div className="zen-mode-overlay-info" style={{
+            position: 'absolute', bottom: '8px', right: '8px',
+            background: 'rgba(0,0,0,0.7)', color: '#0f0',
+            fontSize: '11px', padding: '4px 8px', borderRadius: '4px',
+            zIndex: 10, pointerEvents: 'none', fontFamily: 'monospace'
+          }}>
+            🛡️ Zen • Sandboxed
+          </div>
         )}
       </div>
     );

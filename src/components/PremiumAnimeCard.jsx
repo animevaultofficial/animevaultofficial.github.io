@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Heart, BookOpen, Bell, Share2, PlayCircle } from 'lucide-react';
 
 export default function PremiumAnimeCard({ anime, isFavorite, onToggleFavorite, linkPrefix = '/anime/' }) {
@@ -19,12 +20,19 @@ export default function PremiumAnimeCard({ anime, isFavorite, onToggleFavorite, 
   }
 
   return (
-    <div
+    <Link
+      to={`${linkPrefix}${anime?.id || anime?.imdb_id}`}
       className="premium-anime-card"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
         setIsPlayingPreview(false);
+      }}
+      onClick={(e) => {
+        // Don't navigate if clicking a button inside the card
+        if (e.target.closest('button') || e.target.closest('.premium-card-actions')) {
+          e.preventDefault();
+        }
       }}
     >
       {/* Card Thumbnail */}
@@ -151,9 +159,9 @@ export default function PremiumAnimeCard({ anime, isFavorite, onToggleFavorite, 
           )}
 
           <div className="hover-actions-bottom">
-            <a href={`${linkPrefix}${anime?.id || anime?.imdb_id}`} className="hover-watch-btn">
+            <span className="hover-watch-btn" style={{ pointerEvents: 'none' }}>
               {anime?.progress > 0 ? 'Continue' : 'Watch Now'}
-            </a>
+            </span>
             <button
               className="hover-collect-btn"
               onClick={(e) => {
@@ -166,6 +174,6 @@ export default function PremiumAnimeCard({ anime, isFavorite, onToggleFavorite, 
           </div>
         </div>
       )}
-    </div>
+    </Link>
   );
 }
