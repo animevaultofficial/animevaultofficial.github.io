@@ -86,26 +86,41 @@ async function fetchWithTimeout(url, timeoutMs = TIMEOUT_MS) {
 async function fetchFromMirrors(path) {
   const mirrors = getHealthyMirrors();
 
-  for (const mirror of mirrors) {
-    const url = `${mirror}${path}`;
-    try {
-      const res = await fetchWithTimeout(url, TIMEOUT_MS);
-      if (!res.ok) {
-        // 404 or 451 = this mirror route doesn't work
-        if (res.status === 404 || res.status === 451 || res.status >= 500) {
+    for (const mirror of mirrors) {
+      const targetUrl = `${mirror}${path}`;
+      // First try direct fetch (may succeed if CORS is allowed)
+      try {
+        const directRes = await fetchWithTimeout(targetUrl, TIMEOUT_MS);
+        if (directRes.ok) {
+          const data = await directRes.json();
+          if (data) {
+            markMirrorHealth(mirror, true);
+            return data;
+          }
+        } else if (directRes.status === 404 || directRes.status === 451 || directRes.status >= 500) {
           markMirrorHealth(mirror, false);
         }
-        continue;
+      } catch (_) {
+        // Direct request failed (likely CORS), fall back to corsproxy.io
+        const corsUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+        try {
+          const res = await fetchWithTimeout(corsUrl, TIMEOUT_MS);
+          if (!res.ok) {
+            if (res.status === 404 || res.status === 451 || res.status >= 500) {
+              markMirrorHealth(mirror, false);
+            }
+            continue;
+          }
+          const data = await res.json();
+          if (data) {
+            markMirrorHealth(mirror, true);
+            return data;
+          }
+        } catch (_) {
+          markMirrorHealth(mirror, false);
+        }
       }
-      const data = await res.json();
-      if (data) {
-        markMirrorHealth(mirror, true);
-        return data;
-      }
-    } catch {
-      markMirrorHealth(mirror, false);
     }
-  }
   return null;
 }
 
