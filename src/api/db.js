@@ -178,7 +178,6 @@ export async function userLogin(username, password) {
 
 export async function getProfile(userIdOrUsername) {
   if (!sql) {
-    warn('[AnimeVault DB] Database not connected');
     return null;
   }
   try {
@@ -199,7 +198,6 @@ export async function getProfile(userIdOrUsername) {
 
 export async function updateUserProfile(userId, newAvatar, newBanner) {
   if (!sql) {
-    console.warn('[AnimeVault DB] Database not connected');
     return { success: false };
   }
   try {
@@ -223,7 +221,6 @@ export async function updateUserProfile(userId, newAvatar, newBanner) {
 // Progress Functions
 export async function getProgress(userId) {
   if (!sql) {
-    console.warn('[AnimeVault DB] Database not connected');
     return {};
   }
   try {
