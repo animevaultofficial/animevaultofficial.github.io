@@ -1,5 +1,7 @@
 
-// 🚀 AnimeVault - Simple localStorage-based auth with optional Neon DB backend
+// src/api/db.js
+// Simple DB wrapper with Neon fallback
+import { log, warn, error } from "../utils/logger.js";
 // For self-hosting: set VITE_DATABASE_URL env var for Neon PostgreSQL
 
 // LocalStorage fallback keys
@@ -68,7 +70,7 @@ function saveUsers(users) {
   try {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
   } catch (e) {
-    console.error('Failed to save users:', e);
+    error('Failed to save users:', e);
   }
 }
 
@@ -152,7 +154,7 @@ export async function userLogin(username, password) {
         return { success: false, message: 'Invalid password. Please try again.' };
       }
     } catch (e) {
-      console.warn('[AnimeVault DB] Neon login failed, falling back:', e?.message);
+      warn('[AnimeVault DB] Neon login failed, falling back:', e?.message);
     }
   }
 
@@ -176,7 +178,7 @@ export async function userLogin(username, password) {
 
 export async function getProfile(userIdOrUsername) {
   if (!sql) {
-    console.warn('[AnimeVault DB] Database not connected');
+    warn('[AnimeVault DB] Database not connected');
     return null;
   }
   try {
@@ -190,7 +192,7 @@ export async function getProfile(userIdOrUsername) {
     }
     return null;
   } catch (e) {
-    console.error('[AnimeVault DB] Failed to fetch profile:', e?.message);
+    error('[AnimeVault DB] Failed to fetch profile:', e?.message);
     return null;
   }
 }
@@ -213,7 +215,7 @@ export async function updateUserProfile(userId, newAvatar, newBanner) {
     }
     return { success: false };
   } catch (e) {
-    console.error('[AnimeVault DB] Failed to update profile:', e?.message);
+    error('[AnimeVault DB] Failed to update profile:', e?.message);
     return { success: false };
   }
 }
@@ -241,7 +243,7 @@ export async function getProgress(userId) {
     });
     return progressMap;
   } catch (e) {
-    console.error('[AnimeVault DB] Failed to fetch progress:', e?.message);
+    error('[AnimeVault DB] Failed to fetch progress:', e?.message);
     return {};
   }
 }
@@ -264,7 +266,7 @@ export async function updateProgress(userId, animeId, episode, progress, rating)
     `;
     return true;
   } catch (e) {
-    console.error('[AnimeVault DB] Failed to update progress:', e?.message);
+    error('[AnimeVault DB] Failed to update progress:', e?.message);
     return false;
   }
 }
@@ -284,7 +286,7 @@ export async function getFavorites(userId) {
     `;
     return result.map(row => row.anime_id);
   } catch (e) {
-    console.error('[AnimeVault DB] Failed to fetch favorites:', e?.message);
+    error('[AnimeVault DB] Failed to fetch favorites:', e?.message);
     return [];
   }
 }
@@ -314,7 +316,7 @@ export async function toggleFavorite(userId, animeId) {
       return { action: 'liked' };
     }
   } catch (e) {
-    console.error('[AnimeVault DB] Failed to toggle favorite:', e?.message);
+    error('[AnimeVault DB] Failed to toggle favorite:', e?.message);
     return { error: e?.message };
   }
 }
@@ -325,7 +327,7 @@ export async function fetchWatchHistory(userId) {
     const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCH_HISTORY) || '[]');
     return history;
   } catch (error) {
-    console.error('Error fetching watch history:', error);
+    error('Error fetching watch history:', error);
     return [];
   }
 }
@@ -344,7 +346,7 @@ export async function addToHistory(userId, mediaId, mediaType, mediaTitle, media
     localStorage.setItem(STORAGE_KEYS.WATCH_HISTORY, JSON.stringify(history.slice(0, 50)));
     return true;
   } catch (error) {
-    console.error('Error adding to history:', error);
+    error('Error adding to history:', error);
     return false;
   }
 }
@@ -354,7 +356,7 @@ export async function clearWatchHistory(userId) {
     localStorage.setItem(STORAGE_KEYS.WATCH_HISTORY, JSON.stringify([]));
     return true;
   } catch (error) {
-    console.error('Error clearing history:', error);
+    error('Error clearing history:', error);
     return false;
   }
 }
@@ -364,7 +366,7 @@ export async function fetchContinueWatching(userId) {
     const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.CONTINUE_WATCHING) || '[]');
     return items;
   } catch (error) {
-    console.error('Error fetching continue watching:', error);
+    error('Error fetching continue watching:', error);
     return [];
   }
 }
@@ -395,7 +397,7 @@ export async function updateContinueWatching(userId, mediaId, mediaType, mediaTi
     localStorage.setItem(STORAGE_KEYS.CONTINUE_WATCHING, JSON.stringify(items.slice(0, 50)));
     return true;
   } catch (error) {
-    console.error('Error updating continue watching:', error);
+    error('Error updating continue watching:', error);
     return false;
   }
 }
@@ -405,7 +407,7 @@ export async function fetchLikedItems(userId) {
     const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.LIKED_ITEMS) || '[]');
     return items;
   } catch (error) {
-    console.error('Error fetching liked items:', error);
+    error('Error fetching liked items:', error);
     return [];
   }
 }
@@ -431,7 +433,7 @@ export async function toggleLikeItem(userId, mediaId, mediaType, mediaTitle, med
       return { action: 'liked' };
     }
   } catch (error) {
-    console.error('Error toggling like:', error);
+    error('Error toggling like:', error);
     return { error: error?.message };
   }
 }
@@ -441,7 +443,7 @@ export async function fetchReminders(userId) {
     const reminders = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMINDERS) || '[]');
     return reminders.sort((a, b) => (a.airing_at || a.airingAt) - (b.airing_at || b.airingAt));
   } catch (error) {
-    console.error('Error fetching reminders:', error);
+    error('Error fetching reminders:', error);
     return [];
   }
 }
@@ -469,7 +471,7 @@ export async function addReminder(userId, scheduleId, animeId, title, episode, a
     
     return newReminder;
   } catch (error) {
-    console.error('Error adding reminder:', error);
+    error('Error adding reminder:', error);
     return null;
   }
 }
@@ -481,7 +483,7 @@ export async function removeReminder(userId, scheduleId) {
     localStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(filtered));
     return true;
   } catch (error) {
-    console.error('Error removing reminder:', error);
+    error('Error removing reminder:', error);
     return false;
   }
 }
@@ -620,7 +622,7 @@ export async function getNotifications() {
     const notifications = JSON.parse(localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) || '[]');
     return notifications.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   } catch (error) {
-    console.error('Error fetching notifications:', error);
+    error('Error fetching notifications:', error);
     return [];
   }
 }
@@ -642,7 +644,7 @@ export async function addNotification(notification) {
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
     return newNotification;
   } catch (error) {
-    console.error('Error adding notification:', error);
+    error('Error adding notification:', error);
     return null;
   }
 }
@@ -654,7 +656,7 @@ export async function markNotificationAsRead(id) {
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
     return updated.find(n => n.id === id);
   } catch (error) {
-    console.error('Error marking notification as read:', error);
+    error('Error marking notification as read:', error);
     return null;
   }
 }
@@ -663,7 +665,7 @@ export async function getUserStats() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.USER_STATS) || '{}');
   } catch (error) {
-    console.error('Error fetching user stats:', error);
+    error('Error fetching user stats:', error);
     return {};
   }
 }
@@ -675,7 +677,7 @@ export async function updateUserStats(updates) {
     localStorage.setItem(STORAGE_KEYS.USER_STATS, JSON.stringify(updatedStats));
     return updatedStats;
   } catch (error) {
-    console.error('Error updating user stats:', error);
+    error('Error updating user stats:', error);
     return null;
   }
 }
@@ -684,7 +686,7 @@ export async function getFavoritesLocal() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.FAVORITES) || '{}');
   } catch (error) {
-    console.error('Error fetching favorites:', error);
+    error('Error fetching favorites:', error);
     return { animes: [], studios: [], characters: [] };
   }
 }
@@ -698,7 +700,7 @@ export async function addFavoriteLocal(type, item) {
     }
     return favorites;
   } catch (error) {
-    console.error('Error adding favorite:', error);
+    error('Error adding favorite:', error);
     return null;
   }
 }
@@ -710,7 +712,7 @@ export async function removeFavoriteLocal(type, itemId) {
     localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(favorites));
     return favorites;
   } catch (error) {
-    console.error('Error removing favorite:', error);
+    error('Error removing favorite:', error);
     return null;
   }
 }
@@ -722,7 +724,7 @@ export async function setFavoriteItem(type, item) {
     localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(favorites));
     return favorites;
   } catch (error) {
-    console.error('Error setting favorite:', error);
+    error('Error setting favorite:', error);
     return null;
   }
 }
@@ -732,7 +734,7 @@ export async function getFavoriteItem(type) {
     const favorites = JSON.parse(localStorage.getItem(STORAGE_KEYS.FAVORITES) || '{}');
     return favorites[type]?.[0] || null;
   } catch (error) {
-    console.error('Error getting favorite:', error);
+    error('Error getting favorite:', error);
     return null;
   }
 }
@@ -741,7 +743,7 @@ export async function getWatchHistory() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCH_HISTORY) || '[]');
   } catch (error) {
-    console.error('Error fetching watch history:', error);
+    error('Error fetching watch history:', error);
     return [];
   }
 }
@@ -754,7 +756,7 @@ export async function addWatchHistory(anime) {
     localStorage.setItem(STORAGE_KEYS.WATCH_HISTORY, JSON.stringify(recentHistory));
     return recentHistory;
   } catch (error) {
-    console.error('Error adding watch history:', error);
+    error('Error adding watch history:', error);
     return null;
   }
 }
@@ -763,7 +765,7 @@ export async function getLevel() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.LEVEL) || '{}');
   } catch (error) {
-    console.error('Error fetching level:', error);
+    error('Error fetching level:', error);
     return { level: 1, xp: 0, xpToNextLevel: 100 };
   }
 }
@@ -784,7 +786,7 @@ export async function addXP(amount) {
     localStorage.setItem(STORAGE_KEYS.LEVEL, JSON.stringify(updatedLevel));
     return updatedLevel;
   } catch (error) {
-    console.error('Error adding XP:', error);
+    error('Error adding XP:', error);
     return null;
   }
 }
@@ -793,7 +795,7 @@ export async function getActivity() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.ACTIVITY) || '{}');
   } catch (error) {
-    console.error('Error fetching activity:', error);
+    error('Error fetching activity:', error);
     return {};
   }
 }
@@ -806,7 +808,7 @@ export async function addActivity() {
     localStorage.setItem(STORAGE_KEYS.ACTIVITY, JSON.stringify(activity));
     return activity;
   } catch (error) {
-    console.error('Error adding activity:', error);
+    error('Error adding activity:', error);
     return null;
   }
 }
@@ -816,7 +818,7 @@ export async function getPosts() {
     const posts = JSON.parse(localStorage.getItem(STORAGE_KEYS.POSTS) || '[]');
     return posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   } catch (error) {
-    console.error('Error fetching posts:', error);
+    error('Error fetching posts:', error);
     return [];
   }
 }
@@ -836,7 +838,7 @@ export async function addPost(post) {
     localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
     return newPost;
   } catch (error) {
-    console.error('Error adding post:', error);
+    error('Error adding post:', error);
     return null;
   }
 }
@@ -859,7 +861,7 @@ export async function toggleLikePost(postId, userId = 'current-user') {
     }
     return null;
   } catch (error) {
-    console.error('Error toggling like:', error);
+    error('Error toggling like:', error);
     return null;
   }
 }
@@ -881,7 +883,7 @@ export async function addCommentToPost(postId, comment) {
     }
     return null;
   } catch (error) {
-    console.error('Error adding comment:', error);
+    error('Error adding comment:', error);
     return null;
   }
 }
@@ -890,7 +892,7 @@ export async function getFriends() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.FRIENDS) || '[]');
   } catch (error) {
-    console.error('Error fetching friends:', error);
+    error('Error fetching friends:', error);
     return [];
   }
 }
@@ -904,7 +906,7 @@ export async function addFriend(friend) {
     }
     return friends;
   } catch (error) {
-    console.error('Error adding friend:', error);
+    error('Error adding friend:', error);
     return null;
   }
 }
@@ -916,7 +918,7 @@ export async function removeFriend(friendId) {
     localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(updatedFriends));
     return updatedFriends;
   } catch (error) {
-    console.error('Error removing friend:', error);
+    error('Error removing friend:', error);
     return null;
   }
 }
@@ -925,7 +927,7 @@ export async function getFriendRequests() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.FRIEND_REQUESTS) || '[]');
   } catch (error) {
-    console.error('Error fetching friend requests:', error);
+    error('Error fetching friend requests:', error);
     return [];
   }
 }

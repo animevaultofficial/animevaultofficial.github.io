@@ -26,7 +26,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').then(reg => {
       log('[SW] Ad-blocker registered');
     }).catch(err => {
-      console.warn('[SW] Registration failed:', err.message);
+      warn('[SW] Registration failed:', err.message);
     });
   });
 }
