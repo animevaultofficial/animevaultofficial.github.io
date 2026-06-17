@@ -24,7 +24,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(reg => {
-      console.log('[SW] Ad-blocker registered');
+      log('[SW] Ad-blocker registered');
     }).catch(err => {
       console.warn('[SW] Registration failed:', err.message);
     });

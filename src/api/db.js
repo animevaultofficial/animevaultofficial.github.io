@@ -42,11 +42,11 @@ async function getSql() {
       sql = mod.neon(DATABASE_URL);
       // Test the connection immediately
       await sql`SELECT 1`;
-      console.log('[AnimeVault DB] Connected to Neon DB successfully');
+      log('[AnimeVault DB] Connected to Neon DB successfully');
       return sql;
     } catch (e) {
-      console.error('[AnimeVault DB] Failed to connect to Neon DB:', e);
-      console.log('[AnimeVault DB] Neon not available, using localStorage fallback');
+      error('[AnimeVault DB] Failed to connect to Neon DB:', e);
+      log('[AnimeVault DB] Neon not available, using localStorage fallback');
       sql = null;
       return null;
     }
@@ -505,7 +505,7 @@ export async function fetchSiteSettings() {
 }
 
 export async function initDatabase() {
-  console.log('initDatabase called');
+  log('initDatabase called');
   return true;
 }
 
@@ -569,7 +569,7 @@ export async function duplicateCollection(collectionId, userId) {
 
 // LocalStorage functions from database.js (exported for compatibility)
 export async function initializeDatabase() {
-  console.log('Initializing localStorage storage');
+  log('Initializing localStorage storage');
   if (!localStorage.getItem(STORAGE_KEYS.REMINDERS)) {
     localStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify([]));
   }
@@ -612,7 +612,7 @@ export async function initializeDatabase() {
   if (!localStorage.getItem(STORAGE_KEYS.FRIEND_REQUESTS)) {
     localStorage.setItem(STORAGE_KEYS.FRIEND_REQUESTS, JSON.stringify([]));
   }
-  console.log('LocalStorage initialized successfully');
+  log('LocalStorage initialized successfully');
 }
 
 export async function getNotifications() {
