@@ -37,15 +37,16 @@ async function getSql() {
   if (sql) return sql;
   const DATABASE_URL = import.meta.env.VITE_DATABASE_URL;
   if (!DATABASE_URL) return null;
-  try {
-    const mod = await import('@neondatabase/serverless');
-    sql = mod.neon(DATABASE_URL);
-    console.log('[AnimeVault DB] Neon DB available');
-    return sql;
-  } catch (e) {
-    console.log('[AnimeVault DB] Neon not available, using localStorage');
-    return null;
-  }
+    try {
+      const mod = await import('@neondatabase/serverless');
+      sql = mod.neon(DATABASE_URL);
+      console.log('[AnimeVault DB] Connected to Neon DB successfully');
+      return sql;
+    } catch (e) {
+      console.error('[AnimeVault DB] Failed to connect to Neon DB:', e);
+      console.log('[AnimeVault DB] Neon not available, using localStorage fallback');
+      return null;
+    }
 }
 
 // LocalStorage users storage
@@ -120,7 +121,7 @@ export async function userSignup(username, password) {
 }
 
 export async function userLogin(username, password) {
-  const trimmedUser = (username || '').trim();
+  const trimmedUser = (username || '').trim().toLowerCase();
   if (!trimmedUser || !password) return { success: false, message: 'All fields are required.' };
 
   // Ensure DB connection
