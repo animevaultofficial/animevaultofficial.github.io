@@ -31,19 +31,21 @@ function simpleHash(str) {
 
 // Try to connect to Neon DB if configured
 let sql = null;
-try {
+
+// Helper to initialize Neon DB connection lazily and await it
+async function getSql() {
+  if (sql) return sql;
   const DATABASE_URL = import.meta.env.VITE_DATABASE_URL;
-  if (DATABASE_URL) {
-    // Dynamic import to avoid bundling neon in browser when not used
-    import('@neondatabase/serverless').then(mod => {
-      sql = mod.neon(DATABASE_URL);
-      console.log('[AnimeVault DB] Neon DB available');
-    }).catch(() => {
-      console.log('[AnimeVault DB] Neon not available, using localStorage');
-    });
+  if (!DATABASE_URL) return null;
+  try {
+    const mod = await import('@neondatabase/serverless');
+    sql = mod.neon(DATABASE_URL);
+    console.log('[AnimeVault DB] Neon DB available');
+    return sql;
+  } catch (e) {
+    console.log('[AnimeVault DB] Neon not available, using localStorage');
+    return null;
   }
-} catch (e) {
-  console.log('[AnimeVault DB] Using localStorage fallback');
 }
 
 // LocalStorage users storage
@@ -73,11 +75,12 @@ export async function userSignup(username, password) {
   if (password.length < 6) return { success: false, message: 'Password must be at least 6 characters.' };
   if (trimmedUser.length < 3) return { success: false, message: 'Username must be at least 3 characters.' };
 
-  // Try Neon first if available
-  if (sql) {
+  // Ensure DB connection
+  const db = await getSql();
+  if (db) {
     try {
       const hashedPassword = simpleHash(password);
-      const result = await sql`
+      const result = await db`
         INSERT INTO users (username, password, is_admin)
         VALUES (${trimmedUser}, ${hashedPassword}, false)
         RETURNING id, username, avatar, banner, is_admin
@@ -85,8 +88,7 @@ export async function userSignup(username, password) {
       const user = result[0];
       return { success: true, user };
     } catch (e) {
-      const msg = e?.message || '';
-      console.warn('[AnimeVault DB] Neon signup failed, falling back:', msg);
+      console.warn('[AnimeVault DB] Neon signup failed, falling back:', e?.message);
     }
   }
 
@@ -116,10 +118,11 @@ export async function userLogin(username, password) {
   const trimmedUser = (username || '').trim();
   if (!trimmedUser || !password) return { success: false, message: 'All fields are required.' };
 
-  // Try Neon first if available
-  if (sql) {
+  // Ensure DB connection
+  const db = await getSql();
+  if (db) {
     try {
-      const result = await sql`
+      const result = await db`
         SELECT id, username, password, avatar, banner, is_admin FROM users
         WHERE username = ${trimmedUser}
       `;
