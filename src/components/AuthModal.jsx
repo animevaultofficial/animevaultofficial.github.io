@@ -1,11 +1,13 @@
 
 import { useState } from 'react';
 import { X, User, Lock, Sparkles, AlertCircle, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useUser } from '../api/UserContext';
 import { userLogin, userSignup } from '../api/db';
 
 export default function AuthModal() {
   const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login } = useUser();
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -98,6 +100,23 @@ export default function AuthModal() {
             <Lock size={16} style={{ position: 'absolute', top: '12px', left: '12px', color: 'var(--text-tertiary)' }} />
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password"
               style={{ width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: '#fff', outline: 'none', fontSize: '0.85rem' }} />
+            {authTab === 'login' && (
+              <div style={{ textAlign: 'right', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAuthModal(false);
+                    navigate('/forgot-password');
+                  }}
+                  style={{
+                    background: 'none', border: 'none', color: '#ff1a75',
+                    fontSize: '0.75rem', cursor: 'pointer', padding: 0
+                  }}
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
           </div>
           <button type="submit" disabled={loading}
             style={{ width: '100%', padding: '12px', background: '#ff1a75', color: '#000', fontWeight: '900', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.85rem' }}>

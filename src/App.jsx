@@ -40,7 +40,8 @@ import Stats from './pages/Stats';
 import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
 import SearchModal from './components/SearchModal';
-
+import ForgotPassword from './pages/ForgotPassword';
+import SetNewPassword from './pages/SetNewPassword';
 
 function App() {
   const { user, setShowAuthModal, setAuthTab } = useUser();
@@ -369,6 +370,8 @@ function App() {
           <Route path="/request" element={<RequestAnime />} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/set-new-password" element={<SetNewPassword />} />
           <Route path="/user/:username" element={<UserProfile />} />
           <Route path="/download" element={<Download />} />
           <Route path="/admin/*" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
