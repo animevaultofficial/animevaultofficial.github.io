@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
+import { createAuthClient } from '@neondatabase/auth';
+import { log, warn, error } from '../utils/logger.js';
+
+// Neon Auth client
+const authClient = createAuthClient(import.meta.env.VITE_NEON_AUTH_URL);
+
+import {
   fetchWatchHistory, addToHistory as dbAddToHistory, clearWatchHistory as dbClearWatchHistory,
   fetchContinueWatching, updateContinueWatching as dbUpdateContinueWatching,
   fetchLikedItems, toggleLikeItem as dbToggleLike,
@@ -16,10 +22,7 @@ import {
 const UserContext = createContext(null);
 
 export function UserProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('vault_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [user, setUser] = useState(null);
 
   const [history, setHistory] = useState([]);
   const [continueWatching, setContinueWatching] = useState([]);
@@ -27,6 +30,17 @@ export function UserProvider({ children }) {
   const [reminders, setReminders] = useState([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState('login');
+
+  useEffect(() => {
+    const unsubscribe = authClient.onAuthStateChanged(async (currentUser) => {
+      if (currentUser) {
+        setUser({ id: currentUser.id, username: currentUser.email, avatar: null, banner: null, is_admin: false });
+      } else {
+        setUser(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const syncUserData = async () => {
     if (!user) return;
@@ -42,16 +56,14 @@ export function UserProvider({ children }) {
       setLikes(likedData || []);
       setReminders(remData || []);
     } catch (err) {
-      console.error('Failed to sync user data:', err);
+      warn('[AnimeVault DB] Failed to sync user data:', err);
     }
   };
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem('vault_user', JSON.stringify(user));
       syncUserData();
     } else {
-      localStorage.removeItem('vault_user');
       setHistory([]);
       setContinueWatching([]);
       setLikes([]);
@@ -59,28 +71,42 @@ export function UserProvider({ children }) {
     }
   }, [user]);
 
-  const login = (userData) => {
-    setUser(userData);
-    setShowAuthModal(false);
+  const login = async (email, password) => {
+    try {
+      const res = await authClient.signIn.email({ email, password });
+      if (res?.user) {
+        setShowAuthModal(false);
+        return { success: true };
+      }
+      return { success: false, message: res?.error?.message || 'Login failed' };
+    } catch (e) {
+      return { success: false, message: e.message };
+    }
+  };
+
+  const signup = async (email, password) => {
+    try {
+      const res = await authClient.signUp.email({ email, password });
+      if (res?.user) {
+        setShowAuthModal(false);
+        return { success: true };
+      }
+      return { success: false, message: res?.error?.message || 'Signup failed' };
+    } catch (e) {
+      return { success: false, message: e.message };
+    }
   };
 
   const logout = async () => {
-    setUser(null);
+    await authClient.signOut();
   };
 
   const addToHistory = async (mediaId, mediaType, mediaTitle, mediaPoster) => {
     if (!user) return false;
     
-    // Add to watch history in new database
     await dbAddWatchHistory({ id: mediaId, title: mediaTitle, image: mediaPoster });
-    
-    // Add to continue watching in old database
     await dbAddToHistory(user.id, mediaId, mediaType, mediaTitle, mediaPoster);
-    
-    // Add XP (5 XP per anime view)
     await addXP(5);
-    
-    // Add activity
     await addActivity();
     
     syncUserData();
@@ -102,7 +128,6 @@ export function UserProvider({ children }) {
     if (success) {
       syncUserData();
       
-      // Update user stats: episodes watched and watch time
       const stats = await getUserStats();
       await updateUserStats({
         ...stats,
@@ -110,10 +135,7 @@ export function UserProvider({ children }) {
         totalWatchTime: (stats.totalWatchTime || 0) + (duration || 0)
       });
       
-      // Add XP for watching episode (10 XP per episode)
       await addXP(10);
-      
-      // Add activity
       await addActivity();
     }
     return success;
@@ -130,13 +152,11 @@ export function UserProvider({ children }) {
     if (!result.error) {
       syncUserData();
       
-      // Also update favorites in new database
       const favorites = await getFavorites();
       const isAlreadyFavorite = favorites.animes?.some(f => String(f.id) === String(mediaId));
       
       if (result.action === 'liked' && !isAlreadyFavorite) {
         await addFavorite('animes', { id: mediaId, title: mediaTitle, image: mediaPoster });
-        // Add XP for liking an anime (2 XP)
         await addXP(2);
       } else if (result.action === 'unliked' && isAlreadyFavorite) {
         await removeFavorite('animes', mediaId);
@@ -154,7 +174,6 @@ export function UserProvider({ children }) {
     const res = await dbUpdateUserProfile(user.id, avatarUrl, bannerUrl);
     if (res.success) {
       setUser(res.user);
-      localStorage.setItem('vault_user', JSON.stringify(res.user));
       return true;
     }
     return false;
@@ -198,6 +217,7 @@ export function UserProvider({ children }) {
       setShowAuthModal,
       setAuthTab,
       login,
+      signup,
       logout,
       syncUserData,
       addToHistory,

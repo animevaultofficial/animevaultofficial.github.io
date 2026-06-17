@@ -4,6 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { probeMirrors } from './api/streaming';
+import { log, warn } from './utils/logger.js';
 import { init } from '@noriginmedia/norigin-spatial-navigation';
 
 init({

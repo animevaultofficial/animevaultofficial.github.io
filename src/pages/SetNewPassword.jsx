@@ -1,83 +1,9 @@
-
-import { useState, useEffect } from 'react';
-import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { Lock, ArrowLeft, Sparkles, AlertCircle, CheckCircle, Loader2, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ResetPasswordForm } from '@neondatabase/auth-ui';
+import { authClient } from '../auth';
 
 export default function SetNewPassword() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const token = searchParams.get('token');
-
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [verifying, setVerifying] = useState(true);
-  const [tokenValid, setTokenValid] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-
-  // Verify the token on mount
-  useEffect(() => {
-    if (!token) {
-      setVerifying(false);
-      setError('No reset token found. Please request a new password reset link.');
-      return;
-    }
-
-    (async () => {
-      try {
-        const res = await fetch(`/api/verifyToken?token=${encodeURIComponent(token)}`);
-        const data = await res.json();
-        if (res.ok && data.valid) {
-          setTokenValid(true);
-        } else {
-          setError(data.error || 'This reset link is invalid or has expired.');
-        }
-      } catch {
-        setError('Network error. Please check your connection.');
-      } finally {
-        setVerifying(false);
-      }
-    })();
-  }, [token]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (!password || !confirmPassword) { setError('Please fill in both fields.'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
-    if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
-
-    setLoading(true);
-    try {
-      const res = await fetch('/api/updatePassword', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, newPassword: password }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setSuccess(true);
-        // Redirect to home after 3 seconds
-        setTimeout(() => navigate('/'), 3000);
-      } else {
-        setError(data.error || 'Failed to update password. Please try again.');
-      }
-    } catch {
-      setError('Network error. Please check your connection.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const inputStyle = {
-    width: '100%', padding: '12px 14px 12px 42px',
-    background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '12px', color: '#fff', outline: 'none', fontSize: '0.88rem',
-    transition: 'border-color 0.2s',
-  };
-
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',

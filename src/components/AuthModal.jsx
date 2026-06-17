@@ -3,10 +3,10 @@ import { useState } from 'react';
 import { X, User, Lock, Sparkles, AlertCircle, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../api/UserContext';
-import { userLogin, userSignup } from '../api/db';
+
 
 export default function AuthModal() {
-  const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login } = useUser();
+  const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup } = useUser();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -24,16 +24,16 @@ export default function AuthModal() {
     try {
       if (!username.trim() || !password) throw new Error('All fields are required.');
       if (authTab === 'login') {
-        const res = await userLogin(username, password);
+        const res = await login(username, password);
         if (res.success) {
           setSuccess('Welcome back!');
-          setTimeout(() => { login(res.user); resetForm(); }, 800);
+          setTimeout(() => { resetForm(); }, 800);
         } else setError(res.message);
       } else {
-        const res = await userSignup(username, password);
+        const res = await signup(username, password);
         if (res.success) {
           setSuccess('Account created!');
-          setTimeout(() => { login(res.user); resetForm(); }, 800);
+          setTimeout(() => { resetForm(); }, 800);
         } else setError(res.message);
       }
     } catch (err) { setError(err.message); }
