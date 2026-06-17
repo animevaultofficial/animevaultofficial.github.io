@@ -406,7 +406,7 @@ self.addEventListener('fetch', (event) => {
   // Block known ad domains
   for (const adDomain of AD_DOMAINS) {
     if (hostname === adDomain || hostname.endsWith('.' + adDomain)) {
-      return event.respondWith(new Response('', { status: 204 }));
+      return event.respondWith(new Response(null, { status: 204 }));
     }
   }
 
@@ -416,7 +416,7 @@ self.addEventListener('fetch', (event) => {
     if (path.includes(keyword)) {
       const isMedia = path.match(/\.(mp4|webm|m3u8|ts|m4s|mp3|ogg|wav|flac|mkv|avi)$/i);
       if (!isMedia) {
-        return event.respondWith(new Response('', { status: 204 }));
+        return event.respondWith(new Response(null, { status: 204 }));
       }
     }
   }

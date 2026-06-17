@@ -40,11 +40,14 @@ async function getSql() {
     try {
       const mod = await import('@neondatabase/serverless');
       sql = mod.neon(DATABASE_URL);
+      // Test the connection immediately
+      await sql`SELECT 1`;
       console.log('[AnimeVault DB] Connected to Neon DB successfully');
       return sql;
     } catch (e) {
       console.error('[AnimeVault DB] Failed to connect to Neon DB:', e);
       console.log('[AnimeVault DB] Neon not available, using localStorage fallback');
+      sql = null;
       return null;
     }
 }
