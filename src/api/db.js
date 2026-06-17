@@ -70,7 +70,7 @@ function saveUsers(users) {
 
 // User Functions
 export async function userSignup(username, password) {
-  const trimmedUser = (username || '').trim();
+  const trimmedUser = (username || '').trim().toLowerCase();
   if (!trimmedUser || !password) return { success: false, message: 'All fields are required.' };
   if (password.length < 6) return { success: false, message: 'Password must be at least 6 characters.' };
   if (trimmedUser.length < 3) return { success: false, message: 'Username must be at least 3 characters.' };
@@ -86,13 +86,18 @@ export async function userSignup(username, password) {
         RETURNING id, username, avatar, banner, is_admin
       `;
       const user = result[0];
-      return { success: true, user };
+      // Sync to localStorage fallback for future offline use
+      const users = getUsers();
+      users.push({ ...user, password: hashedPassword, created_at: new Date().toISOString() });
+      saveUsers(users);
+      const { password: _, ...safeUser } = user;
+      return { success: true, user: safeUser };
     } catch (e) {
       console.warn('[AnimeVault DB] Neon signup failed, falling back:', e?.message);
     }
   }
 
-  // LocalStorage fallback
+  // LocalStorage fallback (no DB)
   const users = getUsers();
   if (users.find(u => u.username.toLowerCase() === trimmedUser.toLowerCase())) {
     return { success: false, message: 'Username already taken.' };
@@ -131,6 +136,13 @@ export async function userLogin(username, password) {
         const inputHash = simpleHash(password);
         if (storedHash === inputHash) {
           const { password: _, ...user } = result[0];
+          // Sync to localStorage for offline fallback
+          const users = getUsers();
+          const existing = users.find(u => u.id === user.id);
+          if (!existing) {
+            users.push({ ...user, password: storedHash, created_at: new Date().toISOString() });
+            saveUsers(users);
+          }
           return { success: true, user };
         }
         return { success: false, message: 'Invalid password. Please try again.' };
@@ -140,7 +152,7 @@ export async function userLogin(username, password) {
     }
   }
 
-  // LocalStorage fallback
+  // LocalStorage fallback (or DB returned no match)
   const users = getUsers();
   const user = users.find(u => u.username.toLowerCase() === trimmedUser.toLowerCase());
   if (!user) {
@@ -155,6 +167,7 @@ export async function userLogin(username, password) {
   const { password: _, ...safeUser } = user;
   return { success: true, user: safeUser };
 }
+
 
 
 export async function getProfile(userIdOrUsername) {
