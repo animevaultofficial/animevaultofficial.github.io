@@ -2,15 +2,22 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { ResetPasswordForm } from '@neondatabase/auth-ui';
 import { authClient } from '../auth';
+import { useState } from 'react';
 
 export default function SetNewPassword() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleSuccess = () => {
-    // After successful password reset, redirect to home or sign‑in page
-    navigate('/');
+    // After successful password reset, redirect to sign‑in page
+    navigate('/login');
+  };
+
+  const handleError = (error) => {
+    console.error('Reset password error:', error);
+    setErrorMsg(error?.message || 'Failed to reset password');
   };
 
   return (
@@ -62,13 +69,16 @@ export default function SetNewPassword() {
           marginBottom: '12px',
           textAlign: 'center',
         }}>Set New Password</h1>
+        {errorMsg && (
+          <p style={{ color: '#ef4444', textAlign: 'center', marginBottom: '12px' }}>{errorMsg}</p>
+        )}
         {/* Neon Auth reset password form */}
         <ResetPasswordForm
           authClient={authClient}
           token={token}
           onSuccess={handleSuccess}
+          onError={handleError}
           submitButtonText="Update Password"
-          // optional styling overrides can be passed via props if needed
         />
       </div>
     </div>
