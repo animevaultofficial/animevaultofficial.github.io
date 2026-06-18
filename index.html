@@ -12,6 +12,18 @@
   </head>
   <body class="app-body">
     <div id="root"></div>
+    <!-- GitHub Pages SPA redirect restore -->
+    <script>
+      (function () {
+        var redirect = sessionStorage.getItem('spa-redirect');
+        if (redirect) {
+          sessionStorage.removeItem('spa-redirect');
+          // Replace the current "/" URL with the original route so React Router
+          // sees the correct path (e.g. /set-new-password?token=abc)
+          window.history.replaceState(null, '', redirect);
+        }
+      })();
+    </script>
     <script type="module" src="./src/main.jsx"></script>
   </body>
 </html>
