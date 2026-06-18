@@ -36,7 +36,7 @@ export default function SetNewPassword() {
     try {
       const { error } = await authClient.resetPassword({
         token,
-        password,
+        newPassword: password,
       });
       
       if (error) {
