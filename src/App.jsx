@@ -83,6 +83,16 @@ function App() {
     loadSettings();
   }, []);
 
+  // Redirect token from root to SetNewPassword page
+  useEffect(() => {
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  console.log('Token redirect effect, token:', token);
+  if (token && location.pathname !== '/set-new-password') {
+    navigate(`/set-new-password?token=${encodeURIComponent(token)}`, { replace: true });
+  }
+}, [location.search, location.pathname, navigate]);
+
   // Keyboard shortcut for search
   useEffect(() => {
     const handleKeyDown = (e) => {

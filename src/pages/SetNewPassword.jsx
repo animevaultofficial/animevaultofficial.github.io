@@ -1,4 +1,5 @@
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import React from 'react';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { ResetPasswordForm } from '@neondatabase/auth-ui';
 import { authClient } from '../auth';
@@ -6,9 +7,17 @@ import { useState } from 'react';
 
 export default function SetNewPassword() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // If token is present on a non‑set‑new‑password route, redirect there
+  React.useEffect(() => {
+    if (token && location.pathname !== '/set-new-password') {
+      navigate(`/set-new-password?token=${encodeURIComponent(token)}`);
+    }
+  }, [token, location.pathname, navigate]);
 
   const handleSuccess = () => {
     // After successful password reset, redirect to sign‑in page
