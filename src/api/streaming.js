@@ -61,11 +61,14 @@ function markMirrorHealth(mirror, healthy) {
 function getHealthyMirrors() {
   const cache = loadHealthCache();
   // Return mirrors not marked unhealthy (unknown = optimistically try)
-  return CONSUMET_MIRRORS.filter(m => {
+  const healthy = CONSUMET_MIRRORS.filter(m => {
     const entry = cache[m];
     if (!entry) return true; // never tried, include it
     return entry.healthy;    // only include known-good
   });
+  
+  // If all mirrors are marked unhealthy, ignore the cache and try all of them again.
+  return healthy.length > 0 ? healthy : CONSUMET_MIRRORS;
 }
 
 // ── Core fetch with timeout ─────────────────────────────────────────────────
@@ -224,11 +227,19 @@ export async function fetchStreamingSources(episodeId, provider = 'gogoanime') {
  */
 export async function probeMirrors() {
   const probes = CONSUMET_MIRRORS.map(async mirror => {
+    const targetUrl = `${mirror}/anime/gogoanime/search/test`;
     try {
-      const res = await fetchWithTimeout(`${mirror}/anime/gogoanime/search/test`, 4000);
+      const res = await fetchWithTimeout(targetUrl, 4000);
       markMirrorHealth(mirror, res.ok || res.status === 404); // 404 = alive but no results
     } catch {
-      markMirrorHealth(mirror, false);
+      // Direct request failed, try the CORS proxy before marking it dead
+      try {
+        const corsUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+        const res = await fetchWithTimeout(corsUrl, 4000);
+        markMirrorHealth(mirror, res.ok || res.status === 404);
+      } catch {
+        markMirrorHealth(mirror, false);
+      }
     }
   });
   await Promise.allSettled(probes);

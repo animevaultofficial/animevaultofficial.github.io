@@ -92,11 +92,18 @@ function App() {
     const hashParams = new URLSearchParams(location.search);
     const token = windowParams.get('token') || hashParams.get('token');
     
-    console.log('Token redirect effect, token:', token);
     if (token && location.pathname !== '/set-new-password') {
       navigate(`/set-new-password?token=${encodeURIComponent(token)}`, { replace: true });
     }
-  }, [location.search, location.pathname, navigate]);
+
+    // Also check for login=true to open the modal
+    if (hashParams.get('login') === 'true') {
+      setAuthTab('login');
+      setShowAuthModal(true);
+      // Remove it from the URL so it doesn't reopen on refresh
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.search, location.pathname, navigate, setAuthTab, setShowAuthModal]);
 
   // Keyboard shortcut for search
   useEffect(() => {

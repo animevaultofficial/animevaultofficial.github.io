@@ -93,7 +93,7 @@ export default function AuthModal() {
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '14px', position: 'relative' }}>
             <User size={16} style={{ position: 'absolute', top: '12px', left: '12px', color: 'var(--text-tertiary)' }} />
-            <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Username"
+            <input type="email" value={username} onChange={e => setUsername(e.target.value)} placeholder="Email"
               style={{ width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: '#fff', outline: 'none', fontSize: '0.85rem' }} />
           </div>
           <div style={{ marginBottom: '20px', position: 'relative' }}>
