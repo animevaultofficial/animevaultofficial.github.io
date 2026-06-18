@@ -14,7 +14,14 @@ export default function ForgotPassword() {
     setStatus('loading');
     setErrorMsg('');
     try {
-      await authClient.forgotPassword(email);
+      const { error } = await authClient.requestPasswordReset({
+        email,
+        // optional redirect after reset link click
+        // redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) {
+        throw new Error(error.message || 'Failed to send reset link');
+      }
       setStatus('sent');
     } catch (err) {
       console.error(err);
