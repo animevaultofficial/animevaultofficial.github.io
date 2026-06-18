@@ -1,33 +1,61 @@
-import React from 'react';
-import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Sparkles } from 'lucide-react';
-import { ResetPasswordForm } from '@neondatabase/auth-ui';
+import React, { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { authClient } from '../auth';
-import { useState } from 'react';
 
 export default function SetNewPassword() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [status, setStatus] = useState(null); // 'loading' | 'success' | 'error'
   const [errorMsg, setErrorMsg] = useState('');
 
-  // If token is present on a non‑set‑new‑password route, redirect there
+  // Extract token from either HashRouter search or window.location.search
+  const windowParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(location.search);
+  const token = windowParams.get('token') || hashParams.get('token');
+
   React.useEffect(() => {
-    if (token && location.pathname !== '/set-new-password') {
-      navigate(`/set-new-password?token=${encodeURIComponent(token)}`);
+    if (!token && location.pathname === '/set-new-password') {
+      // If no token is found, redirect to home
+      navigate('/');
     }
   }, [token, location.pathname, navigate]);
 
-  const handleSuccess = () => {
-    // After successful password reset, redirect to sign‑in page
-    navigate('/login');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      setErrorMsg("Passwords don't match");
+      return;
+    }
+    
+    setStatus('loading');
+    setErrorMsg('');
+    
+    try {
+      const { error } = await authClient.resetPassword({
+        token,
+        password,
+      });
+      
+      if (error) {
+        throw new Error(error.message || 'Failed to reset password');
+      }
+      
+      setStatus('success');
+      // Redirect to home/login after a brief success message
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
+    } catch (err) {
+      console.error('Reset password error:', err);
+      setErrorMsg(err.message || 'Failed to reset password');
+      setStatus('error');
+    }
   };
 
-  const handleError = (error) => {
-    console.error('Reset password error:', error);
-    setErrorMsg(error?.message || 'Failed to reset password');
-  };
+  if (!token) return null; // Wait for redirect if no token
 
   return (
     <div style={{
@@ -78,17 +106,73 @@ export default function SetNewPassword() {
           marginBottom: '12px',
           textAlign: 'center',
         }}>Set New Password</h1>
-        {errorMsg && (
-          <p style={{ color: '#ef4444', textAlign: 'center', marginBottom: '12px' }}>{errorMsg}</p>
+        
+        {status === 'success' ? (
+          <p style={{ color: '#10b981', textAlign: 'center', margin: '20px 0' }}>
+            Password reset successfully! Redirecting...
+          </p>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: '16px' }}>
+              <input
+                type="password"
+                placeholder="New password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'rgba(255,255,255,0.04)',
+                  color: '#fff',
+                }}
+              />
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <input
+                type="password"
+                placeholder="Confirm new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={6}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'rgba(255,255,255,0.04)',
+                  color: '#fff',
+                }}
+              />
+            </div>
+            {errorMsg && (
+              <p style={{ color: '#ef4444', textAlign: 'center', marginBottom: '16px', fontSize: '0.9rem' }}>
+                {errorMsg}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={status === 'loading'}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: status === 'loading' ? 'rgba(255,26,117,0.5)' : '#ff1a75',
+                color: '#000',
+                fontWeight: '900',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: status === 'loading' ? 'wait' : 'pointer',
+                fontSize: '0.9rem',
+                transition: 'background 0.2s',
+              }}>
+              {status === 'loading' ? 'Updating...' : 'Update Password'}
+            </button>
+          </form>
         )}
-        {/* Neon Auth reset password form */}
-        <ResetPasswordForm
-          authClient={authClient}
-          token={token}
-          onSuccess={handleSuccess}
-          onError={handleError}
-          submitButtonText="Update Password"
-        />
       </div>
     </div>
   );
