@@ -43,6 +43,7 @@ import {
   Minimize2,
 } from 'lucide-react';
 import { useUser } from '../api/UserContext';
+const LogoIcon = () => <img src="/logo.png" alt="logo" style={{height:18, width:18}} />;
 import { Link } from 'react-router-dom';
 import { getSettings, saveSettings, resetSettings } from '../api/db';
 import { storage } from '../utils/storage';
@@ -212,6 +213,7 @@ export default function Settings() {
   };
 
   const tabs = [
+    { id: 'site', label: 'Site', icon: LogoIcon },
     { id: 'personalization', label: 'Personalization', icon: Palette },
     { id: 'home', label: 'Home', icon: Layout },
     { id: 'profile', label: 'Profile', icon: User },
