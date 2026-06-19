@@ -219,6 +219,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: "#0a0a0a",
+    icon: path.join(__dirname, "../build/icon.ico"),
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
     frame: process.platform !== "win32",
     webPreferences: {
