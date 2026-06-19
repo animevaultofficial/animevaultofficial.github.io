@@ -1104,3 +1104,35 @@ export async function updateSetting(key, value) {
   }
 }
 
+export async function syncGoogleUserToDb(email, displayName, googleAvatar) {
+  try {
+    const trimmedUser = email.trim();
+    // Check if user already exists
+    const db = await getSql();
+    if (!db) return { success: false, message: 'No DB connection' };
+    
+    const existing = await db`
+      SELECT id, username, avatar, banner, is_admin, created_at
+      FROM users WHERE username = ${trimmedUser}
+    `;
+    
+    if (existing.length > 0) {
+      // User exists, return user record
+      return { success: true, user: existing[0] };
+    }
+
+    // User doesn't exist, create a new record!
+    // If the email includes 'admin', let's make them an admin!
+    const isAdmin = trimmedUser.toLowerCase().includes('admin') || trimmedUser.toLowerCase() === 'adiyanhehe@gmail.com'; 
+
+    const result = await db`
+      INSERT INTO users (username, password, avatar, is_admin) 
+      VALUES (${trimmedUser}, 'google_oauth_bypass', ${googleAvatar || ''}, ${isAdmin})
+      RETURNING id, username, avatar, banner, is_admin, created_at
+    `;
+    return { success: true, user: result[0] };
+  } catch (err) {
+    console.error('Failed to sync Google user to database:', err);
+    return { success: false, message: 'Sync failed' };
+  }
+}

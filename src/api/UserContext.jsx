@@ -10,7 +10,8 @@ import {
   fetchContinueWatching, updateContinueWatching as dbUpdateContinueWatching,
   fetchLikedItems, toggleLikeItem as dbToggleLike,
   updateUserProfile as dbUpdateUserProfile,
-  fetchReminders, addReminder as dbAddReminder, removeReminder as dbRemoveReminder
+  fetchReminders, addReminder as dbAddReminder, removeReminder as dbRemoveReminder,
+  syncGoogleUserToDb
 } from './db';
 import {
   getUserStats, updateUserStats,
@@ -31,15 +32,31 @@ export function UserProvider({ children }) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState('login');
 
-  useEffect(() => {
-    const unsubscribe = authClient.onAuthStateChanged(async (currentUser) => {
-      if (currentUser) {
-        setUser({ id: currentUser.id, username: currentUser.email, avatar: null, banner: null, is_admin: false });
+  const fetchSession = async () => {
+    try {
+      const { data, error } = await authClient.getSession();
+      if (data?.session && data?.user) {
+        const { user: currentUser } = data;
+        const syncRes = await syncGoogleUserToDb(
+          currentUser.email,
+          currentUser.name || currentUser.email,
+          currentUser.image
+        );
+        if (syncRes.success) {
+          setUser(syncRes.user);
+        } else {
+          setUser({ id: currentUser.id, username: currentUser.email || currentUser.name || 'User', avatar: currentUser.image || null, banner: null, is_admin: false });
+        }
       } else {
         setUser(null);
       }
-    });
-    return () => unsubscribe();
+    } catch (err) {
+      setUser(null);
+    }
+  };
+
+  useEffect(() => {
+    fetchSession();
   }, []);
 
   const syncUserData = async () => {
@@ -74,11 +91,13 @@ export function UserProvider({ children }) {
   const login = async (email, password) => {
     try {
       const res = await authClient.signIn.email({ email, password });
-      if (res?.user) {
+      const loggedInUser = res?.user || res?.data?.user;
+      if (loggedInUser || (!res?.error && res?.data)) {
+        await fetchSession();
         setShowAuthModal(false);
         return { success: true };
       }
-      return { success: false, message: res?.error?.message || 'Login failed' };
+      return { success: false, message: res?.error?.message || 'Login failed. Please check your credentials.' };
     } catch (e) {
       return { success: false, message: e.message };
     }
@@ -87,7 +106,9 @@ export function UserProvider({ children }) {
   const signup = async (email, password) => {
     try {
       const res = await authClient.signUp.email({ email, password });
-      if (res?.user) {
+      const signedUpUser = res?.user || res?.data?.user;
+      if (signedUpUser || (!res?.error && res?.data)) {
+        await fetchSession();
         setShowAuthModal(false);
         return { success: true };
       }
@@ -99,6 +120,7 @@ export function UserProvider({ children }) {
 
   const logout = async () => {
     await authClient.signOut();
+    setUser(null);
   };
 
   const addToHistory = async (mediaId, mediaType, mediaTitle, mediaPoster) => {
