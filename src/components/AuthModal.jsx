@@ -6,10 +6,11 @@ import { useUser } from '../api/UserContext';
 
 
 export default function AuthModal() {
-  const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup } = useUser();
+  const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup, sendVerificationCode } = useUser();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,7 +25,7 @@ export default function AuthModal() {
     try {
       if (!username.trim() || !password) throw new Error('All fields are required.');
       if (authTab === 'login') {
-        const res = await login(username, password);
+        const res = await login(username, password, verificationCode.trim());
         if (res.success) {
           setSuccess('Welcome back!');
           setTimeout(() => { resetForm(); }, 800);
@@ -40,7 +41,7 @@ export default function AuthModal() {
     finally { setLoading(false); }
   };
 
-  const resetForm = () => { setUsername(''); setPassword(''); setError(''); setSuccess(''); };
+  const resetForm = () => { setUsername(''); setPassword(''); setVerificationCode(''); setError(''); setSuccess(''); };
 
   return (
     <div className="auth-overlay" onClick={() => setShowAuthModal(false)}
@@ -100,6 +101,40 @@ export default function AuthModal() {
             <Lock size={16} style={{ position: 'absolute', top: '12px', left: '12px', color: 'var(--text-tertiary)' }} />
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password"
               style={{ width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: '#fff', outline: 'none', fontSize: '0.85rem' }} />
+            {authTab === 'login' && (
+              <div style={{ marginTop: '14px', position: 'relative' }}>
+                <Lock size={16} style={{ position: 'absolute', top: '12px', left: '12px', color: 'var(--text-tertiary)' }} />
+                <input type="text" value={verificationCode} onChange={e => setVerificationCode(e.target.value)} placeholder="Verification Code (Optional)"
+                  style={{ width: '100%', padding: '11px 100px 11px 38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: '#fff', outline: 'none', fontSize: '0.85rem' }} />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!username.trim()) {
+                      setError('Please enter your email first.');
+                      return;
+                    }
+                    setError('');
+                    setSuccess('');
+                    try {
+                      setLoading(true);
+                      const res = await sendVerificationCode(username.trim());
+                      if (res.success) {
+                        setSuccess('Verification code sent to email!');
+                      } else {
+                        setError(res.message || 'Failed to send code.');
+                      }
+                    } catch (err) {
+                      setError(err.message || 'Failed to send code.');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  style={{ position: 'absolute', right: '8px', top: '8px', background: 'rgba(255,26,117,0.2)', border: '1px solid rgba(255,26,117,0.3)', color: '#ff1a75', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
+                >
+                  Send Code
+                </button>
+              </div>
+            )}
             {authTab === 'login' && (
               <div style={{ textAlign: 'right', marginTop: '8px' }}>
                 <button

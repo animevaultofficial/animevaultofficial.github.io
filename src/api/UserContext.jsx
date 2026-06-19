@@ -102,9 +102,14 @@ export function UserProvider({ children }) {
     }
   }, [user]);
 
-  const login = async (email, password) => {
+  const login = async (email, password, verificationCode) => {
     try {
-      const res = await authClient.signIn.email({ email, password });
+      let res;
+      if (verificationCode) {
+        res = await authClient.signIn.emailOtp({ email, otp: verificationCode });
+      } else {
+        res = await authClient.signIn.email({ email, password });
+      }
       const loggedInUser = res?.user || res?.data?.user;
       if (loggedInUser || (!res?.error && res?.data)) {
         // Get Neon Auth session to extract user info
@@ -133,7 +138,8 @@ export function UserProvider({ children }) {
 
   const signup = async (email, password) => {
     try {
-      const res = await authClient.signUp.email({ email, password });
+      const name = email.split('@')[0];
+      const res = await authClient.signUp.email({ email, password, name });
       const signedUpUser = res?.user || res?.data?.user;
       if (signedUpUser || (!res?.error && res?.data)) {
         const { data } = await authClient.getSession();
@@ -154,6 +160,16 @@ export function UserProvider({ children }) {
         return { success: true };
       }
       return { success: false, message: res?.error?.message || 'Signup failed' };
+    } catch (e) {
+      return { success: false, message: e.message };
+    }
+  };
+
+  const sendVerificationCode = async (email) => {
+    try {
+      const { error } = await authClient.emailOtp.sendVerificationOtp({ email, type: 'sign-in' });
+      if (error) throw new Error(error.message);
+      return { success: true };
     } catch (e) {
       return { success: false, message: e.message };
     }
@@ -284,6 +300,7 @@ export function UserProvider({ children }) {
       setAuthTab,
       login,
       signup,
+      sendVerificationCode,
       logout,
       syncUserData,
       addToHistory,

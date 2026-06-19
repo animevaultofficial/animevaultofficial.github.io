@@ -17,7 +17,7 @@ export default function ForgotPassword() {
       const { error } = await authClient.requestPasswordReset({
         email,
         // optional redirect after reset link click
-        redirectTo: `${window.location.origin}/set-new-password`,
+        redirectTo: `${window.location.origin}/set-new-password?email=${encodeURIComponent(email)}`,
       });
       if (error) {
         throw new Error(error.message || 'Failed to send reset link');

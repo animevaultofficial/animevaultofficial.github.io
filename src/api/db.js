@@ -1,4 +1,3 @@
-
 // src/api/db.js
 // Simple DB wrapper with Neon fallback
 import { log, warn, error } from "../utils/logger.js";
@@ -194,6 +193,30 @@ export async function getProfile(userIdOrUsername) {
     error('[AnimeVault DB] Failed to fetch profile:', e?.message);
     return null;
   }
+}
+
+// Update password for a given username (email)
+export async function updateUserPassword(username, newPassword) {
+  if (!username || !newPassword) return { success: false, message: 'Username and new password required.' };
+  const hashed = simpleHash(newPassword);
+  // Neon DB update if available
+  const db = await getSql();
+  if (db) {
+    try {
+      await db`UPDATE users SET password = ${hashed} WHERE username = ${username.toLowerCase()}`;
+    } catch (e) {
+      warn('[AnimeVault DB] Neon password update failed, falling back:', e?.message);
+    }
+  }
+  // LocalStorage fallback
+  const users = getUsers();
+  const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+  if (user) {
+    user.password = hashed;
+    saveUsers(users);
+    return { success: true };
+  }
+  return { success: false, message: 'User not found.' };
 }
 
 export async function updateUserProfile(userId, newAvatar, newBanner) {

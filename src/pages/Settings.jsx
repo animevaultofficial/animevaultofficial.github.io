@@ -1,6 +1,7 @@
 
 import '../styles/settings.css';
 import ToggleSwitch from '../components/ToggleSwitch';
+import SettingsSelect from '../components/SettingsSelect';
 import { useState, useEffect } from 'react';
 import {
   Settings as SettingsIcon,
@@ -43,6 +44,7 @@ import {
   Minimize2,
 } from 'lucide-react';
 import { useUser } from '../api/UserContext';
+import { useNavigate } from 'react-router-dom';
 const LogoIcon = () => <img src="/logo.png" alt="logo" style={{height:18, width:18}} />;
 import { Link } from 'react-router-dom';
 import { getSettings, saveSettings, resetSettings } from '../api/db';
@@ -79,6 +81,7 @@ const LANGUAGES = ['en', 'es', 'fr', 'de', 'ja', 'ko', 'zh'];
 const REGIONS = ['US', 'CA', 'UK', 'EU', 'AU', 'JP', 'KR'];
 
 export default function Settings() {
+  const navigate = useNavigate();
   const { user, updateProfile } = useUser();
   const [settings, setSettings] = useState(getSettings());
   const [activeTab, setActiveTab] = useState('personalization');
@@ -202,6 +205,9 @@ export default function Settings() {
     } else {
       setSaveStatus('Failed to update profile!');
       setTimeout(() => setSaveStatus(''), 2000);
+    }
+    if (success) {
+      navigate('/');
     }
   };
 
@@ -370,7 +376,7 @@ export default function Settings() {
                 <label className="discord-input-label">
                   Font Size
                 </label>
-                <select
+                <SettingsSelect
                   value={fontSize}
                   onChange={(e) => {
                     setFontSize(e.target.value);
@@ -378,14 +384,8 @@ export default function Settings() {
                     const sizeMap = { small: '14px', medium: '16px', large: '18px' };
                     document.documentElement.style.fontSize = sizeMap[e.target.value];
                   }}
-                  className="discord-select"
-                >
-                  {FONT_SIZES.map((size) => (
-                    <option key={size} value={size}>
-                      {size.charAt(0).toUpperCase() + size.slice(1)}
-                    </option>
-                  ))}
-                </select>
+                  options={FONT_SIZES.map(size => ({ value: size, label: size.charAt(0).toUpperCase() + size.slice(1) }))}
+                />
               </div>
             </div>
           )}
@@ -555,34 +555,29 @@ export default function Settings() {
                 <h3 className="discord-section-subtitle" style={{ color: "Profile Visibility" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Profile Visibility</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                    <select
+                    <SettingsSelect
                       value={settings.profileVisibility}
                       onChange={(e) => setSettings({ ...settings, profileVisibility: e.target.value })}
-                      className="discord-select"
                     >
                       <option value="public">Public</option>
                       <option value="private">Private</option>
-                    </select>
+                    </SettingsSelect>
                     <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Profile visibility</span>
                   </label>
 
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={settings.hideHistory}
-                      onChange={(e) => setSettings({ ...settings, hideHistory: e.target.checked })}
-                      style={{ cursor: 'pointer', width: '18px', height: '18px' }}
-                    />
+                    <ToggleSwitch
+                        checked={settings.hideHistory}
+                        onChange={(val) => setSettings({ ...settings, hideHistory: val })}
+                      />
                     <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Hide watch history</span>
                   </label>
 
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={settings.hideLikes}
-                      onChange={(e) => setSettings({ ...settings, hideLikes: e.target.checked })}
-                      style={{ cursor: 'pointer', width: '18px', height: '18px' }}
-                    />
+                    <ToggleSwitch
+                        checked={settings.hideLikes}
+                        onChange={(val) => setSettings({ ...settings, hideLikes: val })}
+                      />
                     <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Hide likes & favorites</span>
                   </label>
                 </div>
@@ -615,28 +610,10 @@ export default function Settings() {
               <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <h3 className="discord-section-subtitle" style={{ color: "Two-Factor Authentication (2FA)" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Two-Factor Authentication (2FA)</h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '48px',
-                    height: '28px',
-                    borderRadius: '14px',
-                    background: settings.twoFAEnabled ? '#10b981' : 'rgba(255,255,255,0.1)',
-                    position: 'relative',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  }}
-                  onClick={() => setSettings({ ...settings, twoFAEnabled: !settings.twoFAEnabled })}
-                  >
-                    <div style={{
-                      width: '22px',
-                      height: '22px',
-                      borderRadius: '50%',
-                      background: '#fff',
-                      position: 'absolute',
-                      top: '3px',
-                      left: settings.twoFAEnabled ? '23px' : '3px',
-                      transition: 'all 0.2s',
-                    }} />
-                  </div>
+                  <ToggleSwitch
+                    checked={settings.twoFAEnabled}
+                    onChange={(val) => setSettings({ ...settings, twoFAEnabled: val })}
+                  />
                   <span style={{ fontSize: '0.95rem' }}>{settings.twoFAEnabled ? 'Enabled' : 'Disabled'}</span>
                 </div>
                 <p style={{ marginTop: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
@@ -691,39 +668,29 @@ export default function Settings() {
                 <label className="discord-input-label">
                   Default Video Quality
                 </label>
-                <select
-                  value={settings.defaultQuality}
-                  onChange={(e) => setSettings({ ...settings, defaultQuality: e.target.value })}
-                  className="discord-select"
-                >
-                  {QUALITIES.map((quality) => (
-                    <option key={quality} value={quality}>
-                      {quality.charAt(0).toUpperCase() + quality.slice(1)}
-                    </option>
-                  ))}
-                </select>
+                <SettingsSelect
+                      value={settings.defaultQuality}
+                      onChange={(e) => setSettings({ ...settings, defaultQuality: e.target.value })}
+                      options={QUALITIES.map(q => ({ value: q, label: q.charAt(0).toUpperCase() + q.slice(1) }))}
+                    />
               </div>
 
               <div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', width: 'fit-content' }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.autoplay}
-                    onChange={(e) => setSettings({ ...settings, autoplay: e.target.checked })}
-                    style={{ cursor: 'pointer', width: '18px', height: '18px' }}
-                  />
+                  <ToggleSwitch
+                      checked={settings.autoplay}
+                      onChange={(val) => setSettings({ ...settings, autoplay: val })}
+                    />
                   <span style={{ fontSize: '0.95rem' }}>Autoplay next episode</span>
                 </label>
               </div>
 
               <div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', width: 'fit-content' }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.autoResume}
-                    onChange={(e) => setSettings({ ...settings, autoResume: e.target.checked })}
-                    style={{ cursor: 'pointer', width: '18px', height: '18px' }}
-                  />
+                  <ToggleSwitch
+                      checked={settings.autoResume}
+                      onChange={(val) => setSettings({ ...settings, autoResume: val })}
+                    />
                   <span style={{ fontSize: '0.95rem' }}>Auto-resume from last position</span>
                 </label>
               </div>
@@ -732,17 +699,11 @@ export default function Settings() {
                 <label className="discord-input-label">
                   Default Playback Speed
                 </label>
-                <select
+                <SettingsSelect
                   value={settings.playbackSpeed}
                   onChange={(e) => setSettings({ ...settings, playbackSpeed: parseFloat(e.target.value) })}
-                  className="discord-select"
-                >
-                  {PLAYBACK_SPEEDS.map((speed) => (
-                    <option key={speed} value={speed}>
-                      {speed}x
-                    </option>
-                  ))}
-                </select>
+                  options={PLAYBACK_SPEEDS.map(speed => ({ value: speed, label: `${speed}x` }))}
+                />
               </div>
 
               <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
@@ -753,34 +714,22 @@ export default function Settings() {
                       <label className="discord-input-label">
                         Default Language
                       </label>
-                      <select
+                      <SettingsSelect
                         value={settings.subtitleLanguage}
                         onChange={(e) => setSettings({ ...settings, subtitleLanguage: e.target.value })}
-                        className="discord-select"
-                      >
-                        {LANGUAGES.map((lang) => (
-                          <option key={lang} value={lang}>
-                            {lang.toUpperCase()}
-                          </option>
-                        ))}
-                      </select>
+                        options={LANGUAGES.map(l => ({ value: l, label: l.toUpperCase() }))}
+                      />
                     </div>
 
                     <div>
                       <label className="discord-input-label">
                         Font Size
                       </label>
-                      <select
+                      <SettingsSelect
                         value={settings.subtitleFontSize}
                         onChange={(e) => setSettings({ ...settings, subtitleFontSize: e.target.value })}
-                        className="discord-select"
-                      >
-                        {FONT_SIZES.map((size) => (
-                          <option key={size} value={size}>
-                            {size.charAt(0).toUpperCase() + size.slice(1)}
-                          </option>
-                        ))}
-                      </select>
+                        options={FONT_SIZES.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))}
+                      />
                     </div>
 
                     <div>
@@ -807,17 +756,11 @@ export default function Settings() {
                       <label className="discord-input-label">
                         Default Language
                       </label>
-                      <select
+                      <SettingsSelect
                         value={settings.audioLanguage}
                         onChange={(e) => setSettings({ ...settings, audioLanguage: e.target.value })}
-                        className="discord-select"
-                      >
-                        {LANGUAGES.map((lang) => (
-                          <option key={lang} value={lang}>
-                            {lang.toUpperCase()}
-                          </option>
-                        ))}
-                      </select>
+                        options={LANGUAGES.map(l => ({ value: l, label: l.toUpperCase() }))}
+                      />
                     </div>
 
                     <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', width: 'fit-content' }}>
@@ -870,31 +813,22 @@ export default function Settings() {
                 <label className="discord-input-label">
                   Default Sort Order
                 </label>
-                <select
-                  value={settings.defaultSortOrder}
-                  onChange={(e) => setSettings({ ...settings, defaultSortOrder: e.target.value })}
-                  className="discord-select"
-                >
-                  {SORT_ORDERS.map((order) => (
-                    <option key={order} value={order}>
-                      {order === 'dateAdded' ? 'Date Added' : order.charAt(0).toUpperCase() + order.slice(1)}
-                    </option>
-                  ))}
-                </select>
+                <SettingsSelect
+                      value={settings.defaultSortOrder}
+                      onChange={(e) => setSettings({ ...settings, defaultSortOrder: e.target.value })}
+                      options={SORT_ORDERS.map(order => ({ value: order, label: order === 'dateAdded' ? 'Date Added' : order.charAt(0).toUpperCase() + order.slice(1) }))}
+                    />
               </div>
 
               <div>
                 <label className="discord-input-label">
                   Default Collection Privacy
                 </label>
-                <select
-                  value={settings.defaultCollectionPrivacy}
-                  onChange={(e) => setSettings({ ...settings, defaultCollectionPrivacy: e.target.value })}
-                  className="discord-select"
-                >
-                  <option value="public">Public</option>
-                  <option value="private">Private</option>
-                </select>
+                <SettingsSelect
+                      value={settings.defaultCollectionPrivacy}
+                      onChange={(e) => setSettings({ ...settings, defaultCollectionPrivacy: e.target.value })}
+                      options={[{ value: 'public', label: 'Public' }, { value: 'private', label: 'Private' }]}
+                    />
               </div>
 
               <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', width: 'fit-content' }}>

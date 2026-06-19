@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { authClient } from '../auth';
+import { updateUserPassword } from '../api/db.js';
 
 export default function SetNewPassword() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function SetNewPassword() {
   const windowParams = new URLSearchParams(window.location.search);
   const hashParams = new URLSearchParams(location.search);
   const token = windowParams.get('token') || hashParams.get('token');
+  const emailParam = windowParams.get('email') || hashParams.get('email');
 
   React.useEffect(() => {
     if (!token && location.pathname === '/set-new-password') {
@@ -41,6 +43,15 @@ export default function SetNewPassword() {
       
       if (error) {
         throw new Error(error.message || 'Failed to reset password');
+      }
+      
+      // Update local db if email parameter is present
+      if (emailParam) {
+        try {
+          await updateUserPassword(emailParam, password);
+        } catch(e) {
+          console.error('Failed to sync database password:', e);
+        }
       }
       
       setStatus('success');
