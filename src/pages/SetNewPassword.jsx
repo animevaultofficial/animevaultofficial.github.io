@@ -46,7 +46,7 @@ export default function SetNewPassword() {
       setStatus('success');
       // Redirect to home and trigger login modal
       setTimeout(() => {
-        navigate('/?login=true');
+        navigate('/');
       }, 2000);
     } catch (err) {
       console.error('Reset password error:', err);
