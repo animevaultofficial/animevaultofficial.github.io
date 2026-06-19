@@ -246,6 +246,16 @@ function createWindow() {
     },
   );
 
+  // Inject Origin header for Neon Auth requests
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ["*://*.neon.tech/*", "*://*.supabase.co/*"] },
+    (details, callback) => {
+      const requestHeaders = { ...details.requestHeaders };
+      requestHeaders["Origin"] = "https://animevaultofficial.github.io";
+      callback({ requestHeaders });
+    }
+  );
+
   // ── Lazy session setup ───────────────────────────────────────────────────────
   // Player/trailer sessions are configured on the first webview attach or
   // when the pop-out window opens, whichever comes first.
