@@ -11,7 +11,8 @@ import {
   fetchLikedItems, toggleLikeItem as dbToggleLike,
   updateUserProfile as dbUpdateUserProfile,
   fetchReminders, addReminder as dbAddReminder, removeReminder as dbRemoveReminder,
-  syncGoogleUserToDb
+  syncGoogleUserToDb,
+  createUserSession, restoreSession, deleteUserSession
 } from './db';
 import {
   getUserStats, updateUserStats,
@@ -32,9 +33,19 @@ export function UserProvider({ children }) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState('login');
 
-  const fetchSession = async () => {
+  // Try to restore session from DB on mount (survives refresh)
+  const initSession = async () => {
     try {
-      const { data, error } = await authClient.getSession();
+      // 1. First try restoring from our DB session token (fast, survives refresh)
+      const dbUser = await restoreSession();
+      if (dbUser) {
+        log('[AnimeVault Auth] Session restored from DB');
+        setUser(dbUser);
+        return;
+      }
+
+      // 2. Fall back to Neon Auth session (only works if not refreshed)
+      const { data } = await authClient.getSession();
       if (data?.session && data?.user) {
         const { user: currentUser } = data;
         const syncRes = await syncGoogleUserToDb(
@@ -43,6 +54,8 @@ export function UserProvider({ children }) {
           currentUser.image
         );
         if (syncRes.success) {
+          // Create a persistent DB session so future refreshes work
+          await createUserSession(syncRes.user.id);
           setUser(syncRes.user);
         } else {
           setUser({ id: currentUser.id, username: currentUser.email || currentUser.name || 'User', avatar: currentUser.image || null, banner: null, is_admin: false });
@@ -51,12 +64,13 @@ export function UserProvider({ children }) {
         setUser(null);
       }
     } catch (err) {
+      warn('[AnimeVault Auth] Session init failed:', err);
       setUser(null);
     }
   };
 
   useEffect(() => {
-    fetchSession();
+    initSession();
   }, []);
 
   const syncUserData = async () => {
@@ -93,7 +107,21 @@ export function UserProvider({ children }) {
       const res = await authClient.signIn.email({ email, password });
       const loggedInUser = res?.user || res?.data?.user;
       if (loggedInUser || (!res?.error && res?.data)) {
-        await fetchSession();
+        // Get Neon Auth session to extract user info
+        const { data } = await authClient.getSession();
+        if (data?.user) {
+          const syncRes = await syncGoogleUserToDb(
+            data.user.email,
+            data.user.name || data.user.email,
+            data.user.image
+          );
+          if (syncRes.success) {
+            await createUserSession(syncRes.user.id);
+            setUser(syncRes.user);
+          } else {
+            setUser({ id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false });
+          }
+        }
         setShowAuthModal(false);
         return { success: true };
       }
@@ -108,7 +136,20 @@ export function UserProvider({ children }) {
       const res = await authClient.signUp.email({ email, password });
       const signedUpUser = res?.user || res?.data?.user;
       if (signedUpUser || (!res?.error && res?.data)) {
-        await fetchSession();
+        const { data } = await authClient.getSession();
+        if (data?.user) {
+          const syncRes = await syncGoogleUserToDb(
+            data.user.email,
+            data.user.name || data.user.email,
+            data.user.image
+          );
+          if (syncRes.success) {
+            await createUserSession(syncRes.user.id);
+            setUser(syncRes.user);
+          } else {
+            setUser({ id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false });
+          }
+        }
         setShowAuthModal(false);
         return { success: true };
       }
@@ -119,7 +160,10 @@ export function UserProvider({ children }) {
   };
 
   const logout = async () => {
-    await authClient.signOut();
+    // Delete DB session first
+    await deleteUserSession();
+    // Then sign out of Neon Auth
+    try { await authClient.signOut(); } catch (e) { /* ignore */ }
     setUser(null);
   };
 

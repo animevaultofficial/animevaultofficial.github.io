@@ -1136,3 +1136,166 @@ export async function syncGoogleUserToDb(email, displayName, googleAvatar) {
     return { success: false, message: 'Sync failed' };
   }
 }
+
+// ==================== SESSION PERSISTENCE ====================
+
+// Ensure the user_sessions table exists
+async function ensureSessionTable() {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    await db`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        session_token TEXT NOT NULL UNIQUE,
+        device_id TEXT NOT NULL,
+        device_name TEXT DEFAULT 'Unknown Device',
+        created_at TIMESTAMP DEFAULT NOW(),
+        expires_at TIMESTAMP DEFAULT (NOW() + INTERVAL '30 days'),
+        last_active TIMESTAMP DEFAULT NOW()
+      )
+    `;
+    return true;
+  } catch (e) {
+    console.error('[AnimeVault DB] Failed to create user_sessions table:', e);
+    return false;
+  }
+}
+
+// Generate a random session token
+function generateSessionToken() {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Get or create a device ID for this browser
+export function getDeviceId() {
+  let deviceId = localStorage.getItem('animevault_device_id');
+  if (!deviceId) {
+    deviceId = 'dev_' + generateSessionToken().slice(0, 24);
+    localStorage.setItem('animevault_device_id', deviceId);
+  }
+  return deviceId;
+}
+
+// Create a new session for a user
+export async function createUserSession(userId) {
+  const db = await getSql();
+  if (!db) return null;
+  try {
+    await ensureSessionTable();
+    const deviceId = getDeviceId();
+    const token = generateSessionToken();
+    const deviceName = navigator.userAgent.slice(0, 100);
+
+    // Remove any existing session for this device
+    await db`DELETE FROM user_sessions WHERE user_id = ${userId} AND device_id = ${deviceId}`;
+
+    const result = await db`
+      INSERT INTO user_sessions (user_id, session_token, device_id, device_name)
+      VALUES (${userId}, ${token}, ${deviceId}, ${deviceName})
+      RETURNING id, session_token, expires_at
+    `;
+
+    if (result.length > 0) {
+      localStorage.setItem('animevault_session_token', result[0].session_token);
+      return result[0];
+    }
+    return null;
+  } catch (e) {
+    console.error('[AnimeVault DB] Failed to create session:', e);
+    return null;
+  }
+}
+
+// Restore user from a stored session token
+export async function restoreSession() {
+  const token = localStorage.getItem('animevault_session_token');
+  if (!token) return null;
+
+  const db = await getSql();
+  if (!db) return null;
+
+  try {
+    await ensureSessionTable();
+    const result = await db`
+      SELECT s.id as session_id, s.expires_at, s.user_id,
+             u.id, u.username, u.avatar, u.banner, u.is_admin, u.created_at
+      FROM user_sessions s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.session_token = ${token}
+        AND s.expires_at > NOW()
+    `;
+
+    if (result.length > 0) {
+      const row = result[0];
+      // Update last_active timestamp
+      await db`UPDATE user_sessions SET last_active = NOW() WHERE session_token = ${token}`;
+      return {
+        id: row.user_id,
+        username: row.username,
+        avatar: row.avatar,
+        banner: row.banner,
+        is_admin: row.is_admin,
+        created_at: row.created_at
+      };
+    } else {
+      // Session expired or invalid, clean up
+      localStorage.removeItem('animevault_session_token');
+      return null;
+    }
+  } catch (e) {
+    console.error('[AnimeVault DB] Failed to restore session:', e);
+    return null;
+  }
+}
+
+// Delete session (logout)
+export async function deleteUserSession() {
+  const token = localStorage.getItem('animevault_session_token');
+  if (!token) return;
+
+  const db = await getSql();
+  if (db) {
+    try {
+      await db`DELETE FROM user_sessions WHERE session_token = ${token}`;
+    } catch (e) {
+      console.error('[AnimeVault DB] Failed to delete session:', e);
+    }
+  }
+  localStorage.removeItem('animevault_session_token');
+}
+
+// Get all active sessions/devices for a user
+export async function getUserDevices(userId) {
+  const db = await getSql();
+  if (!db) return [];
+  try {
+    await ensureSessionTable();
+    const result = await db`
+      SELECT id, device_id, device_name, created_at, last_active, expires_at
+      FROM user_sessions
+      WHERE user_id = ${userId} AND expires_at > NOW()
+      ORDER BY last_active DESC
+    `;
+    return result;
+  } catch (e) {
+    console.error('[AnimeVault DB] Failed to get user devices:', e);
+    return [];
+  }
+}
+
+// Remove a specific device session
+export async function removeDeviceSession(sessionId, userId) {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    await db`DELETE FROM user_sessions WHERE id = ${sessionId} AND user_id = ${userId}`;
+    return true;
+  } catch (e) {
+    console.error('[AnimeVault DB] Failed to remove device session:', e);
+    return false;
+  }
+}
