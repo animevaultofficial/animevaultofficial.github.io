@@ -1478,6 +1478,9 @@ select {
 }
 
 @media (max-width: 600px) {
+  .anime-card-v2 .card-title, .movie-card-info h3 { font-size: 0.8rem !important; }
+  .anime-card-v2 .card-meta, .movie-year { font-size: 0.65rem !important; }
+  .badge-score, .badge-ep, .movie-type-badge { font-size: 0.6rem !important; padding: 2px 4px !important; }
   .search-page-full {
     padding: 1rem;
   }
@@ -2940,6 +2943,9 @@ select {
 }
 
 @media (max-width: 600px) {
+  .anime-card-v2 .card-title, .movie-card-info h3 { font-size: 0.8rem !important; }
+  .anime-card-v2 .card-meta, .movie-year { font-size: 0.65rem !important; }
+  .badge-score, .badge-ep, .movie-type-badge { font-size: 0.6rem !important; padding: 2px 4px !important; }
   .premium-search-page {
     padding: 1rem;
   }
@@ -4529,12 +4535,22 @@ select {
 
 /* ── Video Player Section ── */
 .player-section-v2 {
-  background: #000;
   position: sticky;
   top: 0;
   z-index: 40;
   display: flex;
   flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* ── Player Language Bar (inline SUB/DUB) ── */
+.player-lang-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  flex-wrap: wrap;
 }
 
 .video-player-wrapper-v2 {
@@ -5627,12 +5643,16 @@ select {
 
 /* -- Mobile Overrides -- */
 @media (max-width: 600px) {
+  .anime-card-v2 .card-title, .movie-card-info h3 { font-size: 0.8rem !important; }
+  .anime-card-v2 .card-meta, .movie-year { font-size: 0.65rem !important; }
+  .badge-score, .badge-ep, .movie-type-badge { font-size: 0.6rem !important; padding: 2px 4px !important; }
   .trending-grid-v2 {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
   }
   .results-grid-v2 {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
   }
   .detail-hero-content-v2 {
     flex-direction: column;
@@ -6644,6 +6664,15 @@ select {
     background: rgba(255, 255, 255, 0.04) !important;
   }
 
+  /* Enforce 3-column card grid on mobile viewports */
+  .anime-grid-v2,
+  .results-grid-v2,
+  .trending-grid-v2,
+  .movies-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.6rem !important;
+  }
+
   /* Clean full bleed layouts on mobile */
   .content {
     padding: 1rem 1rem 3rem 1rem !important;
@@ -6673,13 +6702,16 @@ select {
 }
 
 @media (max-width: 600px) {
-  /* Enforce beautiful 2-column card grid on mobile viewports */
+  .anime-card-v2 .card-title, .movie-card-info h3 { font-size: 0.8rem !important; }
+  .anime-card-v2 .card-meta, .movie-year { font-size: 0.65rem !important; }
+  .badge-score, .badge-ep, .movie-type-badge { font-size: 0.6rem !important; padding: 2px 4px !important; }
+  /* Enforce 3-column card grid on mobile viewports */
   .anime-grid-v2,
   .results-grid-v2,
   .trending-grid-v2,
   .movies-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
-    gap: 1rem !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.6rem !important;
   }
 
   /* Details Hero banner on 375px viewports */
@@ -6702,6 +6734,63 @@ select {
     min-width: 130px !important;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
   }
+
+  /* Profile Page Mobile Overrides */
+  .profile-banner-wrap {
+    height: 200px !important;
+  }
+  .profile-meta-row {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    margin-top: -70px !important;
+    padding: 0 20px !important;
+    gap: 15px !important;
+  }
+  .profile-avatar {
+    width: 120px !important;
+    height: 120px !important;
+  }
+  .profile-username {
+    justify-content: center !important;
+    font-size: 2rem !important;
+  }
+  .profile-user-info p {
+    justify-content: center !important;
+  }
+  .profile-actions-buttons {
+    justify-content: center !important;
+    width: 100% !important;
+  }
+  .profile-stats-deck {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .profile-tabs-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .profile-tabs-nav {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Profile Page Base Styles */
+.profile-banner-wrap {
+  height: 320px;
+}
+.profile-meta-row {
+  padding: 0 40px;
+  margin-top: -60px;
+}
+.profile-avatar {
+  width: 140px;
+  height: 140px;
+}
+.profile-username {
+  font-size: 2.5rem;
+}
+.profile-stats-deck {
+  grid-template-columns: repeat(4, 1fr);
 }
 
 /* Local HLS Player Premium Animations & Micro-Interactions */
@@ -7217,5 +7306,827 @@ select {
   .update-pill {
     right: 12px;
     bottom: 76px;
+  }
+}
+\n
+/* ── NEW PLAYER UI STYLES ── */
+.new-player-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem;
+  padding-top: 80px; /* Offset for header */
+}
+
+.new-player-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 2rem;
+  align-items: start;
+}
+
+.new-player-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.new-player-sidebar {
+  display: block;
+}
+
+.desktop-episodes-container {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  height: calc(100vh - 120px);
+  position: sticky;
+  top: 90px;
+  overflow-y: auto;
+}
+
+/* Hide mobile episodes on desktop */
+.mobile-episodes-only {
+  display: none;
+}
+
+.new-player-meta-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.new-player-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.new-player-badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.new-player-badges .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.new-player-badges .badge.score {
+  color: #ffaa00;
+  border-color: rgba(255, 170, 0, 0.3);
+  background: rgba(255, 170, 0, 0.1);
+}
+
+.new-player-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.new-player-tabs-nav {
+  display: flex;
+  gap: 1rem;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 0.5rem;
+}
+
+.new-player-tabs-nav .tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.new-player-tabs-nav .tab-btn.active {
+  color: var(--brand-color);
+  border-bottom-color: var(--brand-color);
+}
+
+.new-player-tab-content {
+  padding-top: 1rem;
+}
+
+.info-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .new-player-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .new-player-sidebar {
+    display: none;
+  }
+  
+  .mobile-episodes-only {
+    display: block;
+  }
+  
+  .new-player-container {
+    padding: 1rem 0;
+  }
+  
+  .new-player-meta-section, 
+  .new-player-tabs-nav, 
+  .new-player-tab-content {
+    padding: 0 1rem;
+  }
+
+  .new-player-title {
+    font-size: 1.5rem;
+  }
+
+  .new-player-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .new-player-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+
+/* ── CUSTOM VIDEO PLAYER UI ── */
+.av-custom-player {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.av-custom-player [data-media-provider] {
+  width: 100%;
+  height: 100%;
+}
+
+.av-controls {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Show controls when interacting, hovering, or paused */
+.av-custom-player[data-controls] .av-controls,
+.av-custom-player[data-paused] .av-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.av-controls-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 20%, transparent 70%, rgba(0,0,0,0.8) 100%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ── Server Selector ── */
+.server-selector-v2 {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  background: transparent;
+  border: none;
+}
+
+.av-controls-top {
+  padding: 1.5rem;
+  display: flex;
+  justify-content: flex-start;
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
+}
+
+.av-custom-player[data-controls] .av-controls-top,
+.av-custom-player[data-paused] .av-controls-top {
+  transform: translateY(0);
+}
+
+.av-player-title {
+  margin: 0;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.av-controls-bottom {
+  padding: 0 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transform: translateY(20px);
+  transition: transform 0.3s ease;
+}
+
+.av-custom-player[data-controls] .av-controls-bottom,
+.av-custom-player[data-paused] .av-controls-bottom {
+  transform: translateY(0);
+}
+
+.av-controls-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.av-toolbar-left, .av-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Buttons */
+.av-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.av-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.1);
+}
+
+/* Button states (Vidstack handles these via [data-active], [data-paused], etc) */
+.av-btn[data-state="paused"] .vds-icon-pause { display: none; }
+.av-btn[data-state="playing"] .vds-icon-play { display: none; }
+.av-btn[data-state="muted"] .vds-icon-volume { display: none; }
+.av-btn[data-state="unmuted"] .vds-icon-mute { display: none; }
+.av-btn[data-active] .vds-icon-enter { display: none; }
+.av-btn:not([data-active]) .vds-icon-exit { display: none; }
+
+/* Sliders */
+.av-slider {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.av-volume-slider {
+  width: 80px;
+}
+
+.av-slider-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.av-slider-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--brand-color);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.av-slider-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.5);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.av-slider-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.2s ease;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  will-change: left;
+}
+
+.av-slider:hover .av-slider-thumb,
+.av-slider[data-dragging] .av-slider-thumb {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.av-time-display {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.85rem;
+  font-family: monospace;
+  font-weight: 500;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.av-time-sep {
+  opacity: 0.5;
+}
+
+/* Quality Badge specific to custom layout */
+.custom-quality {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 20;
+}
+
+@media (max-width: 768px) {
+  .av-volume-slider, 
+  .av-btn:has(.vds-icon-volume) {
+    display: none;
+  }
+  .av-controls-top {
+    padding: 1rem;
+  }
+  .av-player-title {
+    font-size: 1rem;
+  }
+  .av-controls-bottom {
+    padding: 0 1rem 1rem;
+  }
+}
+
+/* ── RICH EPISODE CARDS ── */
+.rich-episodes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.rich-episode-card {
+  display: flex;
+  gap: 1rem;
+  background: var(--glass);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  align-items: center;
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.rich-episode-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--glass-border);
+}
+
+.rich-episode-card.active {
+  background: rgba(255, 26, 117, 0.1);
+  border-color: var(--brand-color);
+}
+
+.ep-card-img {
+  position: relative;
+  width: 120px;
+  height: 68px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #1a1a1a;
+}
+
+.ep-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.rich-episode-card:hover .ep-card-img img {
+  transform: scale(1.05);
+}
+
+.ep-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.rich-episode-card:hover .ep-card-overlay,
+.rich-episode-card.active .ep-card-overlay {
+  opacity: 1;
+}
+
+.play-icon {
+  color: #fff;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.rich-episode-card.active .play-icon {
+  color: var(--brand-color);
+}
+
+.watched-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 0.6rem;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.watched-badge .lucide {
+  color: #0f0;
+}
+
+.ep-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow: hidden;
+}
+
+.ep-card-number {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.ep-card-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 480px) {
+  .ep-card-img {
+    width: 100px;
+    height: 56px;
+  }
+}
+
+/* ── SERVER & LANG SELECTORS V2 ── */
+.server-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.server-group,
+.lang-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.server-btn-v2,
+.lang-btn-v2 {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--glass);
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border);
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.lang-btn-v2 {
+  text-transform: uppercase;
+}
+
+.server-btn-v2:hover,
+.lang-btn-v2:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.server-btn-v2.active,
+.lang-btn-v2.active {
+  background: var(--brand-color);
+  color: #fff;
+  border-color: var(--brand-color);
+  box-shadow: 0 4px 12px rgba(255, 26, 117, 0.3);
+}
+
+@media (min-width: 640px) {
+  .server-controls {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+/* ── Custom Player Shell ── */
+.av-player-shell {
+  position: relative;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0a0a0f;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  touch-action: pan-y;
+}
+
+.av-player-shell.av-fullscreen {
+  border-radius: 0;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+.av-player-shell.av-fullscreen .embed-container {
+  height: 100vh;
+  aspect-ratio: unset;
+}
+
+/* ── Embed Top Bar ── */
+.av-embed-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.av-player-shell:hover .av-embed-topbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.av-embed-title {
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+
+.av-embed-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.av-embed-btn {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.av-embed-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+/* ── Embed Bottom Bar ── */
+.av-embed-bottombar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+}
+
+@media (max-width: 768px) {
+  .av-embed-bottombar {
+    display: flex;
+  }
+}
+
+.av-embed-nav-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.av-embed-nav-btn:hover {
+  background: var(--brand-color);
+  color: #fff;
+  border-color: var(--brand-color);
+}
+
+.av-embed-bottombar-center {
+  flex: 1;
+  text-align: center;
+}
+
+.av-swipe-instruction {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+/* ── Swipe Hint Overlays ── */
+.av-swipe-hint {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  z-index: 30;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.av-swipe-left {
+  left: 0;
+  background: linear-gradient(90deg, rgba(255, 26, 117, 0.4) 0%, transparent 100%);
+}
+
+.av-swipe-right {
+  right: 0;
+  background: linear-gradient(-90deg, rgba(255, 26, 117, 0.4) 0%, transparent 100%);
+}
+
+/* ── Zen Mode Badge ── */
+.zen-mode-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.7);
+  color: #0f0;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  z-index: 10;
+  pointer-events: none;
+  font-family: monospace;
+}
+
+/* ── Center Controls (Vidstack direct source) ── */
+.av-controls-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  z-index: 15;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.av-custom-player[data-controls] .av-controls-center,
+.av-custom-player[data-paused] .av-controls-center {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.av-center-btn {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  padding: 14px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.av-center-btn:hover {
+  background: rgba(255, 26, 117, 0.5);
+  transform: scale(1.1);
+}
+
+.av-play-center {
+  padding: 18px;
+  background: rgba(255, 26, 117, 0.6);
+  border-color: rgba(255, 26, 117, 0.4);
+}
+
+.av-play-center:hover {
+  background: rgba(255, 26, 117, 0.8);
+}
+
+@media (max-width: 768px) {
+  .av-embed-topbar {
+    opacity: 1;
+    pointer-events: auto;
+    padding: 8px 12px;
+  }
+
+  .av-embed-title {
+    font-size: 0.8rem;
+    max-width: 50%;
+  }
+
+  .av-center-btn {
+    padding: 10px;
+  }
+
+  .av-play-center {
+    padding: 14px;
+  }
+
+  .av-controls-center {
+    gap: 1.5rem;
   }
 }

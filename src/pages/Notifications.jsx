@@ -174,18 +174,23 @@ export default function Notifications() {
                   {filteredNotifications.map((notification) => (
                     <div key={notification.id} className={`notification-card ${notification.read ? 'read' : 'unread'}`}>
                       {notification.type === 'Episodes' && notification.image && (
-                        <img src={notification.image} alt={notification.title} className="notification-image" style={{ width: '80px', height: '112px' }} />
+                        <img src={notification.image} alt={notification.title} className="notification-image" style={{ width: '80px', height: '112px', flexShrink: 0 }} />
                       )}
-                      <div className="notification-content">
-                        <h4 style={{ fontSize: '1rem' }}>{notification.title}</h4>
-                        <p className="notification-desc" style={{ fontSize: '0.875rem' }}>{notification.description}</p>
-                        {notification.type === 'Episodes' && (
-                          <button className="watch-now-btn">
-                            <Play size={14} fill="white" /> Watch Now
-                          </button>
-                        )}
+                      <div className="notification-content" style={{ minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                          <h4 style={{ fontSize: '1rem', overflowWrap: 'anywhere' }}>{notification.title}</h4>
+                          <span className="notification-time-desktop">{notification.time}</span>
+                        </div>
+                        <p className="notification-desc" style={{ fontSize: '0.875rem', overflowWrap: 'anywhere' }}>{notification.description}</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          {notification.type === 'Episodes' && (
+                            <button className="watch-now-btn" style={{ margin: 0 }}>
+                              <Play size={14} fill="white" /> Watch Now
+                            </button>
+                          )}
+                          <span className="notification-time-mobile">{notification.time}</span>
+                        </div>
                       </div>
-                      <span className="notification-time">{notification.time}</span>
                     </div>
                   ))}
                 </>
@@ -361,7 +366,12 @@ export default function Notifications() {
           color: #94a3b8;
           margin: 0;
         }
-        .notification-time {
+        .notification-time-mobile {
+          display: none;
+          color: #64748b;
+          font-size: 0.75rem;
+        }
+        .notification-time-desktop {
           color: #64748b;
           font-size: 0.75rem;
           white-space: nowrap;
@@ -430,6 +440,32 @@ export default function Notifications() {
         @media (min-width: 1024px) {
           .notifications-main {
             grid-template-columns: 1fr 320px;
+          }
+        }
+        @media (max-width: 600px) {
+          .stats-bar {
+            grid-template-columns: 1fr !important;
+          }
+          .notifications-header h1 {
+            font-size: 1.3rem !important;
+          }
+          .filter-tab {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+          }
+          .notification-time-desktop {
+            display: none !important;
+          }
+          .notification-time-mobile {
+            display: inline-block !important;
+          }
+          .notification-image {
+            width: 65px !important;
+            height: 90px !important;
+          }
+          .notification-card {
+            padding: 1rem !important;
+            gap: 0.75rem !important;
           }
         }
       `}</style>

@@ -8,10 +8,14 @@ import {
   Calendar,
   Film,
   Play,
+  PlayCircle,
+  CheckCircle2,
   AlertTriangle,
   Heart,
   Gamepad2,
   Server,
+  Tv,
+  Users
 } from "lucide-react";
 import { fetchMediaMeta } from "../api/movies";
 import CommentsSection from "../components/CommentsSection";
@@ -20,10 +24,17 @@ import electronBridge from "../utils/electronBridge";
 import { FocusableButton, FocusableLink } from "../components/FocusableWrapper";
 import { PLAYER_SOURCES, getSourceUrl } from "../utils/playerSources";
 import { storage } from "../utils/storage";
+import VideoPlayer from "../components/VideoPlayer";
 
 // Helper to get episode number
 function getEpisodeNumber(episode) {
   return episode?.episode || episode?.number || 1;
+}
+
+// Strip HTML tags for clean text (useful for descriptions)
+function stripHtml(html) {
+  if (!html) return "";
+  return html.replace(/<[^>]*>?/gm, "");
 }
 
 function MovieWatch() {
@@ -38,6 +49,11 @@ function MovieWatch() {
   const [showFallbackHint, setShowFallbackHint] = useState(false);
   const [accentColor] = useState(() => storage.get("accentColor") || "ff1a75");
   const [playing, setPlaying] = useState(false);
+  
+  // Tabs: 'episodes', 'info', 'community'
+  const isSeries = type === "tv" || type === "series";
+  const [activeTab, setActiveTab] = useState(isSeries ? "episodes" : "info");
+  
   const webviewRef = useRef(null);
 
   // Check if we're in Electron
@@ -47,6 +63,14 @@ function MovieWatch() {
   useEffect(() => {
     loadMeta();
   }, [id, type]);
+
+  // Ensure active tab makes sense when meta loads
+  useEffect(() => {
+    if (meta) {
+      if (isSeries && activeTab === 'info') setActiveTab('episodes');
+      if (!isSeries && activeTab === 'episodes') setActiveTab('info');
+    }
+  }, [meta, isSeries]);
 
   // Save player source when changed
   useEffect(() => {
@@ -86,7 +110,6 @@ function MovieWatch() {
   useEffect(() => {
     if (meta) {
       const title = meta.name || meta.title || "Unknown";
-      const isSeries = type === "tv" || type === "series";
       electronBridge.setAnimeActivity({
         title,
         episode: isSeries ? getEpisodeNumber(activeEpisode) : null,
@@ -95,7 +118,7 @@ function MovieWatch() {
       });
     }
     return () => electronBridge.clearAnimeActivity();
-  }, [meta, activeEpisode, type, id]);
+  }, [meta, activeEpisode, type, id, isSeries]);
 
   // Compute current embed URL
   const getCurrentEmbedUrl = () => {
@@ -126,7 +149,6 @@ function MovieWatch() {
     if (data && (type === "tv" || type === "series")) {
       const seasons = {};
       (data.seasons || data.videos || []).forEach((s) => {
-        // Case 1: It's a season object with actual episodes array
         if (s.season_number !== undefined && s.episodes && s.episodes.length > 0) {
           const seasonNum = s.season_number;
           if (seasonNum > 0) {
@@ -139,7 +161,6 @@ function MovieWatch() {
             }));
           }
         }
-        // Case 2: It's a season object with episode_count
         else if ((s.season_number !== undefined || s.season !== undefined) && s.episode_count !== undefined) {
           const seasonNum = s.season_number !== undefined ? s.season_number : s.season;
           if (seasonNum > 0) {
@@ -154,13 +175,11 @@ function MovieWatch() {
             }
           }
         } 
-        // Case 3: It's an individual episode
         else if (s.season !== undefined && s.episode !== undefined) {
           const seasonNum = s.season;
           if (!seasons[seasonNum]) seasons[seasonNum] = [];
           seasons[seasonNum].push(s);
         }
-        // Case 4: It's an individual episode with season_number and number
         else if (s.season_number !== undefined && s.number !== undefined) {
           const seasonNum = s.season_number;
           if (!seasons[seasonNum]) seasons[seasonNum] = [];
@@ -182,8 +201,91 @@ function MovieWatch() {
 
   function handleEpisodeClick(ep) {
     setActiveEpisode(ep);
-    document.getElementById("watch-player-iframe")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    document.querySelector(".av-player-shell")?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
+
+  const handleNextEpisode = () => {
+    if (!isSeries || activeSeason === null || !activeEpisode) return;
+    
+    // Check if seasonsMap is built
+    const seasonsMap = {};
+    if (meta.seasons || meta.videos) {
+      (meta.seasons || meta.videos || []).forEach((s) => {
+        if (s.season_number !== undefined && s.episodes && s.episodes.length > 0) {
+          if (s.season_number > 0) seasonsMap[s.season_number] = s.episodes.map(ep => ({...ep, episode: ep.episode_number, number: ep.episode_number, title: ep.name}));
+        } else if ((s.season_number !== undefined || s.season !== undefined) && s.episode_count !== undefined) {
+          const sNum = s.season_number !== undefined ? s.season_number : s.season;
+          if (sNum > 0) {
+            seasonsMap[sNum] = Array.from({length: s.episode_count}, (_, i) => ({episode: i+1, number: i+1, title: `Episode ${i+1}`}));
+          }
+        } else if (s.season !== undefined && s.episode !== undefined) {
+          if (!seasonsMap[s.season]) seasonsMap[s.season] = [];
+          seasonsMap[s.season].push(s);
+        } else if (s.season_number !== undefined && s.number !== undefined) {
+          if (!seasonsMap[s.season_number]) seasonsMap[s.season_number] = [];
+          seasonsMap[s.season_number].push({...s, episode: s.number});
+        }
+      });
+    }
+    const seasonNumbers = Object.keys(seasonsMap).map(Number).sort((a, b) => a - b);
+    
+    if (!seasonsMap[activeSeason]) return;
+    const sortedEps = seasonsMap[activeSeason].sort((a, b) => (a.episode || 0) - (b.episode || 0));
+    const currentIndex = sortedEps.findIndex(ep => ep.episode === activeEpisode.episode);
+    
+    if (currentIndex >= 0 && currentIndex < sortedEps.length - 1) {
+      handleEpisodeClick(sortedEps[currentIndex + 1]);
+    } else {
+      const nextSeasonIdx = seasonNumbers.findIndex(s => s === activeSeason) + 1;
+      if (nextSeasonIdx < seasonNumbers.length) {
+        const nextSeason = seasonNumbers[nextSeasonIdx];
+        setActiveSeason(nextSeason);
+        const nextSeasonEps = seasonsMap[nextSeason].sort((a, b) => (a.episode || 0) - (b.episode || 0));
+        if (nextSeasonEps.length > 0) handleEpisodeClick(nextSeasonEps[0]);
+      }
+    }
+  };
+
+  const handlePrevEpisode = () => {
+    if (!isSeries || activeSeason === null || !activeEpisode) return;
+    
+    const seasonsMap = {};
+    if (meta.seasons || meta.videos) {
+      (meta.seasons || meta.videos || []).forEach((s) => {
+        if (s.season_number !== undefined && s.episodes && s.episodes.length > 0) {
+          if (s.season_number > 0) seasonsMap[s.season_number] = s.episodes.map(ep => ({...ep, episode: ep.episode_number, number: ep.episode_number, title: ep.name}));
+        } else if ((s.season_number !== undefined || s.season !== undefined) && s.episode_count !== undefined) {
+          const sNum = s.season_number !== undefined ? s.season_number : s.season;
+          if (sNum > 0) {
+            seasonsMap[sNum] = Array.from({length: s.episode_count}, (_, i) => ({episode: i+1, number: i+1, title: `Episode ${i+1}`}));
+          }
+        } else if (s.season !== undefined && s.episode !== undefined) {
+          if (!seasonsMap[s.season]) seasonsMap[s.season] = [];
+          seasonsMap[s.season].push(s);
+        } else if (s.season_number !== undefined && s.number !== undefined) {
+          if (!seasonsMap[s.season_number]) seasonsMap[s.season_number] = [];
+          seasonsMap[s.season_number].push({...s, episode: s.number});
+        }
+      });
+    }
+    const seasonNumbers = Object.keys(seasonsMap).map(Number).sort((a, b) => a - b);
+
+    if (!seasonsMap[activeSeason]) return;
+    const sortedEps = seasonsMap[activeSeason].sort((a, b) => (a.episode || 0) - (b.episode || 0));
+    const currentIndex = sortedEps.findIndex(ep => ep.episode === activeEpisode.episode);
+    
+    if (currentIndex > 0) {
+      handleEpisodeClick(sortedEps[currentIndex - 1]);
+    } else {
+      const prevSeasonIdx = seasonNumbers.findIndex(s => s === activeSeason) - 1;
+      if (prevSeasonIdx >= 0) {
+        const prevSeason = seasonNumbers[prevSeasonIdx];
+        setActiveSeason(prevSeason);
+        const prevSeasonEps = seasonsMap[prevSeason].sort((a, b) => (a.episode || 0) - (b.episode || 0));
+        if (prevSeasonEps.length > 0) handleEpisodeClick(prevSeasonEps[prevSeasonEps.length - 1]);
+      }
+    }
+  };
 
   if (loading)
     return (
@@ -203,11 +305,9 @@ function MovieWatch() {
       </div>
     );
 
-  const isSeries = type === "tv" || type === "series";
   const seasonsMap = {};
   if (isSeries && (meta.seasons || meta.videos)) {
     (meta.seasons || meta.videos || []).forEach((s) => {
-      // Case 1: It's a season object with actual episodes array
       if (s.season_number !== undefined && s.episodes && s.episodes.length > 0) {
         const seasonNum = s.season_number;
         if (seasonNum > 0) {
@@ -220,7 +320,6 @@ function MovieWatch() {
           }));
         }
       }
-      // Case 2: It's a season object with episode_count
       else if ((s.season_number !== undefined || s.season !== undefined) && s.episode_count !== undefined) {
         const seasonNum = s.season_number !== undefined ? s.season_number : s.season;
         if (seasonNum > 0) {
@@ -235,13 +334,11 @@ function MovieWatch() {
           }
         }
       } 
-      // Case 3: It's an individual episode
       else if (s.season !== undefined && s.episode !== undefined) {
         const seasonNum = s.season;
         if (!seasonsMap[seasonNum]) seasonsMap[seasonNum] = [];
         seasonsMap[seasonNum].push(s);
       }
-      // Case 4: It's an individual episode with season_number and number
       else if (s.season_number !== undefined && s.number !== undefined) {
         const seasonNum = s.season_number;
         if (!seasonsMap[seasonNum]) seasonsMap[seasonNum] = [];
@@ -255,182 +352,240 @@ function MovieWatch() {
 
   const sNum = activeSeason || 1;
   const eNum = getEpisodeNumber(activeEpisode);
+  const mediaTitle = meta.name || meta.title || "Unknown";
+  const posterUrl = meta.poster || (meta.poster_path ? `https://image.tmdb.org/t/p/w500${meta.poster_path}` : "");
+  const bannerUrl = meta.background || meta.backdrop_path ? `https://image.tmdb.org/t/p/original${meta.backdrop_path}` : posterUrl;
 
   return (
-    <div className="watch-detail-container">
-      <div className="watch-hero-bg" style={{ backgroundImage: `url(${meta.background})` }}>
-        <div className="watch-hero-overlay" />
-      </div>
-      <div className="watch-main-layout">
-        <FocusableLink to="/dramas-movies" className="watch-back-link">
-          <ArrowLeft size={18} /> Back to Movies & Dramas
-        </FocusableLink>
-        <div className="watch-meta-showcase">
-          <div className="showcase-poster">
-            <img
-              src={meta.poster || `https://live.metahub.space/poster/medium/${id}/img`}
-              alt={meta.name}
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = "https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?q=80&w=300&auto=format&fit=crop";
-              }}
-            />
-          </div>
-          <div className="showcase-details">
-            <div className="showcase-badges">
-              {meta.imdbRating && (
-                <span className="badge-rating">
-                  <Star size={14} fill="currentColor" /> {meta.imdbRating}
-                </span>
-              )}
-              {meta.runtime && (
-                <span className="badge-runtime">
-                  <Clock size={14} /> {meta.runtime}
-                </span>
-              )}
-              {meta.releaseInfo && (
-                <span className="badge-year">
-                  <Calendar size={14} /> {meta.releaseInfo}
-                </span>
-              )}
-              <span className="badge-type">{isSeries ? "TV SERIES" : "MOVIE"}</span>
+    <div className="new-player-container">
+      {/* ── Hero Banner ── */}
+      <div className="detail-hero-v2">
+        <img
+          className="detail-banner-v2"
+          src={bannerUrl}
+          alt="Media cover"
+        />
+        <div className="detail-hero-overlay-v2" />
+
+        <div className="detail-hero-content-v2">
+          <img
+            className="detail-poster-v2"
+            src={posterUrl}
+            alt={mediaTitle}
+          />
+          <div className="detail-info-v2">
+            <h1 className="detail-title-v2">
+              {mediaTitle}
+              <small style={{ fontSize: '0.6em', marginLeft: '0.5rem', color: 'var(--text-secondary)' }}>
+                watching in anime vault
+              </small>
+            </h1>
+            <div className="detail-meta-v2">
+              {meta.imdbRating && <span className="score"><Star size={16} fill="currentColor" /> {meta.imdbRating}</span>}
+              <span><Tv size={16} /> {isSeries ? "TV SERIES" : "MOVIE"}</span>
+              {meta.runtime && <span><Clock size={16} /> {meta.runtime}</span>}
+              {meta.releaseInfo && <span><Calendar size={16} /> {meta.releaseInfo}</span>}
             </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", marginBottom: "12px" }}>
-              <h1 style={{ margin: 0 }}>{meta.name}</h1>
-              <FocusableButton
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "6px 14px",
-                  fontSize: "0.8rem",
-                  fontWeight: "800",
-                  borderRadius: "10px",
-                  color: isLiked(id, type) ? "#ff1a75" : "var(--text-secondary)",
-                  borderColor: isLiked(id, type) ? "#ff1a75" : "var(--glass-border)",
-                  background: isLiked(id, type) ? "rgba(255, 26, 117, 0.1)" : "var(--glass)",
-                  border: "1px solid",
-                  boxShadow: isLiked(id, type) ? "0 0 10px rgba(255, 26, 117, 0.2)" : "none",
-                  transition: "all 0.2s ease",
-                  cursor: "pointer",
-                }}
+            <div className="detail-actions-v2">
+              <button
+                className="btn-play-v2"
                 onClick={() => {
-                  const poster = meta.poster_path ? `https://image.tmdb.org/t/p/w500${meta.poster_path}` : "";
-                  toggleLike(id, type, meta.name || meta.title, poster);
+                  document.querySelector(".av-player-shell")?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }}
               >
-                <Heart size={16} fill={isLiked(id, type) ? "#ff1a75" : "none"} />
-                {isLiked(id, type) ? "Liked" : "Like"}
-              </FocusableButton>
+                <Play size={20} fill="currentColor" /> Watch Now
+              </button>
+              <button 
+                className="btn-info-v2"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '8px',
+                  color: isLiked(id, type) ? '#ff1a75' : 'var(--text-secondary)',
+                  borderColor: isLiked(id, type) ? '#ff1a75' : 'var(--glass-border)',
+                  background: isLiked(id, type) ? 'rgba(255,26,117,0.1)' : 'var(--glass)',
+                  boxShadow: isLiked(id, type) ? '0 0 10px rgba(255,26,117,0.2)' : 'none',
+                  transition: 'all 0.2s ease', cursor: 'pointer'
+                }}
+                onClick={() => toggleLike(id, type, mediaTitle, posterUrl)}
+              >
+                <Heart size={20} fill={isLiked(id, type) ? '#ff1a75' : 'none'} /> 
+                {isLiked(id, type) ? 'Favorited' : 'Add to Collection'}
+              </button>
             </div>
-            {meta.genres?.length > 0 && (
-              <div className="showcase-genres" style={{ marginTop: 0 }}>
-                {meta.genres.map((g) => (
-                  <span key={g} className="genre-pill">{g}</span>
-                ))}
-              </div>
-            )}
-            <p className="showcase-synopsis">{meta.description}</p>
           </div>
         </div>
-        <div className="watch-player-wrapper">
-          <div className="watch-player-header" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <Film size={20} className="glow-icon" />
-              <h2 style={{ fontSize: "1.1rem" }}>
-                Streaming: {isSeries && activeEpisode ? `S${activeSeason} E${getEpisodeNumber(activeEpisode)}` : meta.name}
-              </h2>
-            </div>
-            <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "4px" }}>
-              {PLAYER_SOURCES.map((src) => (
-                <FocusableButton
-                  key={src.id}
-                  style={{
-                    padding: "6px 12px",
-                    fontSize: "0.8rem",
-                    borderRadius: "6px",
-                    background: activeSourceId === src.id ? "#ff1a75" : "var(--glass)",
-                    color: activeSourceId === src.id ? "#fff" : "var(--text-secondary)",
-                    border: "1px solid",
-                    borderColor: activeSourceId === src.id ? "#ff1a75" : "var(--glass-border)",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                    transition: "all 0.2s ease"
-                  }}
-                  onClick={() => {
-                    setActiveSourceId(src.id);
-                    setIframeLoaded(false);
-                  }}
-                >
-                  <Server size={14} style={{ display: "inline-block", marginRight: "6px", verticalAlign: "middle" }} />
-                  {src.label}
-                </FocusableButton>
-              ))}
-            </div>
-          </div>
-          <div className="player-wrap" style={{ marginTop: "12px" }}>
-            {currentEmbedUrl ? (
-              <>
-                {!iframeLoaded && (
-                  <div className="player-loading-overlay" style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 10 }}>
-                    <div className="spinner" />
-                    <p style={{ color: "rgba(255,255,255,0.5)", marginTop: "12px" }}>Loading {PLAYER_SOURCES.find(s => s.id === activeSourceId)?.label}...</p>
-                  </div>
-                )}
-                {isElectron ? (
-                  <webview
-                    ref={webviewRef}
-                    id="watch-player-webview"
-                    key={currentEmbedUrl}
-                    src={currentEmbedUrl}
-                    partition="persist:player"
-                    allowpopups="false"
-                    title={meta?.name || meta?.title}
-                    allowfullscreen
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      position: "absolute",
-                      inset: 0,
-                      zIndex: 1,
-                      border: "none",
-                    }}
-                    onDidFinishLoad={() => setIframeLoaded(true)}
-                    onDidFailLoad={() => setIframeLoaded(true)}
-                  />
-                ) : (
-                  <iframe
-                    id="watch-player-iframe"
-                    key={currentEmbedUrl}
-                    src={currentEmbedUrl}
-                    title={meta?.name || meta?.title}
-                    allowFullScreen
-                    frameBorder="0"
-                    allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-                    style={{ width: "100%", height: "100%", position: "absolute", inset: 0, zIndex: 1 }}
-                    onLoad={() => setIframeLoaded(true)}
-                  />
-                )}
-              </>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "rgba(255,255,255,0.3)" }}>
+      </div>
+
+      <div className="new-player-grid">
+        {/* LEFT COLUMN: Player & Main Info */}
+        <div className="new-player-main">
+          
+          {/* ── Video Player ── */}
+          <div className="player-section-v2">
+            {!currentEmbedUrl ? (
+              <div className="video-player-error">
+                <AlertTriangle size={48} className="spin" />
                 <p>No streams available.</p>
               </div>
+            ) : (
+              <VideoPlayer
+                sources={[]}
+                poster={posterUrl}
+                title={isSeries && activeEpisode ? `S${activeSeason} E${getEpisodeNumber(activeEpisode)}` : mediaTitle}
+                key={currentEmbedUrl || activeEpisode?.id}
+                embedUrl={currentEmbedUrl}
+                isZen={false}
+                onNextEpisode={isSeries ? handleNextEpisode : undefined}
+                onPrevEpisode={isSeries ? handlePrevEpisode : undefined}
+              />
             )}
           </div>
-          <div className={`player-help-banner ${showFallbackHint ? "needs-attention" : ""}`}>
-            <div>
-              <strong>{showFallbackHint ? "Still loading?" : "Playback tip"}</strong>
-              <p>Use your remote arrows or keyboard to control playback. If the stream stalls, reload the page.</p>
-            </div>
+
+          {/* ── Server Selection Bar ── */}
+          <div className="player-lang-bar">
+            {PLAYER_SOURCES.map((src) => (
+              <button
+                key={src.id}
+                className={`lang-btn-v2 ${activeSourceId === src.id ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveSourceId(src.id);
+                  setIframeLoaded(false);
+                }}
+              >
+                <Server size={14} />
+                {src.label}
+              </button>
+            ))}
           </div>
-          {isSeries && seasonNumbers.length > 0 && (
-            <div className="watch-series-selector">
-              <div className="season-tabs-row">
+
+          {/* ── Tabs Navigation ── */}
+          <div className="new-player-tabs-nav">
+            {isSeries && (
+              <button className={`tab-btn ${activeTab === 'episodes' ? 'active' : ''}`} onClick={() => setActiveTab('episodes')}>Episodes</button>
+            )}
+            <button className={`tab-btn ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>Info</button>
+            <button className={`tab-btn ${activeTab === 'community' ? 'active' : ''}`} onClick={() => setActiveTab('community')}>Community</button>
+          </div>
+
+          {/* ── Tab Content ── */}
+          <div className="new-player-tab-content">
+            {isSeries && activeTab === 'episodes' && (
+              <div className="mobile-episodes-only">
+                <div className="ep-page-selector" style={{ marginBottom: "1rem" }}>
+                  {seasonNumbers.map((sNum) => (
+                    <button
+                      key={sNum}
+                      className={`ep-page-btn ${activeSeason === sNum ? 'active' : ''}`}
+                      onClick={() => {
+                        setActiveSeason(sNum);
+                        const sortedEps = seasonsMap[sNum].sort((a, b) => (a.episode || 0) - (b.episode || 0));
+                        if (sortedEps.length > 0) setActiveEpisode(sortedEps[0]);
+                      }}
+                    >
+                      Season {sNum === 0 ? "Specials" : sNum}
+                    </button>
+                  ))}
+                </div>
+                <div className="episodes-container-v2">
+                  {seasonsMap[activeSeason] && seasonsMap[activeSeason].length > 0 ? (
+                    <div className="rich-episodes-list">
+                      {seasonsMap[activeSeason]
+                        .sort((a, b) => (a.episode || 0) - (b.episode || 0))
+                        .map((ep) => {
+                          const isActive = activeEpisode?.episode === ep.episode;
+                          return (
+                            <button
+                              key={ep.id || ep.episode}
+                              className={`rich-episode-card ${isActive ? 'active' : ''}`}
+                              onClick={() => handleEpisodeClick(ep)}
+                            >
+                              <div className="ep-card-img">
+                                <img 
+                                  src={ep.thumbnail || `https://episodes.metahub.space/${id}/${activeSeason}/${ep.episode}/w780.jpg`}
+                                  alt={ep.title || `E${ep.episode}`} 
+                                  onError={(e) => { e.target.src = posterUrl; }}
+                                />
+                                <div className="ep-card-overlay">
+                                  <PlayCircle size={24} className="play-icon" />
+                                </div>
+                              </div>
+                              <div className="ep-card-info">
+                                <span className="ep-card-number">Episode {ep.episode}</span>
+                                <span className="ep-card-title" title={ep.title || `Episode ${ep.episode}`}>{ep.title || `Episode ${ep.episode}`}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <p>No episodes available for this season.</p>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {activeTab === 'info' && (
+              <div className="info-tab-content">
+                <div className="details-section-v2">
+                  <h2>Synopsis</h2>
+                  <p>{stripHtml(meta.description)}</p>
+                </div>
+                {meta.genres?.length > 0 && (
+                  <div className="details-section-v2">
+                    <h2>Genres</h2>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {meta.genres.map(g => (
+                        <span key={g} style={{
+                          background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                          padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem'
+                        }}>
+                          {g}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="sidebar-block-v2">
+                  <h3>Details</h3>
+                  <div className="info-list-v2">
+                    <div className="info-row-v2">
+                      <span className="info-label-v2">Type</span>
+                      <span className="info-value-v2">{isSeries ? "TV SERIES" : "MOVIE"}</span>
+                    </div>
+                    {meta.releaseInfo && (
+                      <div className="info-row-v2">
+                        <span className="info-label-v2">Release</span>
+                        <span className="info-value-v2">{meta.releaseInfo}</span>
+                      </div>
+                    )}
+                    {meta.runtime && (
+                      <div className="info-row-v2">
+                        <span className="info-label-v2">Runtime</span>
+                        <span className="info-value-v2">{meta.runtime}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'community' && (
+              <CommentsSection mediaId={id} />
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Desktop Sidebar (Only for Series) */}
+        {isSeries && (
+          <aside className="new-player-sidebar">
+            <div className="desktop-episodes-container details-section-v2">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <h2 style={{ margin: 0 }}>Episodes</h2>
+              </div>
+              <div className="ep-page-selector" style={{ marginBottom: "1rem" }}>
                 {seasonNumbers.map((sNum) => (
-                  <FocusableButton
+                  <button
                     key={sNum}
-                    className={`season-tab-btn ${activeSeason === sNum ? "active" : ""}`}
+                    className={`ep-page-btn ${activeSeason === sNum ? 'active' : ''}`}
                     onClick={() => {
                       setActiveSeason(sNum);
                       const sortedEps = seasonsMap[sNum].sort((a, b) => (a.episode || 0) - (b.episode || 0));
@@ -438,50 +593,47 @@ function MovieWatch() {
                     }}
                   >
                     Season {sNum === 0 ? "Specials" : sNum}
-                  </FocusableButton>
+                  </button>
                 ))}
               </div>
-              <div className="tv-selector-hint">
-                <Gamepad2 size={16} /> TV mode: focus a card and use arrow keys, Enter, or OK to select episodes.
-              </div>
-              <div className="episode-selector-grid">
-                {activeSeason !== null &&
-                  seasonsMap[activeSeason]
-                    ?.sort((a, b) => (a.episode || 0) - (b.episode || 0))
-                    .map((ep) => {
-                      const isActive = activeEpisode?.episode === ep.episode;
-                      return (
-                        <FocusableButton
-                          key={ep.id || ep.episode}
-                          className={`episode-card-btn tv-focus-card ${isActive ? "active" : ""}`}
-                          aria-pressed={isActive}
-                          onClick={() => handleEpisodeClick(ep)}
-                        >
-                          <div className="ep-card-thumb">
-                            <img
-                              src={ep.thumbnail || `https://episodes.metahub.space/${id}/${activeSeason}/${ep.episode}/w780.jpg`}
-                              alt={ep.title || `E${ep.episode}`}
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?q=80&w=300&auto=format&fit=crop";
-                              }}
-                            />
-                            <div className="ep-card-overlay">
-                              <Play fill="white" size={16} />
+              <div className="episodes-container-v2">
+                {seasonsMap[activeSeason] && seasonsMap[activeSeason].length > 0 ? (
+                  <div className="rich-episodes-list">
+                    {seasonsMap[activeSeason]
+                      .sort((a, b) => (a.episode || 0) - (b.episode || 0))
+                      .map((ep) => {
+                        const isActive = activeEpisode?.episode === ep.episode;
+                        return (
+                          <button
+                            key={ep.id || ep.episode}
+                            className={`rich-episode-card ${isActive ? 'active' : ''}`}
+                            onClick={() => handleEpisodeClick(ep)}
+                          >
+                            <div className="ep-card-img">
+                              <img 
+                                src={ep.thumbnail || `https://episodes.metahub.space/${id}/${activeSeason}/${ep.episode}/w780.jpg`}
+                                alt={ep.title || `E${ep.episode}`} 
+                                onError={(e) => { e.target.src = posterUrl; }}
+                              />
+                              <div className="ep-card-overlay">
+                                <PlayCircle size={24} className="play-icon" />
+                              </div>
                             </div>
-                            <span className="ep-card-num">EP {ep.episode}</span>
-                          </div>
-                          <div className="ep-card-details">
-                            <h4>{ep.title || `Episode ${ep.episode}`}</h4>
-                          </div>
-                        </FocusableButton>
-                      );
-                    })}
+                            <div className="ep-card-info">
+                              <span className="ep-card-number">Episode {ep.episode}</span>
+                              <span className="ep-card-title" title={ep.title || `Episode ${ep.episode}`}>{ep.title || `Episode ${ep.episode}`}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <p>No episodes available for this season.</p>
+                )}
               </div>
             </div>
-          )}
-          <CommentsSection mediaId={id} />
-        </div>
+          </aside>
+        )}
       </div>
     </div>
   );

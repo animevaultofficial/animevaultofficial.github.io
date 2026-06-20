@@ -49,6 +49,11 @@ export default function Schedule() {
     if (isReminded(anime.scheduleId)) {
       await removeReminder(anime.scheduleId);
     } else {
+      // Request browser notification permission if not already granted
+      if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+
       // Add reminder
       await addReminder(anime.scheduleId, anime.id, anime.title, anime.episode, anime.airingAt, anime.image);
 

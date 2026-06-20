@@ -236,7 +236,7 @@ export default function Stats() {
     <div className="stats-page" style={{ padding: '1rem' }}>
       <div className="stats-container" style={{ maxWidth: '100%', width: '100%' }}>
         {/* Top Section - Level & Activity */}
-        <div className="top-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+        <div className="top-section" style={{ display: 'grid', gap: '1.5rem', marginBottom: '2rem' }}>
           {/* Level Card */}
           <div className="level-card" style={{ 
             background: 'linear-gradient(135deg, rgba(255,26,117,0.15) 0%, rgba(15,23,42,0.8) 100%)', 
@@ -302,23 +302,25 @@ export default function Stats() {
           }}>
             <h3 style={{ margin: '0 0 1rem 0', color: 'white', fontSize: '1.1rem' }}>Activity Heatmap</h3>
             <p style={{ color: '#94a3b8', margin: '0 0 1rem 0', fontSize: '0.85rem' }}>Consistent Daily Viewer</p>
-            <div style={{ 
-              display: 'grid', gridTemplateColumns: 'repeat(52, 1fr)', gap: '2px'
-            }}>
-              {activityHeatmap.map((count, i) => {
-                let background = 'rgba(255,255,255,0.05)';
-                if (count > 0) {
-                  if (count >= 3) background = 'rgba(255,26,117,0.8)';
-                  else if (count >= 2) background = 'rgba(255,26,117,0.5)';
-                  else background = 'rgba(255,26,117,0.2)';
-                }
-                return (
-                  <div key={i} style={{ 
-                    width: '8px', height: '8px', borderRadius: '2px',
-                    background: background
-                  }} />
-                );
-              })}
+            <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch', paddingBottom: '0.5rem' }}>
+              <div style={{ 
+                display: 'grid', gridTemplateColumns: 'repeat(52, 1fr)', gap: '2px', minWidth: '520px'
+              }}>
+                {activityHeatmap.map((count, i) => {
+                  let background = 'rgba(255,255,255,0.05)';
+                  if (count > 0) {
+                    if (count >= 3) background = 'rgba(255,26,117,0.8)';
+                    else if (count >= 2) background = 'rgba(255,26,117,0.5)';
+                    else background = 'rgba(255,26,117,0.2)';
+                  }
+                  return (
+                    <div key={i} style={{ 
+                      width: '8px', height: '8px', borderRadius: '2px',
+                      background: background
+                    }} />
+                  );
+                })}
+              </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem', alignItems: 'center' }}>
               <span style={{ color: '#64748b', fontSize: '0.75rem' }}>Year</span>
@@ -358,7 +360,7 @@ export default function Stats() {
         {/* Anime Wrapped */}
         <div className="anime-wrapped" style={{ marginBottom: '2rem' }}>
           <h3 style={{ color: 'white', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>Anime Wrapped</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
             {/* Favorite Anime */}
             <div style={{ 
               background: 'linear-gradient(135deg, rgba(255,26,117,0.12) 0%, rgba(15,23,42,0.9) 100%)', 
@@ -431,7 +433,7 @@ export default function Stats() {
         </div>
 
         {/* Bottom Section - Watch History & Achievements */}
-        <div className="bottom-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+        <div className="bottom-section" style={{ display: 'grid', gap: '1.5rem' }}>
           {/* Watch History */}
           <div style={{ 
             background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,255,255,0.1)', 
@@ -445,19 +447,16 @@ export default function Stats() {
                   <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ 
                       display: 'flex', flexDirection: 'column', alignItems: 'center', 
-                      width: '80px', color: '#64748b', fontSize: '0.75rem'
+                      width: '80px', color: '#64748b', fontSize: '0.75rem', flexShrink: 0
                     }}>
                       <span>{new Date(item.watchedAt).toLocaleTimeString()}</span>
                       <div style={{ width: '2px', height: '40px', background: 'rgba(255,26,117,0.3)' }} />
                     </div>
-                    <div style={{ flex: 1, padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
-                      <p style={{ color: 'white', margin: '0 0 0.25rem 0', fontSize: '0.9rem' }}>{item.title}</p>
+                    <div style={{ flex: 1, padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', minWidth: 0 }}>
+                      <p style={{ color: 'white', margin: '0 0 0.25rem 0', fontSize: '0.9rem', overflowWrap: 'anywhere' }}>{item.title}</p>
                       <p style={{ color: '#64748b', margin: '0', fontSize: '0.8rem' }}>
                         Watched {new Date(item.watchedAt).toLocaleDateString()}
                       </p>
-                    </div>
-                    <div style={{ color: '#64748b', fontSize: '0.75rem' }}>
-                      {new Date(item.watchedAt).toLocaleTimeString()}
                     </div>
                   </div>
                 ))}
@@ -474,9 +473,9 @@ export default function Stats() {
             boxShadow: '0 0 20px rgba(255,26,117,0.1)'
           }}>
             <h3 style={{ color: 'white', margin: '0 0 1rem 0', fontSize: '1.1rem' }}>Achievement Showcase</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }}>
+            <div className="achievements-grid" style={{ display: 'grid', gap: '0.75rem' }}>
               {mockAchievements.map((achievement, index) => (
-                <div key={achievement.id} style={{ 
+                <div key={achievement.id} className="achievement-card" style={{ 
                   display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem',
                   background: `linear-gradient(135deg, ${
                     achievement.rarity === 'Ultra Rare' ? 'rgba(255,26,117,0.2)' :
@@ -491,13 +490,13 @@ export default function Stats() {
                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                   <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{achievement.icon}</div>
-                  <p style={{ color: 'white', fontSize: '0.75rem', margin: '0 0 0.25rem 0', textAlign: 'center' }}>{achievement.title}</p>
+                  <p style={{ color: 'white', fontSize: '0.75rem', margin: '0 0 0.25rem 0', textAlign: 'center', overflowWrap: 'anywhere' }}>{achievement.title}</p>
                   <p style={{ color: '#94a3b8', fontSize: '0.65rem', margin: 0 }}>{achievement.rarity}</p>
                 </div>
               ))}
               {/* Empty slots */}
               {[1,2,3,4,5].map((i) => (
-                <div key={`empty-${i}`} style={{ 
+                <div key={`empty-${i}`} className="achievement-card empty-slot" style={{ 
                   display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem',
                   background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
                   borderRadius: '12px', opacity: '0.5'
@@ -512,7 +511,7 @@ export default function Stats() {
         {/* Favorite Selectors */}
         <section style={{ marginTop: '2rem', marginBottom: '2rem' }}>
           <h3 style={{ color: 'white', margin: '0 0 1.5rem', fontSize: '1.25rem' }}>Choose Your Favorites</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
             {/* Favorite Anime */}
             <div style={{ background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,26,117,0.3)', borderRadius: '16px', padding: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -653,6 +652,40 @@ export default function Stats() {
           )}
         </section>
       </div>
+
+      <style jsx>{`
+        .top-section, .bottom-section {
+          grid-template-columns: 1fr 1fr;
+        }
+        .achievements-grid {
+          grid-template-columns: repeat(5, 1fr);
+        }
+        @media (max-width: 768px) {
+          .top-section, .bottom-section {
+            grid-template-columns: 1fr !important;
+          }
+          .achievements-grid {
+            grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)) !important;
+          }
+          .achievement-card {
+            padding: 0.5rem !important;
+          }
+          .achievement-card div {
+            font-size: 2rem !important;
+          }
+        }
+        @media (max-width: 600px) {
+          .achievements-grid {
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
+          }
+          .achievement-card {
+            padding: 0.4rem !important;
+          }
+          .achievement-card p {
+            font-size: 0.65rem !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

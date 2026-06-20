@@ -42,8 +42,10 @@ import Settings from './pages/Settings';
 import SearchModal from './components/SearchModal';
 import ForgotPassword from './pages/ForgotPassword';
 import SetNewPassword from './pages/SetNewPassword';
+import { useReminderNotifications } from './hooks/useReminderNotifications';
 
 function App() {
+  useReminderNotifications();
   const { user, setShowAuthModal, setAuthTab } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');
@@ -71,9 +73,6 @@ function App() {
         applyAccentColor(savedAccent);
         applyTheme(savedTheme, savedCustomVars);
         
-        const fontSize = storage.get('fontSize') || 'medium';
-        const sizeMap = { small: '14px', medium: '16px', large: '18px' };
-        document.documentElement.style.fontSize = sizeMap[fontSize];
       } catch (err) {
         console.error('Failed to load global site settings:', err);
       } finally {
@@ -81,6 +80,21 @@ function App() {
       }
     }
     loadSettings();
+  }, []);
+
+  // Handle responsive base font size scaling to zoom out slightly on mobile
+  useEffect(() => {
+    function adjustFontSize() {
+      const savedFontSizeSetting = storage.get('fontSize') || 'medium';
+      const isMobile = window.innerWidth <= 768;
+      const sizeMap = isMobile
+        ? { small: '12px', medium: '14px', large: '16px' }
+        : { small: '14px', medium: '16px', large: '18px' };
+      document.documentElement.style.fontSize = sizeMap[savedFontSizeSetting];
+    }
+    adjustFontSize();
+    window.addEventListener('resize', adjustFontSize);
+    return () => window.removeEventListener('resize', adjustFontSize);
   }, []);
 
   // Redirect token from root to SetNewPassword page
@@ -365,6 +379,16 @@ function App() {
               <Info size={18} />
               <span>About</span>
             </FocusableNavLink>
+            {user && (
+              <FocusableNavLink
+                to="/profile"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
+              >
+                <User size={18} />
+                <span>Profile</span>
+              </FocusableNavLink>
+            )}
           </div>
         </div>
       )}

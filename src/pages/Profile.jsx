@@ -122,7 +122,7 @@ export default function Profile() {
       
       {/* ── BANNER CONTAINER ── */}
       <div className="profile-banner-wrap" style={{
-        position: 'relative', height: '320px', borderRadius: '20px',
+        position: 'relative', borderRadius: '20px',
         overflow: 'hidden', border: '1px solid rgba(255, 26, 117, 0.2)',
         boxShadow: '0 10px 40px rgba(0,0,0,0.5)', background: '#0a0a14'
       }}>
@@ -172,12 +172,12 @@ export default function Profile() {
       {/* ── USER INFO / AVATAR LAYER ── */}
       <div className="profile-meta-row" style={{
         display: 'flex', gap: '30px', alignItems: 'flex-end',
-        padding: '0 40px', marginTop: '-60px', position: 'relative', zIndex: 5
+        position: 'relative', zIndex: 5
       }}>
         {/* Floating Circle Avatar */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <div style={{
-            width: '140px', height: '140px', borderRadius: '50%',
+        <div className="profile-avatar-wrapper" style={{ position: 'relative', flexShrink: 0 }}>
+          <div className="profile-avatar" style={{
+            borderRadius: '50%',
             overflow: 'hidden', border: '5px solid #06060c',
             boxShadow: '0 8px 30px rgba(0,0,0,0.6)', background: '#121220'
           }}>
@@ -202,11 +202,11 @@ export default function Profile() {
         </div>
 
         {/* Username & Metadata */}
-        <div style={{ flex: 1, paddingBottom: '10px' }}>
-          <h1 style={{
-            fontSize: '2.5rem', fontWeight: '900', margin: 0,
+        <div className="profile-user-info" style={{ flex: 1, paddingBottom: '10px' }}>
+          <h1 className="profile-username" style={{
+            fontWeight: '900', margin: 0,
             textShadow: '0 4px 15px rgba(0,0,0,0.8)', color: '#fff',
-            display: 'flex', alignItems: 'center', gap: '12px'
+            display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap'
           }}>
             {user.username}
             {user.is_admin ? (
@@ -240,7 +240,7 @@ export default function Profile() {
 
 
 
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="profile-actions-buttons" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           {/* Settings Button */}
           <Link to="/settings" style={{
             padding: '12px 24px', background: 'rgba(255,255,255,0.05)',
@@ -377,7 +377,7 @@ export default function Profile() {
 
       {/* ── STATS DASHBOARD DECK ── */}
       <div className="profile-stats-deck" style={{
-        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginTop: '40px'
+        display: 'grid', gap: '20px', marginTop: '40px'
       }}>
         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
           <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#ff1a75' }}>{continueWatching.length}</div>
@@ -398,11 +398,11 @@ export default function Profile() {
       </div>
 
       {/* ── DYNAMIC DASHBOARD CONTENT TABS ── */}
-      <div style={{ marginTop: '50px' }}>
+      <div className="profile-tabs-section" style={{ marginTop: '50px' }}>
         {/* Navigation Bar */}
-        <div style={{ 
+        <div className="profile-tabs-nav" style={{ 
           display: 'flex', gap: '15px', borderBottom: '1px solid rgba(255,255,255,0.08)',
-          paddingBottom: '15px', marginBottom: '30px'
+          paddingBottom: '15px', marginBottom: '30px', overflowX: 'auto', whiteSpace: 'nowrap'
         }}>
           <button onClick={() => setActiveTab('continue')} style={{
             background: 'none', border: 'none', color: activeTab === 'continue' ? 'var(--brand-color)' : 'var(--text-secondary)',

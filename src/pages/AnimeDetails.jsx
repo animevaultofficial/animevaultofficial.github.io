@@ -109,50 +109,6 @@ const EMBED_SERVERS = [
     languages: ['sub', 'dub'],
     buildUrl: ({ animeId, episode, lang }) => `https://animeplay.cfd/stream/ani/${animeId}/${episode}/${toSupportedLanguage(lang)}`,
   },
-  {
-    id: 'vidnest',
-    label: 'VidNest',
-    description: 'Large AniList library with sub, dub, Hindi, and internal mirror switching.',
-    languages: ['sub', 'dub', 'hindi'],
-    buildUrl: ({ animeId, episode, lang }) => withParams(
-      `https://vidnest.fun/anime/${animeId}/${episode}/${toSupportedLanguage(lang, ['sub', 'dub', 'hindi'])}`,
-      { server: 'gama' }
-    ),
-  },
-  {
-    id: 'vidnest-pahe',
-    label: 'VidNest Pahe',
-    description: 'AnimePahe-backed VidNest route for a second large sub/dub library.',
-    languages: ['sub', 'dub', 'hindi'],
-    buildUrl: ({ animeId, episode, lang }) => `https://vidnest.fun/animepahe/${animeId}/${episode}/${toSupportedLanguage(lang, ['sub', 'dub', 'hindi'])}`,
-  },
-  {
-    id: 'ninja',
-    label: 'NinjaShield',
-    description: 'AniList and MAL anime backup with sub/dub support.',
-    languages: ['sub', 'dub'],
-    buildUrl: ({ animeId, episode, lang }) => `https://ninjasheild.stream/map/anime/${animeId}/${episode}/${toSupportedLanguage(lang)}`,
-  },
-  {
-    id: 'cinetaro',
-    label: 'Cinetaro',
-    description: 'Large auto-updated AniList library with sub, dub, and Hindi routes.',
-    languages: ['sub', 'dub', 'hindi'],
-    buildUrl: ({ animeId, episode, lang }) => withParams(
-      `https://api.cinetaro.buzz/anime/${animeId}/1/${episode}/${toSupportedLanguage(lang, ['sub', 'dub', 'hindi'])}`,
-      { autoplay: 'true', color: 'ff1a75' }
-    ),
-  },
-  {
-    id: 'dropfile',
-    label: 'DropFile',
-    description: 'AniList player fallback with sub/dub/raw audio modes and broad provider coverage.',
-    languages: ['sub', 'dub'],
-    buildUrl: ({ animeId, episode, lang }) => withParams(
-      `https://dropfile.cc/player/tv/anilist-${animeId}/1/${episode}`,
-      { audio: toSupportedLanguage(lang), lang: 'en', color: '#ff1a75', autoplay: '1' }
-    ),
-  },
 ];
 
 function AnimeDetails() {
@@ -175,6 +131,9 @@ function AnimeDetails() {
   const [videoSources, setVideoSources] = useState([]);
   const [playerLoading, setPlayerLoading] = useState(false);
   const [playerStatus, setPlayerStatus] = useState(''); // info/warning messages
+
+  // UI state
+  const [activeTab, setActiveTab] = useState('episodes');
 
   // Consumet enrichment (background)
   const [streamingInfo, setStreamingInfo] = useState({ id: null, provider: 'gogoanime' });
@@ -444,15 +403,13 @@ function AnimeDetails() {
         }),
       }
     : null;
-
   return (
-    <div className="details-page-v2">
-
+    <div className="new-player-container">
       {/* ── Hero Banner ── */}
       <div className="detail-hero-v2">
         <img
           className="detail-banner-v2"
-          src={anime.coverImage?.large}
+          src={anime.bannerImage || anime.coverImage?.extraLarge || anime.coverImage?.large}
           alt="Anime cover"
         />
         <div className="detail-hero-overlay-v2" />
@@ -460,10 +417,16 @@ function AnimeDetails() {
         <div className="detail-hero-content-v2">
           <img
             className="detail-poster-v2"
-            src={anime.coverImage?.large}
+            src={anime.coverImage?.extraLarge || anime.coverImage?.large}
             alt={animeTitle}
           />
           <div className="detail-info-v2">
+            <h1 className="detail-title-v2">
+              {animeTitle}
+              <small style={{ fontSize: '0.6em', marginLeft: '0.5rem', color: 'var(--text-secondary)' }}>
+                watching in anime vault
+              </small>
+            </h1>
             <div className="detail-meta-v2">
               <span className="score"><Star size={16} fill="currentColor" /> {anime.averageScore}%</span>
               <span><Tv size={16} /> {anime.format}</span>
@@ -475,12 +438,6 @@ function AnimeDetails() {
                 </span>
               )}
             </div>
-            <h1 className="detail-title-v2">
-            {animeTitle}
-            <small style={{ fontSize: '0.6em', marginLeft: '0.5rem', color: 'var(--text-secondary)' }}>
-              watching in anime vault
-            </small>
-          </h1>
             <div className="detail-actions-v2">
               <button
                 className="btn-play-v2"
@@ -508,239 +465,209 @@ function AnimeDetails() {
                 onClick={() => toggleLike(anime.id, 'anime', safeTitle(anime.title), anime.coverImage?.large)}
               >
                 <Heart size={20} fill={isLiked(anime.id, 'anime') ? '#ff1a75' : 'none'} /> 
-                {isLiked(anime.id, 'anime') ? 'Liked' : 'Like'}
+                {isLiked(anime.id, 'anime') ? 'Favorited' : 'Add to Collection'}
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Video Player ── */}
-      <div className="player-section-v2" style={{ paddingBottom: '1.5rem' }}>
-        {!user ? (
-          <div className="video-player-error">
-            <PlayCircle size={48} />
-            <p>Login required to watch!</p>
-            <button
-              className="btn-play-v2"
-              onClick={() => {
-                setAuthTab('login');
-                setShowAuthModal(true);
-              }}
-            >
-              Login Now
-            </button>
-          </div>
-        ) : currentEpisode ? (
-          <VideoPlayer
-            sources={[]}
-            poster={anime.bannerImage || anime.coverImage?.extraLarge}
-            title={`${animeTitle} · EP ${currentEpisode.number}`}
-            key={embedUrl || currentEpisode.id}
-            embedUrl={embedUrl}
-            isZen={zenMode}
-          />
-        ) : (
-          <div className="video-player-error">
-            <PlayCircle size={48} className="spin" />
-            <p>No episodes available yet.</p>
-          </div>
-        )}
+      <div className="new-player-grid">
+        {/* LEFT COLUMN: Player & Main Info */}
+        <div className="new-player-main">
+          
+          {/* ── Video Player ── */}
+          <div className="player-section-v2">
+            {!user ? (
+              <div className="video-player-error">
+                <PlayCircle size={48} />
+                <p>Login required to watch!</p>
+                <button
+                  className="btn-play-v2"
+                  onClick={() => {
+                    setAuthTab('login');
+                    setShowAuthModal(true);
+                  }}
+                >
+                  Login Now
+                </button>
+              </div>
+            ) : currentEpisode ? (
+              <VideoPlayer
+                sources={[]}
+                poster={anime.bannerImage || anime.coverImage?.extraLarge}
+                title={`${animeTitle} · EP ${currentEpisode.number}`}
+                key={embedUrl || currentEpisode.id}
+                embedUrl={embedUrl}
+                isZen={zenMode}
+              />
+            ) : (
+              <div className="video-player-error">
+                <PlayCircle size={48} className="spin" />
+                <p>No episodes available yet.</p>
+              </div>
+            )}
 
-        {/* Player status message */}
-        {user && playerStatus && (
-          <div className="player-status-bar">
-            <AlertCircle size={14} />
-            <span>{playerStatus}</span>
-          </div>
-        )}
+            {/* Player status message */}
+            {user && playerStatus && (
+              <div className="player-status-bar">
+                <AlertCircle size={14} />
+                <span>{playerStatus}</span>
+              </div>
+            )}
 
-        {/* Fallback External Link for broken iframes */}
-        {user && embedUrl && (
-          <div style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0' }}>
-            <a
-              href={embedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-info-v2"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '0.6rem 1.5rem',
-                background: 'var(--brand-color)',
-                color: '#fff',
-                textDecoration: 'none',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                fontWeight: '600',
-              }}
-            >
-              <ExternalLink size={16} /> Open Player in New Tab (Bypasses Blocks)
-            </a>
-          </div>
-        )}
 
-        {animeDownloadUrls && (
-          <div className="anime-download-row">
-            <span>DOWNLOAD:</span>
-            <a href={animeDownloadUrls.dlhub} target="_blank" rel="noopener noreferrer" className="download-chip dlhub">
-              <Download size={14} /> DLHub
-            </a>
           </div>
-        )}
 
-        {user && anime && (
-          <div style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0' }}>
-            <button 
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '8px',
-                color: isLiked(anime.id, 'anime') ? '#ff1a75' : 'var(--text-secondary)',
-                borderColor: isLiked(anime.id, 'anime') ? '#ff1a75' : 'var(--glass-border)',
-                background: isLiked(anime.id, 'anime') ? 'rgba(255,26,117,0.1)' : 'var(--glass)',
-                boxShadow: isLiked(anime.id, 'anime') ? '0 0 10px rgba(255,26,117,0.2)' : 'none',
-                transition: 'all 0.2s ease', cursor: 'pointer',
-                padding: '0.75rem 1.5rem', borderRadius: '8px', border: '1px solid',
-                fontWeight: '600', fontSize: '0.9rem'
-              }}
-              onClick={() => toggleLike(anime.id, 'anime', safeTitle(anime.title), anime.coverImage?.large)}
-            >
-              <Heart size={20} fill={isLiked(anime.id, 'anime') ? '#ff1a75' : 'none'} /> 
-              {isLiked(anime.id, 'anime') ? 'Remove from Favorites' : 'Add to Favorites'}
-            </button>
-          </div>
-        )}
-
-        {/* ── Language Selector ── */}
-        {user && currentEpisode && (
-          <div className="server-selector-v2">
-            <div className="server-info">
-              <Tv size={20} />
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <h4 style={{ margin: 0 }}>{activeEmbedServer.label || 'Anime Player'}</h4>
+            {/* ── Language & Zen Toggle ── */}
+            {user && currentEpisode && (
+              <div className="player-lang-bar">
+                <button
+                  className={`zen-toggle-v2 ${zenMode ? 'active' : ''}`}
+                  onClick={() => setZenMode(!zenMode)}
+                  title={zenMode ? 'Turn off Ad-Blocker' : 'Turn on Ad-Blocker (Zen Mode)'}
+                >
+                  <Zap size={14} fill={zenMode ? 'currentColor' : 'none'} />
+                  {zenMode ? 'Zen' : 'Zen'}
+                </button>
+                {EMBED_LANGUAGE_OPTIONS.map(({ id: lang, label }) => (
                   <button
-                    className={`zen-toggle-v2 ${zenMode ? 'active' : ''}`}
-                    onClick={() => setZenMode(!zenMode)}
-                    title={zenMode ? 'Turn off Ad-Blocker' : 'Turn on Ad-Blocker (Zen Mode)'}
+                    key={lang}
+                    className={`lang-btn-v2 ${language === lang ? 'active' : ''}`}
+                    onClick={() => selectLanguage(lang)}
                   >
-                    <Zap size={14} fill={zenMode ? 'currentColor' : 'none'} />
-                    {zenMode ? 'Zen Mode ON' : 'Zen Mode OFF'}
+                    {label}
                   </button>
-                </div>
-                <p>Pick a large-library server, then choose SUB/DUB/HINDI. If one host blocks or misses an episode, try the next server.</p>
+                ))}
               </div>
-            </div>
+            )}
 
-            <div className="server-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              {EMBED_SERVERS.map((server) => (
-                <button
-                  key={server.id}
-                  className={`download-chip ${embedServer === server.id ? 'active' : ''}`}
-                  title={server.description}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    fontSize: '0.85rem',
-                    fontWeight: 'bold',
-                    background: embedServer === server.id ? 'var(--brand-color)' : 'var(--glass)',
-                    color: embedServer === server.id ? '#fff' : 'var(--text-secondary)',
-                    borderColor: embedServer === server.id ? 'var(--brand-color)' : 'var(--glass-border)',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => selectEmbedServer(server.id)}
-                >
-                  {server.label}
-                </button>
-              ))}
-              <button
-                className="download-chip"
-                style={{
-                  padding: '0.5rem 1rem',
-                  fontSize: '0.85rem',
-                  fontWeight: 'bold',
-                  background: 'var(--glass)',
-                  color: 'var(--text-secondary)',
-                  borderColor: 'var(--glass-border)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                }}
-                onClick={switchToNextServer}
-              >
-                Try next server
-              </button>
-              {EMBED_LANGUAGE_OPTIONS.map(({ id: lang, label }) => (
-                <button
-                  key={lang}
-                  className={`download-chip ${language === lang ? 'active' : ''}`}
-                  style={{
-                    padding: '0.5rem 1.2rem',
-                    textTransform: 'uppercase',
-                    fontSize: '0.85rem',
-                    fontWeight: 'bold',
-                    background: language === lang ? 'var(--brand-color)' : 'var(--glass)',
-                    color: language === lang ? '#fff' : 'var(--text-secondary)',
-                    borderColor: language === lang ? 'var(--brand-color)' : 'var(--glass-border)',
-                    boxShadow: language === lang ? '0 0 10px rgba(255,26,117,0.4)' : 'none',
-                    transition: 'all 0.2s ease',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => selectLanguage(lang)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+
+
+          {/* ── Tabs Navigation ── */}
+          <div className="new-player-tabs-nav">
+            <button className={`tab-btn ${activeTab === 'episodes' ? 'active' : ''}`} onClick={() => setActiveTab('episodes')}>Episodes</button>
+            <button className={`tab-btn ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>Info</button>
+            <button className={`tab-btn ${activeTab === 'community' ? 'active' : ''}`} onClick={() => setActiveTab('community')}>Community</button>
           </div>
-        )}
-      </div>
 
-      {/* ── Main Grid ── */}
-      <div className={`detail-layout-v2 ${zenMode ? 'zen-layout' : ''}`}>
-        {/* ── Main Content ── */}
-        <div className="main-content-v2">
-
-          {/* Synopsis */}
-          {!zenMode && (
-            <div className="details-section-v2">
-              <h2>Synopsis</h2>
-              <p>{stripHtml(anime.description)}</p>
-            </div>
-          )}
-
-          {/* Seasons & Relations */}
-          {!zenMode && anime.relations?.nodes?.length > 0 && (() => {
-            const SHOW_TYPES = ['PREQUEL', 'SEQUEL', 'PARENT', 'SIDE_STORY', 'SUMMARY'];
-            const filtered = anime.relations.nodes
-              .map((rel, i) => ({ rel, type: anime.relations.edges[i]?.relationType }))
-              .filter(({ type }) => SHOW_TYPES.includes(type));
-            if (!filtered.length) return null;
-            return (
-              <div className="details-section-v2">
-                <h2>Seasons & Related</h2>
-                <div className="relations-grid-v2">
-                  {filtered.map(({ rel, type }) => (
-                    <Link key={rel.id} to={`/anime/${rel.id}`} className="relation-card-v2">
-                      <div className="relation-image">
-                        <img src={rel.coverImage?.large} alt={safeTitle(rel.title)} />
-                        <span className="relation-type">{type.replace('_', ' ')}</span>
-                      </div>
-                      <div className="relation-info">
-                        <h4>{safeTitle(rel.title)}</h4>
-                        <span>{rel.format} · {rel.status}</span>
-                      </div>
-                    </Link>
-                  ))}
+          {/* ── Tab Content ── */}
+          <div className="new-player-tab-content">
+            {activeTab === 'episodes' && (
+              <div className="mobile-episodes-only">
+                {totalPages > 1 && (
+                  <div className="ep-page-selector">
+                    {Array.from({ length: totalPages }, (_, i) => (
+                      <button
+                        key={i}
+                        className={`ep-page-btn ${epPage === i ? 'active' : ''}`}
+                        onClick={() => setEpPage(i)}
+                      >
+                        {i * EP_PAGE_SIZE + 1}–{Math.min((i + 1) * EP_PAGE_SIZE, episodes.length)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="episodes-container-v2">
+                  {visibleEpisodes.length > 0 ? (
+                    <div className="rich-episodes-list">
+                      {visibleEpisodes.map(ep => (
+                        <button
+                          key={ep.id}
+                          className={`rich-episode-card ${currentEpisode?.id === ep.id ? 'active' : ''} ${progress[anime.id] >= ep.number ? 'watched' : ''}`}
+                          onClick={() => selectEpisode(ep)}
+                        >
+                          <div className="ep-card-img">
+                            <img 
+                              src={ep.image || anime.bannerImage || anime.coverImage?.large} 
+                              alt={`Episode ${ep.number}`} 
+                              onError={(e) => { e.target.src = anime.coverImage?.large }}
+                            />
+                            <div className="ep-card-overlay">
+                              <PlayCircle size={24} className="play-icon" />
+                            </div>
+                            {progress[anime.id] >= ep.number && <div className="watched-badge"><CheckCircle2 size={12} /> Watched</div>}
+                          </div>
+                          <div className="ep-card-info">
+                            <span className="ep-card-number">Episode {ep.number}</span>
+                            <span className="ep-card-title" title={ep.title || `Episode ${ep.number}`}>{ep.title || `Episode ${ep.number}`}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p>No episodes available for this title yet.</p>
+                  )}
                 </div>
               </div>
-            );
-          })()}
+            )}
+            {activeTab === 'info' && (
+              <div className="info-tab-content">
+                <div className="details-section-v2">
+                  <h2>Synopsis</h2>
+                  <p>{stripHtml(anime.description)}</p>
+                </div>
+                {anime.relations?.nodes?.length > 0 && (() => {
+                  const SHOW_TYPES = ['PREQUEL', 'SEQUEL', 'PARENT', 'SIDE_STORY', 'SUMMARY'];
+                  const filtered = anime.relations.nodes
+                    .map((rel, i) => ({ rel, type: anime.relations.edges[i]?.relationType }))
+                    .filter(({ type }) => SHOW_TYPES.includes(type));
+                  if (!filtered.length) return null;
+                  return (
+                    <div className="details-section-v2">
+                      <h2>Seasons & Related</h2>
+                      <div className="relations-grid-v2">
+                        {filtered.map(({ rel, type }) => (
+                          <Link key={rel.id} to={`/anime/${rel.id}`} className="relation-card-v2">
+                            <div className="relation-image">
+                              <img src={rel.coverImage?.large} alt={safeTitle(rel.title)} />
+                              <span className="relation-type">{type.replace('_', ' ')}</span>
+                            </div>
+                            <div className="relation-info">
+                              <h4>{safeTitle(rel.title)}</h4>
+                              <span>{rel.format} · {rel.status}</span>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+                
+                <div className="sidebar-block-v2">
+                  <h3>Details</h3>
+                  <div className="info-list-v2">
+                    <div className="info-row-v2">
+                      <span className="info-label-v2">Native Title</span>
+                      <span className="info-value-v2">{anime.title?.native}</span>
+                    </div>
+                    <div className="info-row-v2">
+                      <span className="info-label-v2">Studios</span>
+                      <span className="info-value-v2">{anime.studios?.nodes?.map(n => n.name).join(', ')}</span>
+                    </div>
+                    <div className="info-row-v2">
+                      <span className="info-label-v2">Episodes</span>
+                      <span className="info-value-v2">
+                        {anime.nextAiringEpisode
+                          ? `${anime.nextAiringEpisode.episode - 1} aired / ${anime.episodes || '?'} total`
+                          : anime.episodes || 'Unknown'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
-          {/* Episodes */}
-          <div className="details-section-v2">
+            {activeTab === 'community' && (
+              <CommentsSection mediaId={anime.id} />
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Desktop Sidebar */}
+        <aside className="new-player-sidebar">
+          {/* Desktop Episode Browser */}
+          <div className="desktop-episodes-container details-section-v2">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <h2 style={{ margin: 0 }}>
                 Episodes
@@ -748,35 +675,44 @@ function AnimeDetails() {
                   ({episodes.length})
                 </span>
               </h2>
-
-              {/* Episode page selector for long shows */}
-              {totalPages > 1 && (
-                <div className="ep-page-selector">
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <button
-                      key={i}
-                      className={`ep-page-btn ${epPage === i ? 'active' : ''}`}
-                      onClick={() => setEpPage(i)}
-                    >
-                      {i * EP_PAGE_SIZE + 1}–{Math.min((i + 1) * EP_PAGE_SIZE, episodes.length)}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
-
+            {totalPages > 1 && (
+              <div className="ep-page-selector">
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button
+                    key={i}
+                    className={`ep-page-btn ${epPage === i ? 'active' : ''}`}
+                    onClick={() => setEpPage(i)}
+                  >
+                    {i * EP_PAGE_SIZE + 1}–{Math.min((i + 1) * EP_PAGE_SIZE, episodes.length)}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="episodes-container-v2">
               {visibleEpisodes.length > 0 ? (
-                <div className="episodes-grid-v2">
+                <div className="rich-episodes-list">
                   {visibleEpisodes.map(ep => (
                     <button
                       key={ep.id}
-                      className={`episode-btn-v2 ${currentEpisode?.id === ep.id ? 'active' : ''} ${progress[anime.id] >= ep.number ? 'watched' : ''}`}
+                      className={`rich-episode-card ${currentEpisode?.id === ep.id ? 'active' : ''} ${progress[anime.id] >= ep.number ? 'watched' : ''}`}
                       onClick={() => selectEpisode(ep)}
                     >
-                      <span className="episode-label">EP</span>
-                      <span className="episode-number">{ep.number}</span>
-                      {progress[anime.id] >= ep.number && <CheckCircle2 size={12} className="check" />}
+                      <div className="ep-card-img">
+                        <img 
+                          src={ep.image || anime.bannerImage || anime.coverImage?.large} 
+                          alt={`Episode ${ep.number}`} 
+                          onError={(e) => { e.target.src = anime.coverImage?.large }}
+                        />
+                        <div className="ep-card-overlay">
+                          <PlayCircle size={24} className="play-icon" />
+                        </div>
+                        {progress[anime.id] >= ep.number && <div className="watched-badge"><CheckCircle2 size={12} /> Watched</div>}
+                      </div>
+                      <div className="ep-card-info">
+                        <span className="ep-card-number">Episode {ep.number}</span>
+                        <span className="ep-card-title" title={ep.title || `Episode ${ep.number}`}>{ep.title || `Episode ${ep.number}`}</span>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -785,70 +721,7 @@ function AnimeDetails() {
               )}
             </div>
           </div>
-          
-          <CommentsSection mediaId={anime.id} />
-        </div>
-
-        {/* ── Sidebar ── */}
-        {!zenMode && (
-          <aside className="sidebar-v2">
-            <div className="sidebar-block-v2">
-              <h3>Details</h3>
-              <div className="info-list-v2">
-                <div className="info-row-v2">
-                  <span className="info-label-v2">Native Title</span>
-                  <span className="info-value-v2">{anime.title?.native}</span>
-                </div>
-                <div className="info-row-v2">
-                  <span className="info-label-v2">Studios</span>
-                  <span className="info-value-v2">{anime.studios?.nodes?.map(n => n.name).join(', ')}</span>
-                </div>
-                <div className="info-row-v2">
-                  <span className="info-label-v2">Episodes</span>
-                  <span className="info-value-v2">
-                    {anime.nextAiringEpisode
-                      ? `${anime.nextAiringEpisode.episode - 1} aired / ${anime.episodes || '?'} total`
-                      : anime.episodes || 'Unknown'}
-                  </span>
-                </div>
-                <div className="info-row-v2">
-                  <span className="info-label-v2">Source</span>
-                  <span className="info-value-v2">{anime.source}</span>
-                </div>
-                <div className="info-row-v2">
-                  <span className="info-label-v2">Genres</span>
-                  <div className="genre-tags-v2">
-                    {anime.genres?.map(g => (
-                      <Link key={g} to={`/search?genre=${g}`} className="genre-tag-v2">{g}</Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Recommendations */}
-            {anime.recommendations?.nodes?.length > 0 && (
-              <div className="sidebar-block-v2">
-                <h3>Recommendations</h3>
-                <div className="related-grid-v2">
-                  {anime.recommendations.nodes.slice(0, 5).map(rec => {
-                    const m = rec.mediaRecommendation;
-                    if (!m) return null;
-                    return (
-                      <Link key={m.id} to={`/anime/${m.id}`} className="related-card-v2">
-                        <img src={m.coverImage?.medium} alt="" />
-                        <div className="related-info-v2">
-                          <h4>{safeTitle(m.title)}</h4>
-                          <span>{m.format} · {m.averageScore}%</span>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </aside>
-        )}
+        </aside>
       </div>
     </div>
   );
