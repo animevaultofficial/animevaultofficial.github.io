@@ -154,13 +154,13 @@ export default function Profile() {
         body: formData,
       });
 
+      // Read the response body as text first, then attempt JSON parse
+      const responseText = await response.text();
       let result;
       try {
-        result = await response.json();
+        result = JSON.parse(responseText);
       } catch {
-        // Response body is not valid JSON – read it as text for debugging
-        const text = await response.text();
-        console.error("Cloudinary upload failed (non-JSON response):", text);
+        console.error("Cloudinary upload failed (non-JSON response):", responseText);
         alert(`Upload failed: Server returned an unexpected response (status ${response.status}). Check Cloudinary configuration.`);
         return;
       }
