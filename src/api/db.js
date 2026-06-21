@@ -783,11 +783,12 @@ export async function getDatabaseStats() {
   const db = await getSql();
   if (!db) return {};
   try {
-    const tables = ['users', 'stories', 'notes', 'user_watch_history', 'user_continue_watching', 'user_likes', 'user_reminders', 'user_favorites', 'user_follows', 'user_blocks', 'media_comments', 'user_sessions'];
+    const tables = ['users', 'stories', 'notes', 'user_watch_history', 'user_continue_watching', 'user_likes', 'user_reminders', 'user_favorites', 'user_follows', 'user_blocks', 'media_comments', 'user_sessions', 'site_settings'];
     const stats = {};
     for (const table of tables) {
       try {
-        const result = await db`SELECT COUNT(*) as count FROM ${db(table)}`;
+        // Use raw SQL for dynamic table names
+        const result = await db.unsafe(`SELECT COUNT(*) as count FROM "${table}"`);
         stats[table] = parseInt(result[0].count, 10);
       } catch { stats[table] = 0; }
     }
