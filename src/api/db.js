@@ -38,35 +38,35 @@ async function getSql() {
   if (sql) return sql;
   const DATABASE_URL = import.meta.env.VITE_DATABASE_URL;
   if (!DATABASE_URL) return null;
-    try {
-      const mod = await import('@neondatabase/serverless');
-      
-      // Fix for Capacitor 'Missing or null Origin' error
-      if (mod.neonConfig) {
-        mod.neonConfig.fetchFunction = (url, options) => {
-          const newOptions = { ...options };
-          newOptions.headers = { ...newOptions.headers };
-          // If we are in Capacitor, Origin might be missing or null. Provide a fallback.
-          if (!newOptions.headers['Origin'] && !newOptions.headers['origin']) {
-            newOptions.headers['Origin'] = (window.location.origin && window.location.origin !== 'null') 
-              ? window.location.origin 
-              : 'https://animevaultofficial.github.io';
-          }
-          return fetch(url, newOptions);
-        };
-      }
+  try {
+    const mod = await import('@neondatabase/serverless');
 
-      sql = mod.neon(DATABASE_URL);
-      // Test the connection immediately
-      await sql`SELECT 1`;
-      log('[AnimeVault DB] Connected to Neon DB successfully');
-      return sql;
-    } catch (e) {
-      error('[AnimeVault DB] Failed to connect to Neon DB:', e);
-      log('[AnimeVault DB] Neon not available, using localStorage fallback');
-      sql = null;
-      return null;
+    // Fix for Capacitor 'Missing or null Origin' error
+    if (mod.neonConfig) {
+      mod.neonConfig.fetchFunction = (url, options) => {
+        const newOptions = { ...options };
+        newOptions.headers = { ...newOptions.headers };
+        // If we are in Capacitor, Origin might be missing or null. Provide a fallback.
+        if (!newOptions.headers['Origin'] && !newOptions.headers['origin']) {
+          newOptions.headers['Origin'] = (window.location.origin && window.location.origin !== 'null')
+            ? window.location.origin
+            : 'https://animevaultofficial.github.io';
+        }
+        return fetch(url, newOptions);
+      };
     }
+
+    sql = mod.neon(DATABASE_URL);
+    // Test the connection immediately
+    await sql`SELECT 1`;
+    log('[AnimeVault DB] Connected to Neon DB successfully');
+    return sql;
+  } catch (e) {
+    error('[AnimeVault DB] Failed to connect to Neon DB:', e);
+    log('[AnimeVault DB] Neon not available, using localStorage fallback');
+    sql = null;
+    return null;
+  }
 }
 
 // LocalStorage users storage
@@ -337,7 +337,7 @@ export async function toggleFavorite(userId, animeId) {
       SELECT id FROM user_favorites
       WHERE user_id = ${userId} AND anime_id = ${animeId}
     `;
-    
+
     if (existing.length > 0) {
       await sql`
         DELETE FROM user_favorites
@@ -357,18 +357,47 @@ export async function toggleFavorite(userId, animeId) {
   }
 }
 
-// Missing functions (using localStorage fallback for now)
+// ── DB-backed user data functions (with localStorage fallback) ──
+
 export async function fetchWatchHistory(userId) {
+  const db = await getSql();
+  if (db) {
+    try {
+      const result = await db`
+        SELECT media_id, media_type, media_title as title, media_poster as image, watched_at
+        FROM user_watch_history
+        WHERE user_id = ${userId}
+        ORDER BY watched_at DESC
+        LIMIT 50
+      `;
+      return result;
+    } catch (e) {
+      warn('[AnimeVault DB] fetchWatchHistory DB failed:', e?.message);
+    }
+  }
+  // localStorage fallback
   try {
     const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCH_HISTORY) || '[]');
     return history;
-  } catch (error) {
-    error('Error fetching watch history:', error);
+  } catch (e) {
     return [];
   }
 }
 
 export async function addToHistory(userId, mediaId, mediaType, mediaTitle, mediaPoster) {
+  const db = await getSql();
+  if (db) {
+    try {
+      await db`
+        INSERT INTO user_watch_history (user_id, media_id, media_type, media_title, media_poster)
+        VALUES (${userId}, ${mediaId}, ${mediaType}, ${mediaTitle}, ${mediaPoster})
+      `;
+      return true;
+    } catch (e) {
+      warn('[AnimeVault DB] addToHistory DB failed:', e?.message);
+    }
+  }
+  // localStorage fallback
   try {
     const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCH_HISTORY) || '[]');
     const newItem = {
@@ -381,37 +410,74 @@ export async function addToHistory(userId, mediaId, mediaType, mediaTitle, media
     history.unshift(newItem);
     localStorage.setItem(STORAGE_KEYS.WATCH_HISTORY, JSON.stringify(history.slice(0, 50)));
     return true;
-  } catch (error) {
-    error('Error adding to history:', error);
+  } catch (e) {
     return false;
   }
 }
 
 export async function clearWatchHistory(userId) {
+  const db = await getSql();
+  if (db) {
+    try {
+      await db`DELETE FROM user_watch_history WHERE user_id = ${userId}`;
+      return true;
+    } catch (e) {
+      warn('[AnimeVault DB] clearWatchHistory DB failed:', e?.message);
+    }
+  }
+  // localStorage fallback
   try {
     localStorage.setItem(STORAGE_KEYS.WATCH_HISTORY, JSON.stringify([]));
     return true;
-  } catch (error) {
-    error('Error clearing history:', error);
+  } catch (e) {
     return false;
   }
 }
 
 export async function fetchContinueWatching(userId) {
+  const db = await getSql();
+  if (db) {
+    try {
+      const result = await db`
+        SELECT media_id, media_type, media_title as title, media_poster as image, season, episode, progress, duration, updated_at
+        FROM user_continue_watching
+        WHERE user_id = ${userId}
+        ORDER BY updated_at DESC
+        LIMIT 50
+      `;
+      return result;
+    } catch (e) {
+      warn('[AnimeVault DB] fetchContinueWatching DB failed:', e?.message);
+    }
+  }
+  // localStorage fallback
   try {
     const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.CONTINUE_WATCHING) || '[]');
     return items;
-  } catch (error) {
-    error('Error fetching continue watching:', error);
+  } catch (e) {
     return [];
   }
 }
 
 export async function updateContinueWatching(userId, mediaId, mediaType, mediaTitle, mediaPoster, season, episode, progress, duration) {
+  const db = await getSql();
+  if (db) {
+    try {
+      await db`
+        INSERT INTO user_continue_watching (user_id, media_id, media_type, media_title, media_poster, season, episode, progress, duration, updated_at)
+        VALUES (${userId}, ${mediaId}, ${mediaType}, ${mediaTitle}, ${mediaPoster}, ${season || 1}, ${episode || 1}, ${progress || 0}, ${duration || 0}, CURRENT_TIMESTAMP)
+        ON CONFLICT (user_id, media_id, media_type)
+        DO UPDATE SET media_title = ${mediaTitle}, media_poster = ${mediaPoster}, season = ${season || 1}, episode = ${episode || 1}, progress = ${progress || 0}, duration = ${duration || 0}, updated_at = CURRENT_TIMESTAMP
+      `;
+      return true;
+    } catch (e) {
+      warn('[AnimeVault DB] updateContinueWatching DB failed:', e?.message);
+    }
+  }
+  // localStorage fallback
   try {
     const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.CONTINUE_WATCHING) || '[]');
     const existingIndex = items.findIndex(i => i.media_id === mediaId && i.media_type === mediaType);
-    
     const newItem = {
       media_id: mediaId,
       media_type: mediaType,
@@ -423,36 +489,68 @@ export async function updateContinueWatching(userId, mediaId, mediaType, mediaTi
       duration: duration,
       updated_at: new Date().toISOString()
     };
-
     if (existingIndex !== -1) {
       items[existingIndex] = newItem;
     } else {
       items.unshift(newItem);
     }
-
     localStorage.setItem(STORAGE_KEYS.CONTINUE_WATCHING, JSON.stringify(items.slice(0, 50)));
     return true;
-  } catch (error) {
-    error('Error updating continue watching:', error);
+  } catch (e) {
     return false;
   }
 }
 
 export async function fetchLikedItems(userId) {
+  const db = await getSql();
+  if (db) {
+    try {
+      const result = await db`
+        SELECT media_id, media_type, media_title as title, media_poster as image, liked_at
+        FROM user_likes
+        WHERE user_id = ${userId}
+        ORDER BY liked_at DESC
+        LIMIT 100
+      `;
+      return result;
+    } catch (e) {
+      warn('[AnimeVault DB] fetchLikedItems DB failed:', e?.message);
+    }
+  }
+  // localStorage fallback
   try {
     const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.LIKED_ITEMS) || '[]');
     return items;
-  } catch (error) {
-    error('Error fetching liked items:', error);
+  } catch (e) {
     return [];
   }
 }
 
 export async function toggleLikeItem(userId, mediaId, mediaType, mediaTitle, mediaPoster) {
+  const db = await getSql();
+  if (db) {
+    try {
+      const existing = await db`
+        SELECT id FROM user_likes WHERE user_id = ${userId} AND media_id = ${mediaId} AND media_type = ${mediaType}
+      `;
+      if (existing.length > 0) {
+        await db`DELETE FROM user_likes WHERE user_id = ${userId} AND media_id = ${mediaId} AND media_type = ${mediaType}`;
+        return { action: 'unliked' };
+      } else {
+        await db`
+          INSERT INTO user_likes (user_id, media_id, media_type, media_title, media_poster)
+          VALUES (${userId}, ${mediaId}, ${mediaType}, ${mediaTitle}, ${mediaPoster})
+        `;
+        return { action: 'liked' };
+      }
+    } catch (e) {
+      warn('[AnimeVault DB] toggleLikeItem DB failed:', e?.message);
+    }
+  }
+  // localStorage fallback
   try {
     const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.LIKED_ITEMS) || '[]');
     const existingIndex = items.findIndex(i => i.media_id === mediaId && i.media_type === mediaType);
-    
     if (existingIndex !== -1) {
       items.splice(existingIndex, 1);
       localStorage.setItem(STORAGE_KEYS.LIKED_ITEMS, JSON.stringify(items));
@@ -468,9 +566,8 @@ export async function toggleLikeItem(userId, mediaId, mediaType, mediaTitle, med
       localStorage.setItem(STORAGE_KEYS.LIKED_ITEMS, JSON.stringify(items));
       return { action: 'liked' };
     }
-  } catch (error) {
-    error('Error toggling like:', error);
-    return { error: error?.message };
+  } catch (e) {
+    return { error: e?.message };
   }
 }
 
@@ -498,13 +595,13 @@ export async function addReminder(userId, scheduleId, animeId, title, episode, a
       image: image,
       created_at: new Date().toISOString()
     };
-    
+
     const exists = reminders.find(r => r.schedule_id === newReminder.schedule_id);
     if (!exists) {
       reminders.push(newReminder);
       localStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(reminders));
     }
-    
+
     return newReminder;
   } catch (error) {
     error('Error adding reminder:', error);
@@ -576,8 +673,8 @@ export async function initDatabase() {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `;
-    try { await db`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`; } catch(e) {}
-    try { await db`ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT FALSE`; } catch(e) {}
+      try { await db`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`; } catch (e) { }
+      try { await db`ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT FALSE`; } catch (e) { }
       await db`
         CREATE TABLE IF NOT EXISTS stories (
           id SERIAL PRIMARY KEY,
@@ -596,9 +693,8 @@ export async function initDatabase() {
           PRIMARY KEY (story_id, viewer_id)
         )
       `;
-      // Run safe alters for retrofitting
-      try { await db`ALTER TABLE stories ADD COLUMN IF NOT EXISTS caption TEXT`; } catch(e) {}
-      
+      try { await db`ALTER TABLE stories ADD COLUMN IF NOT EXISTS caption TEXT`; } catch (e) { }
+
       await db`
         CREATE TABLE IF NOT EXISTS notes (
           id SERIAL PRIMARY KEY,
@@ -609,11 +705,134 @@ export async function initDatabase() {
           song_data TEXT
         )
       `;
-      try { await db`ALTER TABLE notes ADD COLUMN IF NOT EXISTS song_data TEXT`; } catch(e) {}
-      
-      log('[AnimeVault DB] Social & Stories & Notes tables initialized');
+      try { await db`ALTER TABLE notes ADD COLUMN IF NOT EXISTS song_data TEXT`; } catch (e) { }
+
+      // ── New tables for localStorage → DB migration ──
+      await db`
+        CREATE TABLE IF NOT EXISTS user_watch_history (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          media_id TEXT NOT NULL,
+          media_type TEXT NOT NULL,
+          media_title TEXT,
+          media_poster TEXT,
+          watched_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+      await db`
+        CREATE INDEX IF NOT EXISTS idx_watch_history_user ON user_watch_history(user_id, watched_at DESC)
+      `;
+
+      await db`
+        CREATE TABLE IF NOT EXISTS user_continue_watching (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          media_id TEXT NOT NULL,
+          media_type TEXT NOT NULL,
+          media_title TEXT,
+          media_poster TEXT,
+          season INTEGER DEFAULT 1,
+          episode INTEGER DEFAULT 1,
+          progress DOUBLE PRECISION DEFAULT 0,
+          duration DOUBLE PRECISION DEFAULT 0,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (user_id, media_id, media_type)
+        )
+      `;
+
+      await db`
+        CREATE TABLE IF NOT EXISTS user_likes (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          media_id TEXT NOT NULL,
+          media_type TEXT NOT NULL,
+          media_title TEXT,
+          media_poster TEXT,
+          liked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (user_id, media_id, media_type)
+        )
+      `;
+
+      await db`
+        CREATE TABLE IF NOT EXISTS user_reminders (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          schedule_id TEXT NOT NULL,
+          anime_id TEXT,
+          title TEXT,
+          episode INTEGER,
+          airing_at DOUBLE PRECISION,
+          image TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (user_id, schedule_id)
+        )
+      `;
+
+      await db`
+        CREATE TABLE IF NOT EXISTS user_stats (
+          user_id TEXT PRIMARY KEY,
+          total_watch_time DOUBLE PRECISION DEFAULT 0,
+          anime_completed INTEGER DEFAULT 0,
+          episodes_watched INTEGER DEFAULT 0
+        )
+      `;
+
+      await db`
+        CREATE TABLE IF NOT EXISTS user_levels (
+          user_id TEXT PRIMARY KEY,
+          level INTEGER DEFAULT 1,
+          xp DOUBLE PRECISION DEFAULT 0,
+          xp_to_next_level DOUBLE PRECISION DEFAULT 100
+        )
+      `;
+
+      await db`
+        CREATE TABLE IF NOT EXISTS user_activity (
+          user_id TEXT NOT NULL,
+          date TEXT NOT NULL,
+          count INTEGER DEFAULT 1,
+          PRIMARY KEY (user_id, date)
+        )
+      `;
+
+      await db`
+        CREATE TABLE IF NOT EXISTS user_notifications (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT,
+          type TEXT,
+          title TEXT,
+          description TEXT,
+          image TEXT,
+          time TEXT,
+          read BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+
+      await db`
+        CREATE TABLE IF NOT EXISTS user_settings (
+          user_id TEXT PRIMARY KEY,
+          settings JSONB DEFAULT '{}'::jsonb
+        )
+      `;
+
+      await db`
+        CREATE TABLE IF NOT EXISTS media_comments (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          username TEXT,
+          media_id TEXT NOT NULL,
+          comment_text TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+      await db`
+        CREATE INDEX IF NOT EXISTS idx_media_comments_media ON media_comments(media_id, created_at DESC)
+      `;
+
+      log('[AnimeVault DB] All user data tables initialized');
     } catch (e) {
-      warn('[AnimeVault DB] Failed to init social/stories/notes tables:', e?.message);
+      warn('[AnimeVault DB] Failed to init tables:', e?.message);
     }
   }
   return true;
@@ -626,7 +845,7 @@ export async function searchUsers(query, currentUserId) {
   if (!db) return [];
   try {
     const searchTerm = `%${(query || '').toLowerCase()}%`;
-    
+
     if (!currentUserId) {
       const result = await db`
         SELECT id, username, avatar, banner, is_admin, is_verified
@@ -774,7 +993,7 @@ export async function getActiveStories(targetUserId, viewerUserId) {
   if (!db) return { stories: [], allViewed: true, note: null };
   try {
     const now = new Date().toISOString();
-    
+
     // Get unexpired note
     const notesResult = await db`
       SELECT content, song_data FROM notes
@@ -796,7 +1015,7 @@ export async function getActiveStories(targetUserId, viewerUserId) {
       WHERE user_id = ${targetUserId}::text AND expires_at > ${now}
       ORDER BY created_at ASC
     `;
-    
+
     if (stories.length === 0) return { stories: [], allViewed: true, note };
 
     // Check views
@@ -1287,7 +1506,7 @@ export async function acceptFriendRequest(requestId) {
       request.status = 'accepted';
       requests[requestIndex] = request;
       localStorage.setItem(STORAGE_KEYS.FRIEND_REQUESTS, JSON.stringify(requests));
-      
+
       const friends = JSON.parse(localStorage.getItem(STORAGE_KEYS.FRIENDS) || '[]');
       if (!friends.find(f => f.id === request.fromId)) {
         friends.push({
@@ -1298,7 +1517,7 @@ export async function acceptFriendRequest(requestId) {
         });
         localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(friends));
       }
-      
+
       return { request, friends };
     }
     return null;
@@ -1445,7 +1664,7 @@ export async function syncGoogleUserToDb(email, googleAvatar, isEmailVerified) {
       SELECT id, username, avatar, banner, is_admin, is_verified, created_at
       FROM users WHERE LOWER(username) = ${trimmedUser}
     `;
-    
+
     if (existing.length > 0) {
       // Update email verified status if it became true
       if (isEmailVerified && !existing[0].is_verified) {
@@ -1457,7 +1676,7 @@ export async function syncGoogleUserToDb(email, googleAvatar, isEmailVerified) {
 
     // User doesn't exist, create a new record!
     // If the email includes 'admin', let's make them an admin!
-    const isAdmin = email.toLowerCase().includes('admin') || email.toLowerCase() === 'adiyanhehe@gmail.com'; 
+    const isAdmin = email.toLowerCase().includes('admin') || email.toLowerCase() === 'adiyanhehe@gmail.com';
 
     const result = await db`
       INSERT INTO users (username, password, avatar, is_admin, is_verified) 
