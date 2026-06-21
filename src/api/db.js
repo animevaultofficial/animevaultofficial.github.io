@@ -634,6 +634,106 @@ export async function isAdmin(userId) {
   }
 }
 
+export async function listAllUsers(page = 1, limit = 50) {
+  const db = await getSql();
+  if (!db) return { users: [], total: 0 };
+  try {
+    const offset = (page - 1) * limit;
+    const users = await db`
+      SELECT id, username, avatar, is_admin, is_verified, created_at
+      FROM users
+      ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    const countResult = await db`SELECT COUNT(*) as total FROM users`;
+    return { users, total: parseInt(countResult[0].total, 10) };
+  } catch (e) {
+    error('[AnimeVault DB] listAllUsers failed:', e?.message);
+    return { users: [], total: 0 };
+  }
+}
+
+export async function searchUsersAdmin(query) {
+  const db = await getSql();
+  if (!db) return [];
+  try {
+    const searchTerm = `%${(query || '').toLowerCase()}%`;
+    return await db`
+      SELECT id, username, avatar, is_admin, is_verified, created_at
+      FROM users
+      WHERE LOWER(username) LIKE ${searchTerm}
+      ORDER BY created_at DESC
+      LIMIT 50
+    `;
+  } catch (e) {
+    error('[AnimeVault DB] searchUsersAdmin failed:', e?.message);
+    return [];
+  }
+}
+
+export async function toggleUserVerification(userId) {
+  const db = await getSql();
+  if (!db) return { success: false };
+  try {
+    const result = await db`
+      UPDATE users SET is_verified = NOT is_verified
+      WHERE id = ${userId}
+      RETURNING id, username, is_verified
+    `;
+    if (result.length > 0) return { success: true, user: result[0] };
+    return { success: false };
+  } catch (e) {
+    error('[AnimeVault DB] toggleUserVerification failed:', e?.message);
+    return { success: false };
+  }
+}
+
+export async function toggleUserAdmin(userId) {
+  const db = await getSql();
+  if (!db) return { success: false };
+  try {
+    const result = await db`
+      UPDATE users SET is_admin = NOT is_admin
+      WHERE id = ${userId}
+      RETURNING id, username, is_admin
+    `;
+    if (result.length > 0) return { success: true, user: result[0] };
+    return { success: false };
+  } catch (e) {
+    error('[AnimeVault DB] toggleUserAdmin failed:', e?.message);
+    return { success: false };
+  }
+}
+
+export async function deleteUserAccount(userId) {
+  const db = await getSql();
+  if (!db) return { success: false };
+  try {
+    await db`DELETE FROM users WHERE id = ${userId}`;
+    return { success: true };
+  } catch (e) {
+    error('[AnimeVault DB] deleteUserAccount failed:', e?.message);
+    return { success: false };
+  }
+}
+
+export async function getSiteStats() {
+  const db = await getSql();
+  if (!db) return { totalUsers: 0, totalAdmins: 0, totalVerified: 0 };
+  try {
+    const totalUsers = await db`SELECT COUNT(*) as count FROM users`;
+    const totalAdmins = await db`SELECT COUNT(*) as count FROM users WHERE is_admin = true`;
+    const totalVerified = await db`SELECT COUNT(*) as count FROM users WHERE is_verified = true`;
+    return {
+      totalUsers: parseInt(totalUsers[0].count, 10),
+      totalAdmins: parseInt(totalAdmins[0].count, 10),
+      totalVerified: parseInt(totalVerified[0].count, 10)
+    };
+  } catch (e) {
+    return { totalUsers: 0, totalAdmins: 0, totalVerified: 0 };
+  }
+}
+
 // Site Settings & Init
 export async function fetchSiteSettings() {
   return { announcement: '', maintenance: 'false' };
