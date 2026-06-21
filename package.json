@@ -25,9 +25,10 @@
     "electron:build:win": "npm run prebuild && npm run clean && npm run generate-icons && cross-env ELECTRON=1 && vite build && electron-builder --win --publish never",
     "electron:build:mac": "npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --mac --publish never",
     "electron:build:linux": "npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --linux --publish never",
-    "android:sync": "vite build --config vite.mobile.config.js && npx cap sync android",
+    "generate-android-icons": "node scripts/generate-android-icons.js",
+    "android:sync": "npm run generate-android-icons && vite build --config vite.mobile.config.js && npx cap sync android",
     "android:ensure": "npx cap add android || echo 'Android already added'",
-    "android:mobile": "npm run generate-icons && vite build --config vite.mobile.config.js && npx cap sync android && cd android && chmod +x gradlew && ./gradlew assembleRelease"
+    "android:mobile": "npm run generate-android-icons && vite build --config vite.mobile.config.js && npx cap sync android && cd android && chmod +x gradlew && ./gradlew assembleRelease"
   },
   "build": {
     "appId": "com.animevault.app",
@@ -137,6 +138,7 @@
     "react-dom": "^18.3.1",
     "react-icons": "^5.6.0",
     "react-router-dom": "^6.30.1",
+    "uuid": "^14.0.1",
     "vidstack": "^1.12.13"
   },
   "devDependencies": {
@@ -150,6 +152,7 @@
     "electron-builder": "24.13.2",
     "gh-pages": "^6.3.0",
     "rimraf": "^5.0.5",
+    "sharp": "^0.35.2",
     "vite": "^5.4.21",
     "wait-on": "^7.2.0"
   },

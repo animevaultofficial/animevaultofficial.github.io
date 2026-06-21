@@ -38,7 +38,8 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const { pipeline } = require('stream');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
+const uuidv4 = () => crypto.randomUUID();
 
 // ── Ad/tracker block list ───────────────────────────────────────────────────────
 // NOTE: Critical design dependencies (fonts.googleapis.com, fonts.gstatic.com)
