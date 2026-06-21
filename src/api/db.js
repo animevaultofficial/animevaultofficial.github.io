@@ -1425,8 +1425,7 @@ export function resetSettings() {
 export async function updateSetting(key, value) {
   try {
     const settings = getSettings();
-    settings[key] = value;
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
     return { key, value };
   } catch (error) {
     console.error('Error updating setting:', error);
@@ -1434,15 +1433,6 @@ export async function updateSetting(key, value) {
   }
 }
 
-export async function syncGoogleUserToDb(email, displayName, googleAvatar, isEmailVerified) {
-  try {
-    const trimmedUser = email.trim().toLowerCase().split('@')[0];
-    // Check if user already exists
-    const db = await getSql();
-    if (!db) return { success: false, message: 'No DB connection' };
-    
-    const existing = await db`
-      SELECT id, username, avatar, banner, is_admin, is_verified, two_factor_enabled, created_at
       FROM users WHERE LOWER(username) = ${trimmedUser}
     `;
     
@@ -1478,22 +1468,28 @@ async function ensureSessionTable() {
   const db = await getSql();
   if (!db) return false;
   try {
-    // Create table if it doesn't exist
-    await db`
-      CREATE TABLE IF NOT EXISTS user_sessions (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        session_token TEXT NOT NULL UNIQUE,
-        device_id TEXT NOT NULL,
-        device_name TEXT DEFAULT 'Unknown Device',
-        created_at TIMESTAMP DEFAULT NOW(),
-        expires_at TIMESTAMP DEFAULT (NOW() + INTERVAL '30 days'),
-        last_active TIMESTAMP DEFAULT NOW()
-      )
-    `;
-    // Ensure required columns exist (for older schemas)
-    await db`ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS device_id TEXT NOT NULL DEFAULT 'unknown_device'`;
-    await db`ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS device_name TEXT DEFAULT 'Unknown Device'`;
+    // Ensure the user_sessions table exists with required columns
+    // If the table exists but lacks the device_id column, recreate it to avoid schema mismatches.
+    const hasDeviceId = await db`SELECT column_name FROM information_schema.columns WHERE table_name = 'user_sessions' AND column_name = 'device_id'`;
+    if (hasDeviceId.length === 0) {
+      // Drop and recreate the table to ensure proper schema
+      await db`DROP TABLE IF EXISTS user_sessions`;
+      await db`
+        CREATE TABLE user_sessions (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          session_token TEXT NOT NULL UNIQUE,
+          device_id TEXT NOT NULL,
+          device_name TEXT DEFAULT 'Unknown Device',
+          created_at TIMESTAMP DEFAULT NOW(),
+          expires_at TIMESTAMP DEFAULT (NOW() + INTERVAL '30 days'),
+          last_active TIMESTAMP DEFAULT NOW()
+        )
+      `;
+    } else {
+      // Table exists with device_id, ensure device_name column exists
+      await db`ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS device_name TEXT DEFAULT 'Unknown Device'`;
+    }
     return true;
   } catch (e) {
     console.error('[AnimeVault DB] Failed to create/alter user_sessions table:', e);
