@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Search, Film, Calendar, User, Menu, X, Heart, Clock, Sparkles, Tv, BookOpen, Info, LogOut, ChevronRight } from 'lucide-react';
+import { Home, Search, Film, Calendar, User, Menu, X, Heart, ChevronRight } from 'lucide-react';
 import './mobile.css';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
@@ -11,75 +11,67 @@ import DramasMoviesPage from './pages/DramasMoviesPage';
 import DramaDetailPage from './pages/DramaDetailPage';
 import SettingsPage from './pages/SettingsPage';
 
-function SplashScreen() {
+function Splash() {
   return (
-    <div className="splash-screen">
+    <div className="splash">
       <img src="/logo.png" alt="AnimeVault" className="splash-logo" />
       <div className="splash-title">AnimeVault</div>
-      <div className="splash-subtitle">Your ultimate anime hub</div>
+      <div className="splash-sub">Your ultimate anime hub</div>
     </div>
   );
 }
 
-// ── Sidebar content ──────────────────────────────────────
-function Sidebar({ currentPage, navigate, sidebarOpen, closeSidebar, user, onLogout }) {
-  const mainLinks = [
-    { id: 'home', label: 'Home', icon: Home },
-    { id: 'search', label: 'Search', icon: Search },
-    { id: 'dramas', label: 'Shows & Movies', icon: Film },
-    { id: 'schedule', label: 'Schedule', icon: Calendar },
+function Sidebar({ currentPage, navigate, open, close, user }) {
+  const sections = [
+    { label: 'Browse', items: [
+      { id: 'home', label: 'Home', icon: Home },
+      { id: 'search', label: 'Search', icon: Search },
+      { id: 'dramas', label: 'Shows & Movies', icon: Film },
+      { id: 'schedule', label: 'Schedule', icon: Calendar },
+    ]},
+    { label: 'Library', items: [
+      { id: 'collections', label: 'My List', icon: Heart },
+    ]},
   ];
-  const libraryLinks = [
-    { id: 'collections', label: 'My List', icon: Heart },
-  ];
-  const bottomLinks = [
-    { id: 'profile', label: 'Profile', icon: User },
-  ];
-
-  const renderLink = (item) => {
-    const Icon = item.icon;
-    const isActive = currentPage === item.id;
-    return (
-      <button
-        key={item.id}
-        className={`sidebar-item ${isActive ? 'active' : ''}`}
-        onClick={() => { navigate(item.id); closeSidebar(); }}
-      >
-        <span className="sidebar-item-icon"><Icon size={18} /></span>
-        <span>{item.label}</span>
-      </button>
-    );
-  };
 
   return (
     <>
-      {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} />}
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <div className="sidebar-brand">
-            <img src="/logo.png" alt="AnimeVault" className="sidebar-logo" />
-            <span className="sidebar-title">AnimeVault</span>
+      {open && <div className="overlay" onClick={close} />}
+      <aside className={`sidebar ${open ? 'open' : ''}`}>
+        <div className="sb-hdr">
+          <div className="sb-col">
+            <img src="/logo.png" alt="" className="sb-logo" />
+            <span className="sb-title">AnimeVault</span>
           </div>
-          <button className="sidebar-close" onClick={closeSidebar}><X size={20} /></button>
+          <button className="sb-close" onClick={close}><X size={20} /></button>
         </div>
-
-        <nav className="sidebar-nav">
-          <div style={{ fontSize: '0.65rem', color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', padding: '0.5rem 0.75rem' }}>Browse</div>
-          {mainLinks.map(renderLink)}
-
-          <div className="sidebar-divider" />
-          <div style={{ fontSize: '0.65rem', color: 'var(--text3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', padding: '0.5rem 0.75rem' }}>Library</div>
-          {libraryLinks.map(renderLink)}
-
-          <div className="sidebar-divider" />
-          {bottomLinks.map(renderLink)}
+        <nav className="sb-nav">
+          {sections.map(s => (
+            <div key={s.label}>
+              <div className="sb-label">{s.label}</div>
+              {s.items.map(item => {
+                const Icon = item.icon;
+                const active = currentPage === item.id;
+                return (
+                  <button key={item.id} className={`sb-item ${active ? 'active' : ''}`}
+                    onClick={() => { navigate(item.id); close(); }}>
+                    <Icon size={18} /> {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+          <div className="sb-div" />
+          <button className={`sb-item ${currentPage === 'profile' ? 'active' : ''}`}
+            onClick={() => { navigate('profile'); close(); }}>
+            <User size={18} /> Profile
+          </button>
         </nav>
-
-        <div className="sidebar-footer" onClick={() => { navigate('profile'); closeSidebar(); }}>
-          <img src={user?.avatar || '/logo.png'} alt="" className="sidebar-avatar" />
+        <div className="sb-foot" onClick={() => { navigate('profile'); close(); }}>
+          <img src={user?.avatar || '/logo.png'} alt="" className="sb-av" />
           <div style={{ flex: 1 }}>
-            <div className="sidebar-username">{user?.username || 'Guest'}</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text3)' }}>{user ? 'Signed in' : 'Tap to sign in'}</div>
+            <div className="sb-un">{user?.username || 'Guest'}</div>
+            <div style={{ fontSize: '.68rem', color: 'var(--text3)' }}>{user ? 'Signed in' : 'Tap to sign in'}</div>
           </div>
           <ChevronRight size={16} color="var(--text3)" />
         </div>
@@ -88,8 +80,7 @@ function Sidebar({ currentPage, navigate, sidebarOpen, closeSidebar, user, onLog
   );
 }
 
-// ── Bottom Nav Items ─────────────────────────────────────
-const NAV_ITEMS = [
+const NAV = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'search', label: 'Search', icon: Search },
   { id: 'dramas', label: 'Shows', icon: Film },
@@ -98,73 +89,56 @@ const NAV_ITEMS = [
 ];
 
 export default function AppMobile() {
-  const [currentPage, setCurrentPage] = useState('home');
-  const [pageParams, setPageParams] = useState({});
-  const [splashDone, setSplashDone] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [page, setPage] = useState('home');
+  const [params, setParams] = useState({});
+  const [splash, setSplash] = useState(false);
+  const [sidebar, setSidebar] = useState(false);
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setSplashDone(true), 1500);
-    return () => clearTimeout(timer);
-  }, []);
+  useEffect(() => { const t = setTimeout(() => setSplash(true), 1500); return () => clearTimeout(t); }, []);
+  useEffect(() => { try { const s = localStorage.getItem('av_mobile_user'); if (s) setUser(JSON.parse(s)); } catch {} }, []);
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('av_mobile_user');
-      if (stored) setUser(JSON.parse(stored));
-    } catch {}
-  }, []);
+  const nav = (p, pr = {}) => { setPage(p); setParams(pr); setSidebar(false); };
+  const back = () => { setPage('home'); setParams({}); };
 
-  function navigate(page, params = {}) { setCurrentPage(page); setPageParams(params); setSidebarOpen(false); }
-  function goBack() { setCurrentPage('home'); setPageParams({}); }
-
-  function renderPage() {
-    switch (currentPage) {
-      case 'anime-detail': return <AnimeDetailsPage params={pageParams} goBack={goBack} />;
-      case 'drama-detail': return <DramaDetailPage params={pageParams} goBack={goBack} />;
-      case 'search': return <SearchPage navigate={navigate} />;
-      case 'collections': return <CollectionsPage navigate={navigate} />;
-      case 'schedule': return <SchedulePage navigate={navigate} />;
-      case 'dramas': return <DramasMoviesPage navigate={navigate} />;
-      case 'settings': return <SettingsPage goBack={goBack} />;
-      case 'profile': return <ProfilePage navigate={navigate} onUserChange={setUser} />;
-      case 'home':
-      default: return <HomePage navigate={navigate} />;
+  const render = () => {
+    switch (page) {
+      case 'anime-detail': return <AnimeDetailsPage params={params} goBack={back} />;
+      case 'drama-detail': return <DramaDetailPage params={params} goBack={back} />;
+      case 'search': return <SearchPage navigate={nav} />;
+      case 'collections': return <CollectionsPage navigate={nav} />;
+      case 'schedule': return <SchedulePage navigate={nav} />;
+      case 'dramas': return <DramasMoviesPage navigate={nav} />;
+      case 'settings': return <SettingsPage goBack={back} />;
+      case 'profile': return <ProfilePage navigate={nav} onUserChange={setUser} />;
+      default: return <HomePage navigate={nav} />;
     }
-  }
+  };
 
-  const showNav = currentPage !== 'anime-detail' && currentPage !== 'drama-detail';
+  const showNav = page !== 'anime-detail' && page !== 'drama-detail';
 
   return (
     <>
-      {!splashDone && <SplashScreen />}
-      <Sidebar currentPage={currentPage} navigate={navigate} sidebarOpen={sidebarOpen} closeSidebar={() => setSidebarOpen(false)} user={user} />
-      
-      <div className="mobile-app" style={{ opacity: splashDone ? 1 : 0, transition: 'opacity 0.4s ease' }}>
+      {!splash && <Splash />}
+      <Sidebar currentPage={page} navigate={nav} open={sidebar} close={() => setSidebar(false)} user={user} />
+      <div className="app" style={{ opacity: splash ? 1 : 0, transition: 'opacity .4s' }}>
         {showNav && (
-          <header className="mobile-header">
-            <div className="mobile-header-left">
-              <button className="hamburger-btn" onClick={() => setSidebarOpen(true)}>
-                <Menu size={20} />
-              </button>
-              <img src="/logo.png" alt="" className="mobile-logo" />
-              <span className="mobile-brand">AnimeVault</span>
+          <header className="header">
+            <div className="header-left">
+              <button className="hamburger" onClick={() => setSidebar(true)}><Menu size={20} /></button>
+              <img src="/logo.png" alt="" className="logo" />
+              <span className="brand">AnimeVault</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ color: 'var(--brand)', fontSize: '0.65rem', fontWeight: 700, background: 'var(--brand-dim)', padding: '3px 8px', borderRadius: 6 }}>v0.2</span>
-            </div>
+            <span className="badge">v0.2</span>
           </header>
         )}
-
-        <main className="mobile-content-area">{renderPage()}</main>
-
+        <main className="area">{render()}</main>
         {showNav && (
-          <nav className="bottom-nav">
-            {NAV_ITEMS.map(item => {
+          <nav className="bnav">
+            {NAV.map(item => {
               const Icon = item.icon;
               return (
-                <button key={item.id} className={`bottom-nav-item ${currentPage === item.id ? 'active' : ''}`} onClick={() => navigate(item.id)}>
+                <button key={item.id} className={`bnav-item ${page === item.id ? 'active' : ''}`} onClick={() => nav(item.id)}>
                   <Icon size={18} />
                   <span>{item.label}</span>
                 </button>
