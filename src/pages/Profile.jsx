@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Heart, Clock, User, LogOut, Trash2, Calendar, Film, Camera, Edit2, Image, Sparkles, Tv, Check, Save, ExternalLink, Award, Settings as SettingsIcon } from 'lucide-react';
+import { Heart, Clock, User, LogOut, Trash2, Calendar, Film, Camera, Edit2, Image, Sparkles, Tv, Check, Save, ExternalLink, Award, Settings as SettingsIcon, UploadCloud, Loader, Users, BadgeCheck } from 'lucide-react';
 import { useUser } from '../api/UserContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fetchTrendingMedia } from '../api/anilist';
 import { getRecommended } from '../api/movies';
+import { fetchPublicUserProfile, getUserSocialStats, followUser, unfollowUser, blockUser, unblockUser, getConnections } from '../api/db';
+import StoryAvatar from '../components/StoryAvatar';
+import StoryUploadModal from '../components/StoryUploadModal';
 
-// Anime-themed presets for profile customization
 const PRESET_BANNERS = [
   { name: 'Anime Landscape', url: 'https://images.unsplash.com/photo-1614728263952-c834c7302501?auto=format&fit=crop&w=1200&q=80' },
   { name: 'Cherry Blossom', url: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?auto=format&fit=crop&w=1200&q=80' },
@@ -21,56 +23,168 @@ const PRESET_AVATARS = [
 ];
 
 const DEFAULT_BANNER = '';
-// Path to the AnimeVault logo placed in the project's public root (e.g., C:/Anime-Vault/public/logo.png)
 const DEFAULT_AVATAR = '/logo.png';
-// Generate a random hex color for banner fallback
 function getRandomBannerColor() {
   return `#${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0')}`;
 }
 const RANDOM_BANNER_COLOR = getRandomBannerColor();
 
 export default function Profile() {
-  const { user, history, likes, continueWatching, logout, clearHistory, updateProfile } = useUser();
+  const { userid } = useParams();
+  const { user: currentUser, history: ownHistory, likes: ownLikes, continueWatching: ownContinueWatching, logout, clearHistory, updateProfile } = useUser();
   const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState('continue'); // 'continue' | 'likes' | 'history' | 'recommendations'
+  const isOwnProfile = currentUser && String(currentUser.id) === String(userid);
+  
+  const [activeTab, setActiveTab] = useState('likes');
   const [recommendations, setRecommendations] = useState([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
   
-  // Customization overlays
+  // Public data state
+  const [publicUser, setPublicUser] = useState(null);
+  const [publicStats, setPublicStats] = useState({ followers: 0, following: 0 });
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  
+  // Determine displayed data
+  const user = isOwnProfile ? currentUser : publicUser;
+  const history = isOwnProfile ? ownHistory : [];
+  const continueWatching = isOwnProfile ? ownContinueWatching : [];
+  const likes = isOwnProfile ? ownLikes : [];
+
+  // Customization overlays (only used if isOwnProfile)
   const [isEditing, setIsEditing] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [bannerUrl, setBannerUrl] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [showStoryUpload, setShowStoryUpload] = useState(false);
+  const [connections, setConnections] = useState({ following: [], followers: [], blocked: [] });
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
 
-  // Load custom credentials on mount or user change
   useEffect(() => {
-    if (user) {
-      setAvatarUrl(user.avatar || DEFAULT_AVATAR);
-      setBannerUrl(user.banner || DEFAULT_BANNER);
-    } else {
-      // Redirect to home if user is not authenticated
-      navigate('/');
+    async function loadProfileData() {
+      if (isOwnProfile) {
+        setLoadingProfile(false);
+        if (currentUser) {
+          setAvatarUrl(currentUser.avatar || DEFAULT_AVATAR);
+          setBannerUrl(currentUser.banner || DEFAULT_BANNER);
+        } else {
+          navigate('/');
+        }
+        return;
+      }
+      
+      setLoadingProfile(true);
+      try {
+        const data = await fetchPublicUserProfile(userid);
+        setPublicUser(data);
+        if (data) {
+          setAvatarUrl(data.avatar || DEFAULT_AVATAR);
+          setBannerUrl(data.banner || DEFAULT_BANNER);
+          const stats = await getUserSocialStats(data.id);
+          setPublicStats(stats);
+        }
+      } catch (err) {
+        console.error("Failed to load public profile:", err);
+      }
+      setLoadingProfile(false);
     }
-  }, [user, navigate]);
+    loadProfileData();
+  }, [userid, isOwnProfile, currentUser, navigate]);
 
-  // Load dynamic recommendations from Anilist
+  // Load connections for follow/block status
   useEffect(() => {
+    if (currentUser && !isOwnProfile && publicUser) {
+      getConnections(currentUser.id).then(setConnections);
+    }
+  }, [currentUser, isOwnProfile, publicUser]);
+
+  const handleSocialAction = async (action) => {
+    if (!currentUser || !publicUser || isProcessingAction) return;
+    setIsProcessingAction(true);
+    let success = false;
+    
+    if (action === 'follow') success = await followUser(currentUser.id, publicUser.id);
+    if (action === 'unfollow') success = await unfollowUser(currentUser.id, publicUser.id);
+    if (action === 'block') success = await blockUser(currentUser.id, publicUser.id);
+    if (action === 'unblock') success = await unblockUser(currentUser.id, publicUser.id);
+
+    if (success) {
+      // Refresh connections and stats
+      const newConns = await getConnections(currentUser.id);
+      setConnections(newConns);
+      const sData = await getUserSocialStats(publicUser.id);
+      setPublicStats(sData);
+    }
+    setIsProcessingAction(false);
+  };
+
+  const handleFileUpload = async (e, type) => {
+    if (!isOwnProfile) return;
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File is too large. Please select an image under 5MB.");
+      return;
+    }
+
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      alert("Missing Cloudinary Cloud Name or Upload Preset in .env file.");
+      return;
+    }
+
+    const setUploading = type === 'avatar' ? setIsUploadingAvatar : setIsUploadingBanner;
+    const setUrl = type === 'avatar' ? setAvatarUrl : setBannerUrl;
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", uploadPreset);
+      formData.append("folder", "animevault_profiles");
+
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.secure_url) {
+        setUrl(result.secure_url);
+      } else {
+        console.error("Cloudinary upload failed:", result);
+        alert(`Upload failed: ${result.error?.message || "Unknown error"}`);
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Error during upload: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOwnProfile) return;
     async function loadRecs() {
       setLoadingRecs(true);
       try {
         const [animeRecs, movieRecs] = await Promise.all([
-          fetchTrendingMedia('ANIME', 1, 20), // increase to 20 anime trends
-          getRecommended(200), // 200 recommendations for longer list
+          fetchTrendingMedia('ANIME', 1, 20),
+          getRecommended(200),
         ]);
-        // Merge and de-duplicate by unique id (media_id or id)
         const combined = [...animeRecs, ...movieRecs];
         const uniqueMap = new Map();
         combined.forEach(item => {
           const uid = item.media_id || item.id || item.imdb_id;
           if (!uniqueMap.has(uid)) uniqueMap.set(uid, item);
         });
-        // Sort by rating if available, otherwise keep order
         const sorted = Array.from(uniqueMap.values()).sort((a, b) => {
           const ra = a.rating ?? 0;
           const rb = b.rating ?? 0;
@@ -85,7 +199,7 @@ export default function Profile() {
       }
     }
     loadRecs();
-  }, []);
+  }, [isOwnProfile]);
 
   const handleSaveProfile = async () => {
     setSaveStatus('Saving...');
@@ -112,7 +226,34 @@ export default function Profile() {
     return 'https://placehold.co/300x169/1a1a2e/ff1a75.png?text=No+Image';
   };
 
-  if (!user) return null;
+  if (loadingProfile) {
+    return (
+      <div style={{ textAlign: 'center', padding: '120px 20px', color: 'var(--text-secondary)' }}>
+        <div className="spinner" style={{
+          width: '40px', height: '40px', border: '3px solid rgba(255,26,117,0.2)',
+          borderTopColor: 'var(--brand-color)', borderRadius: '50%',
+          animation: 'spin 1s linear infinite', margin: '0 auto 20px'
+        }} />
+        <span style={{ fontSize: '0.95rem' }}>Loading vault citizen...</span>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div style={{ textAlign: 'center', padding: '120px 20px', color: 'var(--text-secondary)' }}>
+        <h2 style={{ color: '#fff', marginBottom: '8px' }}>User Not Found</h2>
+        <p style={{ fontSize: '0.9rem', margin: '0 0 20px' }}>The specified vault citizen record could not be located.</p>
+        <Link to="/" style={{
+          background: 'var(--brand-color)', color: '#000', padding: '10px 20px',
+          borderRadius: '8px', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.85rem'
+        }}>
+          Return Home
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="profile-container" style={{
@@ -122,22 +263,22 @@ export default function Profile() {
       
       {/* ── BANNER CONTAINER ── */}
       <div className="profile-banner-wrap" style={{
-        position: 'relative', borderRadius: '20px',
+        position: 'relative', borderRadius: '20px', height: '320px',
         overflow: 'hidden', border: '1px solid rgba(255, 26, 117, 0.2)',
         boxShadow: '0 10px 40px rgba(0,0,0,0.5)', background: '#0a0a14'
       }}>
         {bannerUrl ? (
-  <img
-    src={bannerUrl}
-    alt="User Profile Banner"
-    style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isEditing ? 'brightness(0.6)' : 'none', transition: 'all 0.3s ease' }}
-    onError={() => {}}
-  />
-) : (
-  <div style={{ width: '100%', height: '100%', background: RANDOM_BANNER_COLOR }} />
-)}
+          <img
+            src={bannerUrl}
+            alt="User Profile Banner"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isEditing ? 'brightness(0.6)' : 'none', transition: 'all 0.3s ease' }}
+            onError={() => {}}
+          />
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: RANDOM_BANNER_COLOR }} />
+        )}
         
-        {isEditing && (
+        {isOwnProfile && isEditing && (
           <div style={{
             position: 'absolute', top: '20px', right: '20px',
             background: 'rgba(0,0,0,0.7)', padding: '10px 15px', borderRadius: '10px',
@@ -150,51 +291,68 @@ export default function Profile() {
         )}
 
         {/* Edit Toggle Icon */}
-        <button 
-          onClick={() => setIsEditing(!isEditing)} 
-          style={{
-            position: 'absolute', bottom: '20px', right: '20px',
-            background: isEditing ? 'var(--brand-color)' : 'rgba(15, 15, 25, 0.75)',
-            color: isEditing ? '#000' : '#fff', border: 'none',
-            borderRadius: '10px', padding: '10px 18px', fontSize: '0.85rem',
-            fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center',
-            gap: '8px', zIndex: 10, transition: 'all 0.2s ease',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
-          }}
-          onMouseEnter={e => { if (!isEditing) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'; }}
-          onMouseLeave={e => { if (!isEditing) e.currentTarget.style.background = 'rgba(15, 15, 25, 0.75)'; }}
-        >
-          {isEditing ? <Check size={16} /> : <Edit2 size={14} />}
-          {isEditing ? 'Cancel Edit' : 'Edit Profile Theme'}
-        </button>
+        {isOwnProfile && (
+          <button 
+            onClick={() => setIsEditing(!isEditing)} 
+            style={{
+              position: 'absolute', bottom: '20px', right: '20px',
+              background: isEditing ? 'var(--brand-color)' : 'rgba(15, 15, 25, 0.75)',
+              color: isEditing ? '#000' : '#fff', border: 'none',
+              borderRadius: '10px', padding: '10px 18px', fontSize: '0.85rem',
+              fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center',
+              gap: '8px', zIndex: 10, transition: 'all 0.2s ease',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
+            }}
+            onMouseEnter={e => { if (!isEditing) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'; }}
+            onMouseLeave={e => { if (!isEditing) e.currentTarget.style.background = 'rgba(15, 15, 25, 0.75)'; }}
+          >
+            {isEditing ? <Check size={16} /> : <Edit2 size={14} />}
+            {isEditing ? 'Cancel Edit' : 'Edit Profile Theme'}
+          </button>
+        )}
       </div>
 
       {/* ── USER INFO / AVATAR LAYER ── */}
       <div className="profile-meta-row" style={{
         display: 'flex', gap: '30px', alignItems: 'flex-end',
-        position: 'relative', zIndex: 5
+        position: 'relative', zIndex: 5, padding: '0 40px', marginTop: '-60px'
       }}>
         {/* Floating Circle Avatar */}
         <div className="profile-avatar-wrapper" style={{ position: 'relative', flexShrink: 0 }}>
-          <div className="profile-avatar" style={{
-            borderRadius: '50%',
-            overflow: 'hidden', border: '5px solid #06060c',
-            boxShadow: '0 8px 30px rgba(0,0,0,0.6)', background: '#121220'
-          }}>
-            <img 
-              src={avatarUrl || DEFAULT_AVATAR} 
-              alt="Avatar picture"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
-            />
-          </div>
-          {isEditing && (
+          <StoryAvatar 
+            user={{ ...user, avatar: avatarUrl }} 
+            viewerId={currentUser?.id} 
+            size={140} 
+            style={{ 
+              boxShadow: '0 8px 30px rgba(0,0,0,0.6)', 
+              background: '#121220',
+              border: '5px solid #06060c'
+            }} 
+          />
+          
+          {isOwnProfile && !isEditing && (
+            <div 
+              onClick={() => setShowStoryUpload(true)}
+              style={{
+                position: 'absolute', bottom: '5px', right: '5px', background: 'var(--brand-color)',
+                color: '#000', width: '32px', height: '32px', borderRadius: '50%', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '3px solid #06060c',
+                zIndex: 20, fontWeight: 'bold', fontSize: '20px', paddingBottom: '2px',
+                boxShadow: '0 2px 10px rgba(255,26,117,0.4)'
+              }}
+              title="Add Story"
+            >
+              +
+            </div>
+          )}
+
+          {isOwnProfile && isEditing && (
             <div style={{
               position: 'absolute', bottom: '5px', right: '5px',
               background: '#ff1a75', color: '#000', borderRadius: '50%',
               width: '36px', height: '36px', display: 'flex', alignItems: 'center',
               justifyContent: 'center', cursor: 'pointer', border: '3px solid #06060c',
-              boxShadow: '0 2px 10px rgba(255,26,117,0.4)', alignContent: 'center'
+              boxShadow: '0 2px 10px rgba(255,26,117,0.4)', zIndex: 20
             }}>
               <Camera size={16} />
             </div>
@@ -204,11 +362,14 @@ export default function Profile() {
         {/* Username & Metadata */}
         <div className="profile-user-info" style={{ flex: 1, paddingBottom: '10px' }}>
           <h1 className="profile-username" style={{
-            fontWeight: '900', margin: 0,
+            fontSize: '2.5rem', fontWeight: '900', margin: 0,
             textShadow: '0 4px 15px rgba(0,0,0,0.8)', color: '#fff',
             display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap'
           }}>
             {user.username}
+            {user.is_verified && (
+              <BadgeCheck size={28} fill="#1d9bf0" color="#fff" style={{ filter: 'drop-shadow(0 2px 8px rgba(29, 155, 240, 0.5))' }} title="Verified Vault Citizen" />
+            )}
             {user.is_admin ? (
               <span style={{
                 fontSize: '0.8rem', fontWeight: '900', 
@@ -238,44 +399,107 @@ export default function Profile() {
           </p>
         </div>
 
-
-
-        <div className="profile-actions-buttons" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          {/* Settings Button */}
-          <Link to="/settings" style={{
-            padding: '12px 24px', background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.1)', color: '#fff',
-            fontSize: '0.85rem', fontWeight: '800', borderRadius: '12px',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-            transition: 'all 0.2s ease', marginBottom: '10px',
-            textDecoration: 'none'
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-          >
-            <SettingsIcon size={16} /> Settings
-          </Link>
-
-          {/* Logout Quick Trigger */}
-          <button 
-            onClick={() => { logout(); navigate('/'); }}
-            style={{
-              padding: '12px 24px', background: 'rgba(239,68,68,0.08)',
-              border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444',
+        {isOwnProfile && (
+          <div className="profile-actions-buttons" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <Link to="/settings" style={{
+              padding: '12px 24px', background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)', color: '#fff',
               fontSize: '0.85rem', fontWeight: '800', borderRadius: '12px',
               cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-              transition: 'all 0.2s ease', marginBottom: '10px'
+              transition: 'all 0.2s ease', marginBottom: '10px',
+              textDecoration: 'none'
             }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.18)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.08)'}
-          >
-            <LogOut size={16} /> Logout
-          </button>
-        </div>
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+            >
+              <SettingsIcon size={16} /> Settings
+            </Link>
+
+            <button 
+              onClick={() => { logout(); navigate('/'); }}
+              style={{
+                padding: '12px 24px', background: 'rgba(239,68,68,0.08)',
+                border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444',
+                fontSize: '0.85rem', fontWeight: '800', borderRadius: '12px',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+                transition: 'all 0.2s ease', marginBottom: '10px'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.18)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.08)'}
+            >
+              <LogOut size={16} /> Logout
+            </button>
+          </div>
+        )}
+
+        {!isOwnProfile && currentUser && publicUser && (
+          <div className="profile-actions-buttons" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {connections.following.some(u => u.id === publicUser.id) ? (
+              <button 
+                onClick={() => handleSocialAction('unfollow')}
+                disabled={isProcessingAction}
+                style={{
+                  padding: '12px 24px', background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)', color: '#fff',
+                  fontSize: '0.85rem', fontWeight: '800', borderRadius: '12px',
+                  cursor: isProcessingAction ? 'not-allowed' : 'pointer', transition: 'all 0.2s ease',
+                  opacity: isProcessingAction ? 0.5 : 1
+                }}
+              >
+                Following
+              </button>
+            ) : (
+              <button 
+                onClick={() => handleSocialAction('follow')}
+                disabled={isProcessingAction || connections.blocked.some(u => u.id === publicUser.id)}
+                style={{
+                  padding: '12px 24px', background: 'var(--brand-color)',
+                  border: 'none', color: '#000',
+                  fontSize: '0.85rem', fontWeight: '800', borderRadius: '12px',
+                  cursor: (isProcessingAction || connections.blocked.some(u => u.id === publicUser.id)) ? 'not-allowed' : 'pointer', 
+                  transition: 'all 0.2s ease',
+                  opacity: (isProcessingAction || connections.blocked.some(u => u.id === publicUser.id)) ? 0.5 : 1
+                }}
+              >
+                Follow
+              </button>
+            )}
+
+            {connections.blocked.some(u => u.id === publicUser.id) ? (
+              <button 
+                onClick={() => handleSocialAction('unblock')}
+                disabled={isProcessingAction}
+                style={{
+                  padding: '12px 24px', background: 'rgba(239,68,68,0.1)',
+                  border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444',
+                  fontSize: '0.85rem', fontWeight: '800', borderRadius: '12px',
+                  cursor: isProcessingAction ? 'not-allowed' : 'pointer', transition: 'all 0.2s ease',
+                  opacity: isProcessingAction ? 0.5 : 1
+                }}
+              >
+                Unblock
+              </button>
+            ) : (
+              <button 
+                onClick={() => handleSocialAction('block')}
+                disabled={isProcessingAction}
+                style={{
+                  padding: '12px 24px', background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)',
+                  fontSize: '0.85rem', fontWeight: '800', borderRadius: '12px',
+                  cursor: isProcessingAction ? 'not-allowed' : 'pointer', transition: 'all 0.2s ease',
+                  opacity: isProcessingAction ? 0.5 : 1
+                }}
+              >
+                Block
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── PROFILE THEME EDITING PANEL ── */}
-      {isEditing && (
+      {isOwnProfile && isEditing && (
         <div style={{
           background: 'rgba(15, 15, 25, 0.6)', border: '1px solid rgba(255, 26, 117, 0.25)',
           borderRadius: '16px', padding: '25px', marginTop: '24px', backdropFilter: 'blur(20px)',
@@ -289,18 +513,22 @@ export default function Profile() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
             {/* Avatar URL Edit */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Avatar Image URL</label>
-              <input 
-                type="text" 
-                value={avatarUrl} 
-                onChange={(e) => setAvatarUrl(e.target.value)} 
-                placeholder="Enter custom image address..."
-                style={{
-                  width: '100%', padding: '10px 14px', background: 'rgba(0,0,0,0.3)',
-                  border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px',
-                  color: '#fff', outline: 'none', fontSize: '0.85rem'
-                }}
-              />
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Avatar Image</label>
+              <label style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 14px', gap: '8px',
+                background: 'rgba(255, 26, 117, 0.1)', border: '1px solid rgba(255, 26, 117, 0.3)',
+                borderRadius: '10px', color: '#ff1a75', cursor: 'pointer', transition: 'all 0.2s',
+                opacity: isUploadingAvatar ? 0.6 : 1, pointerEvents: isUploadingAvatar ? 'none' : 'auto',
+                fontWeight: '800', fontSize: '0.85rem'
+              }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 26, 117, 0.2)'}
+                 onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 26, 117, 0.1)'}>
+                {isUploadingAvatar ? (
+                  <><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Uploading...</>
+                ) : (
+                  <><UploadCloud size={16} /> Upload Avatar</>
+                )}
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileUpload(e, 'avatar')} />
+              </label>
               <div style={{ marginTop: '12px' }}>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', display: 'block', marginBottom: '6px' }}>Quick Preset Avatars:</span>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -324,18 +552,22 @@ export default function Profile() {
 
             {/* Banner URL Edit */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Profile Banner URL</label>
-              <input 
-                type="text" 
-                value={bannerUrl} 
-                onChange={(e) => setBannerUrl(e.target.value)} 
-                placeholder="Enter custom image address..."
-                style={{
-                  width: '100%', padding: '10px 14px', background: 'rgba(0,0,0,0.3)',
-                  border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px',
-                  color: '#fff', outline: 'none', fontSize: '0.85rem'
-                }}
-              />
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Profile Banner</label>
+              <label style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 14px', gap: '8px',
+                background: 'rgba(255, 26, 117, 0.1)', border: '1px solid rgba(255, 26, 117, 0.3)',
+                borderRadius: '10px', color: '#ff1a75', cursor: 'pointer', transition: 'all 0.2s',
+                opacity: isUploadingBanner ? 0.6 : 1, pointerEvents: isUploadingBanner ? 'none' : 'auto',
+                fontWeight: '800', fontSize: '0.85rem'
+              }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 26, 117, 0.2)'}
+                 onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 26, 117, 0.1)'}>
+                {isUploadingBanner ? (
+                  <><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Uploading...</>
+                ) : (
+                  <><UploadCloud size={16} /> Upload Banner</>
+                )}
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileUpload(e, 'banner')} />
+              </label>
               <div style={{ marginTop: '12px' }}>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', display: 'block', marginBottom: '6px' }}>Quick Preset Banners:</span>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -377,24 +609,42 @@ export default function Profile() {
 
       {/* ── STATS DASHBOARD DECK ── */}
       <div className="profile-stats-deck" style={{
-        display: 'grid', gap: '20px', marginTop: '40px'
+        display: 'grid', gridTemplateColumns: isOwnProfile ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)', gap: '20px', marginTop: '40px'
       }}>
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#ff1a75' }}>{continueWatching.length}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '700', marginTop: '4px' }}>In Progress</div>
-        </div>
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#ff1a75' }}>{likes.length}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '700', marginTop: '4px' }}>Likes & Favorites</div>
-        </div>
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#ff1a75' }}>{history.length}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '700', marginTop: '4px' }}>Episodes Synced</div>
-        </div>
-        <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#ff1a75' }}>A+</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '700', marginTop: '4px' }}>Account Status</div>
-        </div>
+        {isOwnProfile ? (
+          <>
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#ff1a75' }}>{continueWatching.length}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '700', marginTop: '4px' }}>In Progress</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#ff1a75' }}>{likes.length}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '700', marginTop: '4px' }}>Likes & Favorites</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#ff1a75' }}>{history.length}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '700', marginTop: '4px' }}>Episodes Synced</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#ff1a75' }}>A+</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '700', marginTop: '4px' }}>Account Status</div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: '900', color: user.is_admin ? '#ffd700' : '#ff1a75' }}>
+                <Users size={20} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle', marginTop: '-4px' }} />
+                {publicStats.followers}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '700', marginTop: '4px' }}>Followers</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: '900', color: user.is_admin ? '#ffd700' : '#ff1a75' }}>{publicStats.following}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: '700', marginTop: '4px' }}>Following</div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── DYNAMIC DASHBOARD CONTENT TABS ── */}
@@ -404,14 +654,16 @@ export default function Profile() {
           display: 'flex', gap: '15px', borderBottom: '1px solid rgba(255,255,255,0.08)',
           paddingBottom: '15px', marginBottom: '30px', overflowX: 'auto', whiteSpace: 'nowrap'
         }}>
-          <button onClick={() => setActiveTab('continue')} style={{
-            background: 'none', border: 'none', color: activeTab === 'continue' ? 'var(--brand-color)' : 'var(--text-secondary)',
-            fontSize: '1rem', fontWeight: '800', cursor: 'pointer', paddingBottom: '10px',
-            position: 'relative', display: 'flex', alignItems: 'center', gap: '6px'
-          }}>
-            <Tv size={16} /> Continue Watching ({continueWatching.length})
-            {activeTab === 'continue' && <div style={{ position: 'absolute', bottom: '-16px', left: 0, width: '100%', height: '2px', background: 'var(--brand-color)' }} />}
-          </button>
+          {isOwnProfile && (
+            <button onClick={() => setActiveTab('continue')} style={{
+              background: 'none', border: 'none', color: activeTab === 'continue' ? 'var(--brand-color)' : 'var(--text-secondary)',
+              fontSize: '1rem', fontWeight: '800', cursor: 'pointer', paddingBottom: '10px',
+              position: 'relative', display: 'flex', alignItems: 'center', gap: '6px'
+            }}>
+              <Tv size={16} /> Continue Watching ({continueWatching.length})
+              {activeTab === 'continue' && <div style={{ position: 'absolute', bottom: '-16px', left: 0, width: '100%', height: '2px', background: 'var(--brand-color)' }} />}
+            </button>
+          )}
 
           <button onClick={() => setActiveTab('likes')} style={{
             background: 'none', border: 'none', color: activeTab === 'likes' ? 'var(--brand-color)' : 'var(--text-secondary)',
@@ -422,25 +674,29 @@ export default function Profile() {
             {activeTab === 'likes' && <div style={{ position: 'absolute', bottom: '-16px', left: 0, width: '100%', height: '2px', background: 'var(--brand-color)' }} />}
           </button>
 
-          <button onClick={() => setActiveTab('history')} style={{
-            background: 'none', border: 'none', color: activeTab === 'history' ? 'var(--brand-color)' : 'var(--text-secondary)',
-            fontSize: '1rem', fontWeight: '800', cursor: 'pointer', paddingBottom: '10px',
-            position: 'relative', display: 'flex', alignItems: 'center', gap: '6px'
-          }}>
-            <Clock size={16} /> Stream History ({history.length})
-            {activeTab === 'history' && <div style={{ position: 'absolute', bottom: '-16px', left: 0, width: '100%', height: '2px', background: 'var(--brand-color)' }} />}
-          </button>
+          {isOwnProfile && (
+            <>
+              <button onClick={() => setActiveTab('history')} style={{
+                background: 'none', border: 'none', color: activeTab === 'history' ? 'var(--brand-color)' : 'var(--text-secondary)',
+                fontSize: '1rem', fontWeight: '800', cursor: 'pointer', paddingBottom: '10px',
+                position: 'relative', display: 'flex', alignItems: 'center', gap: '6px'
+              }}>
+                <Clock size={16} /> Stream History ({history.length})
+                {activeTab === 'history' && <div style={{ position: 'absolute', bottom: '-16px', left: 0, width: '100%', height: '2px', background: 'var(--brand-color)' }} />}
+              </button>
 
-          <button onClick={() => setActiveTab('recommendations')} style={{
-            background: 'none', border: 'none', color: activeTab === 'recommendations' ? 'var(--brand-color)' : 'var(--text-secondary)',
-            fontSize: '1rem', fontWeight: '800', cursor: 'pointer', paddingBottom: '10px',
-            position: 'relative', display: 'flex', alignItems: 'center', gap: '6px'
-          }}>
-            <Sparkles size={16} /> Recommended For You
-            {activeTab === 'recommendations' && <div style={{ position: 'absolute', bottom: '-16px', left: 0, width: '100%', height: '2px', background: 'var(--brand-color)' }} />}
-          </button>
+              <button onClick={() => setActiveTab('recommendations')} style={{
+                background: 'none', border: 'none', color: activeTab === 'recommendations' ? 'var(--brand-color)' : 'var(--text-secondary)',
+                fontSize: '1rem', fontWeight: '800', cursor: 'pointer', paddingBottom: '10px',
+                position: 'relative', display: 'flex', alignItems: 'center', gap: '6px'
+              }}>
+                <Sparkles size={16} /> Recommended For You
+                {activeTab === 'recommendations' && <div style={{ position: 'absolute', bottom: '-16px', left: 0, width: '100%', height: '2px', background: 'var(--brand-color)' }} />}
+              </button>
+            </>
+          )}
 
-          {activeTab === 'history' && history.length > 0 && (
+          {isOwnProfile && activeTab === 'history' && history.length > 0 && (
             <button onClick={clearHistory} style={{
               marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px',
               padding: '6px 12px', fontSize: '0.75rem', fontWeight: '800', borderRadius: '8px',
@@ -455,8 +711,8 @@ export default function Profile() {
 
         {/* Tab Cards Panels */}
         <div>
-          {/* TAB: CONTINUE WATCHING */}
-          {activeTab === 'continue' && (
+          {/* TAB: CONTINUE WATCHING (Private) */}
+          {isOwnProfile && activeTab === 'continue' && (
             continueWatching.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-tertiary)', background: 'rgba(255,255,255,0.01)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.03)' }}>
                 <Tv size={40} style={{ marginBottom: '14px', opacity: 0.5, color: '#ff1a75' }} />
@@ -467,7 +723,6 @@ export default function Profile() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px' }}>
                 {continueWatching.map((item, idx) => {
                   const progressPct = item.duration > 0 ? Math.min(100, Math.round((item.progress / item.duration) * 100)) : 0;
-                  
                   return (
                     <div key={idx} style={{
                       background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.04)',
@@ -476,7 +731,6 @@ export default function Profile() {
                     }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'rgba(255, 26, 117, 0.4)'; }}
                        onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.04)'; }}>
                       
-                      {/* Image Thumbnail wrapper */}
                       <div style={{ position: 'relative', aspectRatio: '16/9', overflow: 'hidden' }}>
                         <img src={getPosterUrl(item, 'card')} alt={item.media_title} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://placehold.co/300x169/1a1a2e/ff1a75.png?text=No+Image'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         <div style={{
@@ -486,26 +740,18 @@ export default function Profile() {
                           {item.media_type === 'movie' ? 'Movie' : `S${item.season || 1} Ep${item.episode || 1}`}
                         </div>
                       </div>
-
-                      {/* Progress Bar overlay */}
                       <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.08)' }}>
                         <div style={{ width: `${progressPct}%`, height: '100%', background: 'var(--brand-color)', boxShadow: '0 0 8px var(--brand-color)' }} />
                       </div>
-
-                      {/* Detail metadata block */}
                       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
                         <h4 style={{ margin: '0 0 6px', fontSize: '0.85rem', fontWeight: '800', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {item.media_title}
                         </h4>
-                        
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: 'auto', alignItems: 'center' }}>
                           <span>{progressPct}% Completed</span>
                           <Link 
                             to={item.media_type === 'movie' || item.media_type === 'series' || item.media_type === 'tv' ? `/watch/${item.media_type}/${item.media_id}` : `/anime/${item.media_id}?episode=${item.episode}`} 
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none',
-                              color: 'var(--brand-color)', fontWeight: 'bold'
-                            }}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none', color: 'var(--brand-color)', fontWeight: 'bold' }}
                           >
                             Resume <ExternalLink size={10} />
                           </Link>
@@ -524,7 +770,7 @@ export default function Profile() {
               <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-tertiary)', background: 'rgba(255,255,255,0.01)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.03)' }}>
                 <Heart size={40} style={{ marginBottom: '14px', opacity: 0.5, color: '#ff1a75' }} />
                 <h3 style={{ margin: '0 0 6px', color: '#fff' }}>Favorites are Empty</h3>
-                <p style={{ margin: 0, fontSize: '0.85rem' }}>Heart your favorite anime, movie, or manga to display them here!</p>
+                <p style={{ margin: 0, fontSize: '0.85rem' }}>{isOwnProfile ? 'Heart your favorite anime or movie to display them here!' : 'This user has hidden or hasn\'t added any favorites yet.'}</p>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '20px' }}>
@@ -565,8 +811,8 @@ export default function Profile() {
             )
           )}
 
-          {/* TAB: STREAM HISTORY */}
-          {activeTab === 'history' && (
+          {/* TAB: STREAM HISTORY (Private) */}
+          {isOwnProfile && activeTab === 'history' && (
             history.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-tertiary)', background: 'rgba(255,255,255,0.01)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.03)' }}>
                 <Clock size={40} style={{ marginBottom: '14px', opacity: 0.5, color: '#ff1a75' }} />
@@ -591,11 +837,8 @@ export default function Profile() {
                         <Film size={12} /> {item.media_type}
                       </p>
                     </div>
-
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
-                        {new Date(item.watched_at).toLocaleDateString()}
-                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{new Date(item.watched_at).toLocaleDateString()}</span>
                       <Link 
                         to={item.media_type === 'movie' || item.media_type === 'series' || item.media_type === 'tv' ? `/watch/${item.media_type}/${item.media_id}` : `/anime/${item.media_id}`}
                         style={{
@@ -616,8 +859,8 @@ export default function Profile() {
             )
           )}
 
-          {/* TAB: RECOMMENDED ANIME */}
-          {activeTab === 'recommendations' && (
+          {/* TAB: RECOMMENDED ANIME (Private) */}
+          {isOwnProfile && activeTab === 'recommendations' && (
             loadingRecs ? (
               <div style={{ textAlign: 'center', padding: '40px' }}>
                 <div className="spinner" style={{
@@ -639,7 +882,6 @@ export default function Profile() {
                        onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}>
                       
                       <img src={getPosterUrl(item, 'card')} alt={item.media_title || item.title?.romaji} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      
                       <div style={{
                         position: 'absolute', bottom: 0, left: 0, width: '100%',
                         background: 'linear-gradient(transparent, rgba(0,0,0,0.95))',
@@ -670,6 +912,10 @@ export default function Profile() {
           to { transform: rotate(360deg); }
         }
       `}</style>
+
+      {showStoryUpload && (
+        <StoryUploadModal user={currentUser} onClose={() => setShowStoryUpload(false)} />
+      )}
     </div>
   );
 }

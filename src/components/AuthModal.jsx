@@ -3,10 +3,11 @@ import { useState } from 'react';
 import { X, User, Lock, Sparkles, AlertCircle, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../api/UserContext';
+import { checkUser2FA } from '../api/db';
 
 
 export default function AuthModal() {
-  const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup, sendVerificationCode } = useUser();
+  const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup, sendVerificationCode, loginWithGoogle } = useUser();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -14,6 +15,7 @@ export default function AuthModal() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState('email_password'); // 'email_password' or 'otp'
 
   if (!showAuthModal) return null;
 
@@ -25,11 +27,32 @@ export default function AuthModal() {
     try {
       if (!username.trim() || !password) throw new Error('All fields are required.');
       if (authTab === 'login') {
-        const res = await login(username, password, verificationCode.trim());
-        if (res.success) {
-          setSuccess('Welcome back!');
-          setTimeout(() => { resetForm(); }, 800);
-        } else setError(res.message);
+        if (step === 'email_password') {
+          const needs2FA = await checkUser2FA(username.trim());
+          if (needs2FA) {
+            const res = await sendVerificationCode(username.trim());
+            if (res.success) {
+              setSuccess('2-Step Verification required. Code sent to email!');
+              setStep('otp');
+            } else {
+              setError(res.message || 'Failed to send 2FA code.');
+            }
+          } else {
+            // No 2FA required, login directly
+            const res = await login(username, password, null);
+            if (res.success) {
+              setSuccess('Welcome back!');
+              setTimeout(() => { resetForm(); }, 800);
+            } else setError(res.message);
+          }
+        } else if (step === 'otp') {
+          if (!verificationCode.trim()) throw new Error('Verification code is required.');
+          const res = await login(username, password, verificationCode.trim());
+          if (res.success) {
+            setSuccess('Welcome back!');
+            setTimeout(() => { resetForm(); }, 800);
+          } else setError(res.message);
+        }
       } else {
         const res = await signup(username, password);
         if (res.success) {
@@ -41,7 +64,7 @@ export default function AuthModal() {
     finally { setLoading(false); }
   };
 
-  const resetForm = () => { setUsername(''); setPassword(''); setVerificationCode(''); setError(''); setSuccess(''); };
+  const resetForm = () => { setUsername(''); setPassword(''); setVerificationCode(''); setError(''); setSuccess(''); setStep('email_password'); };
 
   return (
     <div className="auth-overlay" onClick={() => setShowAuthModal(false)}
@@ -69,7 +92,7 @@ export default function AuthModal() {
 
         <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
           {['login', 'signup'].map(tab => (
-            <button key={tab} onClick={() => { setAuthTab(tab); setError(''); setSuccess(''); }}
+            <button key={tab} onClick={() => { setAuthTab(tab); resetForm(); }}
               style={{
                 flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
                 background: authTab === tab ? '#ff1a75' : 'rgba(255,255,255,0.04)',
@@ -92,47 +115,29 @@ export default function AuthModal() {
         )}
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '14px', position: 'relative' }}>
+          <div style={{ marginBottom: '14px', position: 'relative', display: step === 'otp' ? 'none' : 'block' }}>
             <User size={16} style={{ position: 'absolute', top: '12px', left: '12px', color: 'var(--text-tertiary)' }} />
-            <input type="email" value={username} onChange={e => setUsername(e.target.value)} placeholder="Email"
+            <input type="email" value={username} onChange={e => setUsername(e.target.value)} placeholder="Email" disabled={step === 'otp'}
               style={{ width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: '#fff', outline: 'none', fontSize: '0.85rem' }} />
           </div>
           <div style={{ marginBottom: '20px', position: 'relative' }}>
-            <Lock size={16} style={{ position: 'absolute', top: '12px', left: '12px', color: 'var(--text-tertiary)' }} />
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password"
-              style={{ width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: '#fff', outline: 'none', fontSize: '0.85rem' }} />
-            {authTab === 'login' && (
-              <div style={{ marginTop: '14px', position: 'relative' }}>
+            <div style={{ display: step === 'otp' ? 'none' : 'block' }}>
+              <Lock size={16} style={{ position: 'absolute', top: '12px', left: '12px', color: 'var(--text-tertiary)' }} />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" disabled={step === 'otp'}
+                style={{ width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: '#fff', outline: 'none', fontSize: '0.85rem' }} />
+            </div>
+            
+            {authTab === 'login' && step === 'otp' && (
+              <div style={{ marginTop: '0px', position: 'relative' }}>
                 <Lock size={16} style={{ position: 'absolute', top: '12px', left: '12px', color: 'var(--text-tertiary)' }} />
-                <input type="text" value={verificationCode} onChange={e => setVerificationCode(e.target.value)} placeholder="Verification Code (Optional)"
-                  style={{ width: '100%', padding: '11px 100px 11px 38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: '#fff', outline: 'none', fontSize: '0.85rem' }} />
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!username.trim()) {
-                      setError('Please enter your email first.');
-                      return;
-                    }
-                    setError('');
-                    setSuccess('');
-                    try {
-                      setLoading(true);
-                      const res = await sendVerificationCode(username.trim());
-                      if (res.success) {
-                        setSuccess('Verification code sent to email!');
-                      } else {
-                        setError(res.message || 'Failed to send code.');
-                      }
-                    } catch (err) {
-                      setError(err.message || 'Failed to send code.');
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  style={{ position: 'absolute', right: '8px', top: '8px', background: 'rgba(255,26,117,0.2)', border: '1px solid rgba(255,26,117,0.3)', color: '#ff1a75', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
-                >
-                  Send Code
-                </button>
+                <input type="text" value={verificationCode} onChange={e => setVerificationCode(e.target.value)} placeholder="6-Digit Verification Code" autoFocus
+                  style={{ width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,26,117,0.3)', borderRadius: '10px', color: '#fff', outline: 'none', fontSize: '0.85rem', boxShadow: '0 0 10px rgba(255,26,117,0.1)' }} />
+                
+                <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                  <button type="button" onClick={() => setStep('email_password')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}>
+                    Back to Login
+                  </button>
+                </div>
               </div>
             )}
             {authTab === 'login' && (
@@ -154,8 +159,25 @@ export default function AuthModal() {
             )}
           </div>
           <button type="submit" disabled={loading}
-            style={{ width: '100%', padding: '12px', background: '#ff1a75', color: '#000', fontWeight: '900', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.85rem' }}>
-            {loading ? 'Processing...' : (authTab === 'login' ? 'Sign In' : 'Create Account')}
+            style={{ width: '100%', padding: '12px', background: '#ff1a75', color: '#000', fontWeight: '900', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.85rem', transition: 'all 0.2s', marginBottom: '16px', boxShadow: '0 0 15px rgba(255,26,117,0.3)' }}>
+            {loading ? 'Processing...' : (authTab === 'login' ? (step === 'otp' ? 'Verify & Sign In' : 'Sign In') : 'Create Account')}
+          </button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0', gap: '12px' }}>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>OR</span>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+          </div>
+          
+          <button type="button" onClick={loginWithGoogle}
+            style={{ width: '100%', padding: '12px', background: '#ffffff', color: '#000', fontWeight: '900', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' }}>
+            <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Continue with Google
           </button>
         </form>
       </div>

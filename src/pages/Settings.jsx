@@ -47,7 +47,7 @@ import { useUser } from '../api/UserContext';
 import { useNavigate } from 'react-router-dom';
 const LogoIcon = () => <img src="/logo.png" alt="logo" style={{height:18, width:18}} />;
 import { Link } from 'react-router-dom';
-import { getSettings, saveSettings, resetSettings } from '../api/db';
+import { getSettings, saveSettings, resetSettings, toggle2FA } from '../api/db';
 import { storage } from '../utils/storage';
 import {
   ACCENT_PRESETS,
@@ -91,6 +91,7 @@ export default function Settings() {
   const [usernameInput, setUsernameInput] = useState(user?.username || '');
   const [emailInput, setEmailInput] = useState(user?.email || '');
   const [bioInput, setBioInput] = useState(user?.bio || '');
+  const [is2FAEnabled, setIs2FAEnabled] = useState(user?.two_factor_enabled || false);
 
   // Appearance state
   const [accentColor, setAccentColor] = useState(
@@ -611,10 +612,20 @@ export default function Settings() {
                 <h3 className="discord-section-subtitle" style={{ color: "Two-Factor Authentication (2FA)" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Two-Factor Authentication (2FA)</h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <ToggleSwitch
-                    checked={settings.twoFAEnabled}
-                    onChange={(val) => setSettings({ ...settings, twoFAEnabled: val })}
+                    checked={is2FAEnabled}
+                    onChange={async (val) => {
+                      setIs2FAEnabled(val);
+                      const success = await toggle2FA(user.id, val);
+                      if (success) {
+                        setSaveStatus(val ? '2-Step Verification Enabled!' : '2-Step Verification Disabled!');
+                        setTimeout(() => setSaveStatus(''), 3000);
+                      } else {
+                        setIs2FAEnabled(!val);
+                        setSaveStatus('Failed to update 2FA!');
+                      }
+                    }}
                   />
-                  <span style={{ fontSize: '0.95rem' }}>{settings.twoFAEnabled ? 'Enabled' : 'Disabled'}</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: is2FAEnabled ? 'var(--accent)' : 'var(--text-secondary)' }}>{is2FAEnabled ? 'Enabled' : 'Disabled'}</span>
                 </div>
                 <p style={{ marginTop: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                   Add an extra layer of security to your account

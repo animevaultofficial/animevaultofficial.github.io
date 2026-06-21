@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import {
   Search as SearchIcon, Info, Home as HomeIcon, Tv as TvIcon,
-  AlertTriangle, User, Sparkles, Menu, X, Bell, Download as DownloadIcon
+  AlertTriangle, User, Sparkles, Menu, X, Bell, Download as DownloadIcon, Users
 } from 'lucide-react';
 import './styles/designTokens.css';
 import { useUser } from './api/UserContext';
@@ -31,7 +31,6 @@ import AuthModal from './components/AuthModal';
 import ProfileModal from './components/ProfileModal';
 import UpdateCenter from './components/UpdateCenter';
 import Profile from './pages/Profile';
-import UserProfile from './pages/UserProfile';
 import RequireAdmin from './components/RequireAdmin';
 import AdminDashboard from './pages/AdminDashboard';
 import Schedule from './pages/Schedule';
@@ -40,6 +39,7 @@ import Stats from './pages/Stats';
 import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
 import SearchModal from './components/SearchModal';
+import Community from './pages/Community';
 import ForgotPassword from './pages/ForgotPassword';
 import SetNewPassword from './pages/SetNewPassword';
 import { useReminderNotifications } from './hooks/useReminderNotifications';
@@ -220,6 +220,12 @@ function App() {
              Collections
            </FocusableNavLink>
            <FocusableNavLink
+             to="/community"
+             className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+           >
+             Community
+           </FocusableNavLink>
+           <FocusableNavLink
              to="/stats"
              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
            >
@@ -275,7 +281,7 @@ function App() {
             }}>⌘K</kbd>
           </button>
           {user ? (
-            <FocusableLink to="/profile" style={{
+            <FocusableLink to={`/profile/${user.id}`} style={{
               display: 'inline-flex', alignItems: 'center', gap: '6px',
               padding: '6px 12px', fontSize: '0.8rem', fontWeight: '800', borderRadius: '8px',
               border: '1px solid rgba(255, 26, 117, 0.3)', textDecoration: 'none',
@@ -345,6 +351,14 @@ function App() {
               Collections
             </FocusableNavLink>
             <FocusableNavLink
+              to="/community"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
+            >
+              <Users size={18} />
+              <span>Community</span>
+            </FocusableNavLink>
+            <FocusableNavLink
               to="/stats"
               onClick={() => setIsMobileMenuOpen(false)}
               className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
@@ -381,7 +395,7 @@ function App() {
             </FocusableNavLink>
             {user && (
               <FocusableNavLink
-                to="/profile"
+                to={`/profile/${user.id}`}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
               >
@@ -405,6 +419,7 @@ function App() {
           <Route path="/watch/:type/:id" element={<RequireAuth><MovieWatch /></RequireAuth>} />
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/collections" element={<RequireAuth><Collections /></RequireAuth>} />
+          <Route path="/community" element={<Community />} />
           <Route path="/stats" element={<RequireAuth><Stats /></RequireAuth>} />
           <Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} />
           <Route path="/about" element={<About />} />
@@ -414,11 +429,10 @@ function App() {
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/dmca" element={<DMCA />} />
           <Route path="/request" element={<RequestAnime />} />
-          <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+          <Route path="/profile/:userid" element={<Profile />} />
           <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/set-new-password" element={<SetNewPassword />} />
-          <Route path="/user/:username" element={<UserProfile />} />
           <Route path="/download" element={<Download />} />
           <Route path="/admin/*" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
           <Route path="*" element={<NotFound />} />

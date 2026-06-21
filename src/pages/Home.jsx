@@ -72,7 +72,7 @@ const FEATURED_SLIDE_FALLBACKS = [
     averageScore: 91,
     format: "TV",
     bannerImage:
-      "https://s4.anilist.co/file/anilistcdn/media/anime/banner/5114.jpg",
+      "https://static0.colliderimages.com/wordpress/wp-content/uploads/2024/01/full-metal-alchemist.jpg",
   },
   {
     id: 1535,
@@ -84,7 +84,7 @@ const FEATURED_SLIDE_FALLBACKS = [
     averageScore: 84,
     format: "TV",
     bannerImage:
-      "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1535.jpg",
+      "https://occ-0-8407-444.1.nflxso.net/dnm/api/v6/MgXQGyNr1xbI8tJSYiMWv5kXg5g/AAAABfx1O1beK9b2mjMEQXxmAB3EGCOt-T7B4X1OfSvZPzNQ2dSbe77KUr2PCPYBMRBmIojLoOj1GykcqDRZp3G8cOXQjqCYOoyVBC5hysqmyE6jzKAZ5I8oH5KFYw.jpg?r=3bd",
   },
   {
     id: 1735,
@@ -96,7 +96,7 @@ const FEATURED_SLIDE_FALLBACKS = [
     averageScore: 82,
     format: "TV",
     bannerImage:
-      "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1735.jpg",
+      "https://static0.colliderimages.com/wordpress/wp-content/uploads/2025/02/naruto-header.jpg?w=1200&h=675&fit=crop",
   },
   {
     id: 1,
@@ -107,7 +107,7 @@ const FEATURED_SLIDE_FALLBACKS = [
     seasonYear: 1998,
     averageScore: 86,
     format: "TV",
-    bannerImage: "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1.jpg",
+    bannerImage: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFKyfoTGfnUGfst-p3uNe3DzlnCBKoEDY37A&s",
   },
 ];
 

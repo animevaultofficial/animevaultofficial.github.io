@@ -51,7 +51,8 @@ export function UserProvider({ children }) {
         const syncRes = await syncGoogleUserToDb(
           currentUser.email,
           currentUser.name || currentUser.email,
-          currentUser.image
+          currentUser.image,
+          currentUser.emailVerified || currentUser.email_verified || false
         );
         if (syncRes.success) {
           // Create a persistent DB session so future refreshes work
@@ -118,7 +119,8 @@ export function UserProvider({ children }) {
           const syncRes = await syncGoogleUserToDb(
             data.user.email,
             data.user.name || data.user.email,
-            data.user.image
+            data.user.image,
+            data.user.emailVerified || data.user.email_verified || false
           );
           if (syncRes.success) {
             await createUserSession(syncRes.user.id);
@@ -147,7 +149,8 @@ export function UserProvider({ children }) {
           const syncRes = await syncGoogleUserToDb(
             data.user.email,
             data.user.name || data.user.email,
-            data.user.image
+            data.user.image,
+            data.user.emailVerified || data.user.email_verified || false
           );
           if (syncRes.success) {
             await createUserSession(syncRes.user.id);
@@ -172,6 +175,21 @@ export function UserProvider({ children }) {
       return { success: true };
     } catch (e) {
       return { success: false, message: e.message };
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    try {
+      // Trigger Google OAuth flow via Neon Auth
+      // The callback URL is the current location (root) where the app will resume after sign-in
+      await authClient.signIn.social({
+        provider: 'google',
+        // Redirect back to the app root after successful sign-in
+        callbackURL: '/',
+        // Optional callbacks for new users or errors can be added here
+      });
+    } catch (e) {
+      console.error('Google login failed:', e);
     }
   };
 
@@ -301,6 +319,7 @@ export function UserProvider({ children }) {
       login,
       signup,
       sendVerificationCode,
+      loginWithGoogle,
       logout,
       syncUserData,
       addToHistory,

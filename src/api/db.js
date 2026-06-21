@@ -91,7 +91,7 @@ function saveUsers(users) {
 
 // User Functions
 export async function userSignup(username, password) {
-  const trimmedUser = (username || '').trim().toLowerCase();
+  const trimmedUser = (username || '').trim().toLowerCase().split('@')[0];
   if (!trimmedUser || !password) return { success: false, message: 'All fields are required.' };
   if (password.length < 6) return { success: false, message: 'Password must be at least 6 characters.' };
   if (trimmedUser.length < 3) return { success: false, message: 'Username must be at least 3 characters.' };
@@ -141,7 +141,7 @@ export async function userSignup(username, password) {
 }
 
 export async function userLogin(username, password) {
-  const trimmedUser = (username || '').trim().toLowerCase();
+  const trimmedUser = (username || '').trim().toLowerCase().split('@')[0];
   if (!trimmedUser || !password) return { success: false, message: 'All fields are required.' };
 
   // Ensure DB connection
@@ -149,8 +149,8 @@ export async function userLogin(username, password) {
   if (db) {
     try {
       const result = await db`
-        SELECT id, username, password, avatar, banner, is_admin FROM users
-        WHERE username = ${trimmedUser}
+        SELECT id, username, password, avatar, banner, is_admin, is_verified, two_factor_enabled FROM users
+        WHERE LOWER(username) = LOWER(${trimmedUser})
       `;
       if (result.length) {
         const storedHash = result[0].password;
@@ -197,7 +197,7 @@ export async function getProfile(userIdOrUsername) {
   }
   try {
     const result = await sql`
-      SELECT id, username, avatar, banner, is_admin
+      SELECT id, username, avatar, banner, is_admin, is_verified
       FROM users
       WHERE id = ${userIdOrUsername} OR username = ${userIdOrUsername}
     `;
@@ -544,7 +544,298 @@ export async function fetchSiteSettings() {
 
 export async function initDatabase() {
   log('initDatabase called');
+  const db = await getSql();
+  if (db) {
+    try {
+      await db`
+        CREATE TABLE IF NOT EXISTS user_follows (
+          follower_id TEXT NOT NULL,
+          following_id TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (follower_id, following_id)
+        )
+      `;
+      await db`
+        CREATE TABLE IF NOT EXISTS user_blocks (
+          blocker_id TEXT NOT NULL,
+          blocked_id TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (blocker_id, blocked_id)
+        )
+      `;
+      await db`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        avatar TEXT,
+        banner TEXT,
+        is_admin BOOLEAN DEFAULT FALSE,
+        is_verified BOOLEAN DEFAULT FALSE,
+        two_factor_enabled BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    try { await db`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`; } catch(e) {}
+    try { await db`ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT FALSE`; } catch(e) {}
+      await db`
+        CREATE TABLE IF NOT EXISTS stories (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          media_url TEXT NOT NULL,
+          media_type TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+        )
+      `;
+      await db`
+        CREATE TABLE IF NOT EXISTS story_views (
+          story_id INTEGER NOT NULL,
+          viewer_id TEXT NOT NULL,
+          viewed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (story_id, viewer_id)
+        )
+      `;
+      // Run safe alters for retrofitting
+      try { await db`ALTER TABLE stories ADD COLUMN IF NOT EXISTS caption TEXT`; } catch(e) {}
+      
+      await db`
+        CREATE TABLE IF NOT EXISTS notes (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          content TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          song_data TEXT
+        )
+      `;
+      try { await db`ALTER TABLE notes ADD COLUMN IF NOT EXISTS song_data TEXT`; } catch(e) {}
+      
+      log('[AnimeVault DB] Social & Stories & Notes tables initialized');
+    } catch (e) {
+      warn('[AnimeVault DB] Failed to init social/stories/notes tables:', e?.message);
+    }
+  }
   return true;
+}
+
+// ── SOCIAL API FUNCTIONS ──
+
+export async function searchUsers(query, currentUserId) {
+  const db = await getSql();
+  if (!db) return [];
+  try {
+    const searchTerm = `%${(query || '').toLowerCase()}%`;
+    
+    if (!currentUserId) {
+      const result = await db`
+        SELECT id, username, avatar, banner, is_admin, is_verified
+        FROM users
+        WHERE LOWER(username) LIKE ${searchTerm}
+        LIMIT 50
+      `;
+      return result;
+    } else {
+      const result = await db`
+        SELECT id, username, avatar, banner, is_admin, is_verified
+        FROM users
+        WHERE LOWER(username) LIKE ${searchTerm}
+          AND id::text != ${currentUserId}::text
+          AND id::text NOT IN (
+            SELECT blocked_id::text FROM user_blocks WHERE blocker_id::text = ${currentUserId}::text
+          )
+          AND id::text NOT IN (
+            SELECT blocker_id::text FROM user_blocks WHERE blocked_id::text = ${currentUserId}::text
+          )
+        LIMIT 50
+      `;
+      return result;
+    }
+  } catch (e) {
+    error('[AnimeVault DB] Search users failed:', e?.message);
+    return [];
+  }
+}
+
+export async function getUserSocialStats(userId) {
+  const db = await getSql();
+  if (!db) return { followers: 0, following: 0 };
+  try {
+    const followers = await db`SELECT COUNT(*) as count FROM user_follows WHERE following_id = ${userId}`;
+    const following = await db`SELECT COUNT(*) as count FROM user_follows WHERE follower_id = ${userId}`;
+    return {
+      followers: parseInt(followers[0].count, 10),
+      following: parseInt(following[0].count, 10)
+    };
+  } catch (e) {
+    return { followers: 0, following: 0 };
+  }
+}
+
+export async function getConnections(currentUserId) {
+  const db = await getSql();
+  if (!db) return { following: [], blocked: [] };
+  try {
+    const following = await db`SELECT following_id FROM user_follows WHERE follower_id = ${currentUserId}`;
+    const blocked = await db`SELECT blocked_id FROM user_blocks WHERE blocker_id = ${currentUserId}`;
+    return {
+      following: following.map(f => f.following_id),
+      blocked: blocked.map(b => b.blocked_id)
+    };
+  } catch (e) {
+    return { following: [], blocked: [] };
+  }
+}
+
+export async function followUser(followerId, targetId) {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    await db`INSERT INTO user_follows (follower_id, following_id) VALUES (${followerId}, ${targetId}) ON CONFLICT DO NOTHING`;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function unfollowUser(followerId, targetId) {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    await db`DELETE FROM user_follows WHERE follower_id = ${followerId} AND following_id = ${targetId}`;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function blockUser(blockerId, targetId) {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    // Blocking also forces unfollow both ways
+    await db`DELETE FROM user_follows WHERE (follower_id = ${blockerId} AND following_id = ${targetId}) OR (follower_id = ${targetId} AND following_id = ${blockerId})`;
+    await db`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${blockerId}, ${targetId}) ON CONFLICT DO NOTHING`;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function unblockUser(blockerId, targetId) {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    await db`DELETE FROM user_blocks WHERE blocker_id = ${blockerId} AND blocked_id = ${targetId}`;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// ── STORIES & NOTES API FUNCTIONS ──
+
+export async function uploadStory(userId, mediaUrl, mediaType, hoursToExpire, caption = '') {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    const expiresAt = new Date(Date.now() + hoursToExpire * 60 * 60 * 1000);
+    await db`
+      INSERT INTO stories (user_id, media_url, media_type, expires_at, caption)
+      VALUES (${userId}, ${mediaUrl}, ${mediaType}, ${expiresAt.toISOString()}, ${caption})
+    `;
+    return true;
+  } catch (e) {
+    error('[AnimeVault DB] Upload story failed:', e?.message);
+    return false;
+  }
+}
+
+export async function addNote(userId, content, hoursToExpire = 24, songData = null) {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    const expiresAt = new Date(Date.now() + hoursToExpire * 60 * 60 * 1000);
+    const songDataStr = songData ? JSON.stringify(songData) : null;
+    // Delete existing unexpired notes for user
+    await db`DELETE FROM notes WHERE user_id = ${userId}`;
+    await db`
+      INSERT INTO notes (user_id, content, expires_at, song_data)
+      VALUES (${userId}, ${content}, ${expiresAt.toISOString()}, ${songDataStr})
+    `;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function getActiveStories(targetUserId, viewerUserId) {
+  const db = await getSql();
+  if (!db) return { stories: [], allViewed: true, note: null };
+  try {
+    const now = new Date().toISOString();
+    
+    // Get unexpired note
+    const notesResult = await db`
+      SELECT content, song_data FROM notes
+      WHERE user_id = ${targetUserId}::text AND expires_at > ${now}
+      ORDER BY created_at DESC LIMIT 1
+    `;
+    let note = null;
+    if (notesResult.length > 0) {
+      note = {
+        content: notesResult[0].content,
+        songData: notesResult[0].song_data ? JSON.parse(notesResult[0].song_data) : null
+      };
+    }
+
+    // Get unexpired stories for this user
+    const stories = await db`
+      SELECT id, user_id, media_url, media_type, created_at, expires_at, caption
+      FROM stories
+      WHERE user_id = ${targetUserId}::text AND expires_at > ${now}
+      ORDER BY created_at ASC
+    `;
+    
+    if (stories.length === 0) return { stories: [], allViewed: true, note };
+
+    // Check views
+    let allViewed = true;
+    if (viewerUserId) {
+      const storyIds = stories.map(s => s.id);
+      const views = await db`
+        SELECT story_id FROM story_views 
+        WHERE viewer_id = ${viewerUserId}::text AND story_id IN ${db(storyIds)}
+      `;
+      const viewedIds = new Set(views.map(v => v.story_id));
+      stories.forEach(s => {
+        s.viewed = viewedIds.has(s.id);
+        if (!s.viewed) allViewed = false;
+      });
+    } else {
+      allViewed = false; // Not logged in, so nothing is "viewed"
+    }
+
+    return { stories, allViewed, note };
+  } catch (e) {
+    error('[AnimeVault DB] Get active stories failed:', e?.message);
+    return { stories: [], allViewed: true, note: null };
+  }
+}
+
+export async function markStoryViewed(storyId, viewerId) {
+  const db = await getSql();
+  if (!db || !viewerId) return false;
+  try {
+    await db`
+      INSERT INTO story_views (story_id, viewer_id)
+      VALUES (${storyId}, ${viewerId})
+      ON CONFLICT DO NOTHING
+    `;
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 // Public User Profile
@@ -1143,31 +1434,35 @@ export async function updateSetting(key, value) {
   }
 }
 
-export async function syncGoogleUserToDb(email, displayName, googleAvatar) {
+export async function syncGoogleUserToDb(email, displayName, googleAvatar, isEmailVerified) {
   try {
-    const trimmedUser = email.trim();
+    const trimmedUser = email.trim().toLowerCase().split('@')[0];
     // Check if user already exists
     const db = await getSql();
     if (!db) return { success: false, message: 'No DB connection' };
     
     const existing = await db`
-      SELECT id, username, avatar, banner, is_admin, created_at
-      FROM users WHERE username = ${trimmedUser}
+      SELECT id, username, avatar, banner, is_admin, is_verified, two_factor_enabled, created_at
+      FROM users WHERE LOWER(username) = ${trimmedUser}
     `;
     
     if (existing.length > 0) {
-      // User exists, return user record
+      // Update email verified status if it became true
+      if (isEmailVerified && !existing[0].is_verified) {
+        await db`UPDATE users SET is_verified = true WHERE id = ${existing[0].id}`;
+        existing[0].is_verified = true;
+      }
       return { success: true, user: existing[0] };
     }
 
     // User doesn't exist, create a new record!
     // If the email includes 'admin', let's make them an admin!
-    const isAdmin = trimmedUser.toLowerCase().includes('admin') || trimmedUser.toLowerCase() === 'adiyanhehe@gmail.com'; 
+    const isAdmin = email.toLowerCase().includes('admin') || email.toLowerCase() === 'adiyanhehe@gmail.com'; 
 
     const result = await db`
-      INSERT INTO users (username, password, avatar, is_admin) 
-      VALUES (${trimmedUser}, 'google_oauth_bypass', ${googleAvatar || ''}, ${isAdmin})
-      RETURNING id, username, avatar, banner, is_admin, created_at
+      INSERT INTO users (username, password, avatar, is_admin, is_verified) 
+      VALUES (${trimmedUser}, 'google_oauth_bypass', ${googleAvatar || ''}, ${isAdmin}, ${isEmailVerified || false})
+      RETURNING id, username, avatar, banner, is_admin, is_verified, created_at
     `;
     return { success: true, user: result[0] };
   } catch (err) {
@@ -1335,6 +1630,31 @@ export async function removeDeviceSession(sessionId, userId) {
     return true;
   } catch (e) {
     console.error('[AnimeVault DB] Failed to remove device session:', e);
+    return false;
+  }
+}
+
+export async function checkUser2FA(email) {
+  try {
+    const trimmedUser = email.trim().toLowerCase().split('@')[0];
+    const db = await getSql();
+    if (!db) return false;
+    const result = await db`SELECT two_factor_enabled FROM users WHERE LOWER(username) = ${trimmedUser}`;
+    return result.length > 0 ? result[0].two_factor_enabled : false;
+  } catch (err) {
+    console.error('Error checking 2FA:', err);
+    return false;
+  }
+}
+
+export async function toggle2FA(userId, enabled) {
+  try {
+    const db = await getSql();
+    if (!db) return false;
+    await db`UPDATE users SET two_factor_enabled = ${enabled} WHERE id = ${userId}`;
+    return true;
+  } catch (err) {
+    console.error('Error toggling 2FA:', err);
     return false;
   }
 }
