@@ -398,11 +398,24 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
 });
 
+// Domains that should NEVER be blocked by ad-filtering (e.g. media upload CDNs)
+const ALLOWLIST_DOMAINS = [
+  'api.cloudinary.com',
+  'res.cloudinary.com',
+];
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   const hostname = url.hostname.toLowerCase();
   const selfHostname = self.location?.hostname || '';
-  
+
+  // — ALWAYS pass through allowlisted domains (e.g. Cloudinary uploads) —
+  for (const allowed of ALLOWLIST_DOMAINS) {
+    if (hostname === allowed || hostname.endsWith('.' + allowed)) {
+      return;
+    }
+  }
+
   // Block known ad domains
   for (const adDomain of AD_DOMAINS) {
     if (hostname === adDomain || hostname.endsWith('.' + adDomain)) {
