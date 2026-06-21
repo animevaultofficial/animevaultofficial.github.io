@@ -126,8 +126,13 @@ body {
 }
 
 /* Content */
-.mobile-content {
+.mobile-content-area {
   flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-content {
   padding: 1rem;
 }
 
