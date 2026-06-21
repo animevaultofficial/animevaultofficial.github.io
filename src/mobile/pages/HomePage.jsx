@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { fetchHomeData, getTitle, getImage, stripHtml } from '../api/anilist';
+import { TrendingUp, Flame, Clock, Sparkles } from 'lucide-react';
+import { fetchHomeData, getTitle, getImage } from '../api/anilist';
 import { getContinueWatching } from '../api/storage';
 
 function AnilistImage({ src, alt, className, fallback = '🎬' }) {
@@ -19,13 +20,13 @@ function AnilistImage({ src, alt, className, fallback = '🎬' }) {
 function AnimeCard({ media, onClick }) {
   const title = getTitle(media);
   const image = getImage(media, 'large');
-  const subtitle = media.averageScore ? `${media.averageScore}%` : media.format || '';
+  const score = media.averageScore;
   return (
-    <div className="anime-card scroll-item" onClick={() => onClick?.(media.id)}>
-      <AnilistImage src={image} alt={title} className="anime-card-image" />
+    <div className="anime-card" onClick={() => onClick?.(media.id)}>
+      <AnilistImage src={image} alt={title} className="anime-card-img" />
       <div className="anime-card-info">
         <div className="anime-card-title">{title}</div>
-        <div className="anime-card-sub">{subtitle}</div>
+        <div className="anime-card-sub">{score ? `⭐ ${score}%` : media.format || ''}</div>
       </div>
     </div>
   );
@@ -36,16 +37,8 @@ function GridCard({ media, onClick }) {
   const image = getImage(media);
   return (
     <div className="grid-card" onClick={() => onClick?.(media.id)}>
-      <AnilistImage src={image} alt={title} className="grid-card-image" fallback="🎬" />
+      <AnilistImage src={image} alt={title} className="grid-card-img" fallback="🎬" />
       <div className="grid-card-title">{title}</div>
-    </div>
-  );
-}
-
-function SkeletonRow() {
-  return (
-    <div className="horizontal-scroll">
-      {[1,2,3,4,5].map(i => <div key={i} className="skeleton-card loading-shimmer" />)}
     </div>
   );
 }
@@ -66,8 +59,18 @@ export default function HomePage({ navigate }) {
   if (loading) {
     return (
       <div className="mobile-content">
-        <div className="section"><div className="section-header"><span className="section-title">Trending Now</span></div><SkeletonRow /></div>
-        <div className="section"><div className="section-header"><span className="section-title">Most Popular</span></div><SkeletonRow /></div>
+        <div className="section">
+          <div className="section-header"><span className="section-title">Trending Now</span></div>
+          <div className="h-scroll">
+            {[1,2,3,4,5].map(i => <div key={i} className="skel-card loading-shimmer" />)}
+          </div>
+        </div>
+        <div className="section">
+          <div className="section-header"><span className="section-title">Most Popular</span></div>
+          <div className="h-scroll">
+            {[1,2,3,4,5].map(i => <div key={i} className="skel-card loading-shimmer" />)}
+          </div>
+        </div>
       </div>
     );
   }
@@ -83,10 +86,10 @@ export default function HomePage({ navigate }) {
       {heroItem && (
         <div className="hero-banner" onClick={() => nav(heroItem.id)}>
           <div className="hero-banner-content">
-            <div className="hero-badge">Trending #1</div>
+            <div className="hero-badge"><TrendingUp size={10} /> Trending #1</div>
             <div className="hero-title">{getTitle(heroItem)}</div>
             <div className="hero-subtitle">
-              {heroItem.averageScore ? `${heroItem.averageScore}% Score` : ''}
+              {heroItem.averageScore ? `⭐ ${heroItem.averageScore}%` : ''}
               {heroItem.episodes ? ` · ${heroItem.episodes} eps` : ''}
               {heroItem.seasonYear ? ` · ${heroItem.seasonYear}` : ''}
             </div>
@@ -98,15 +101,15 @@ export default function HomePage({ navigate }) {
       {continueWatching.length > 0 && (
         <div className="section">
           <div className="section-header">
-            <span className="section-title">Continue Watching</span>
+            <span className="section-title"><Clock size={14} /> Continue Watching</span>
           </div>
-          <div className="horizontal-scroll">
+          <div className="h-scroll">
             {continueWatching.map(item => (
-              <div key={item.id} className="anime-card scroll-item" onClick={() => nav(item.id)}>
-                <AnilistImage src={item.image} alt={item.title} className="anime-card-image" />
+              <div key={item.id} className="anime-card" onClick={() => nav(item.id)}>
+                <AnilistImage src={item.image} alt={item.title} className="anime-card-img" />
                 <div className="anime-card-info">
                   <div className="anime-card-title">{item.title}</div>
-                  <div className="anime-card-sub">▶ Continue</div>
+                  <div className="anime-card-sub" style={{ color: 'var(--brand)' }}>▶ Continue</div>
                 </div>
               </div>
             ))}
@@ -118,24 +121,24 @@ export default function HomePage({ navigate }) {
       {trending.length > 0 && (
         <div className="section">
           <div className="section-header">
-            <span className="section-title">Trending Now</span>
+            <span className="section-title"><Flame size={14} /> Trending Now</span>
             <span className="section-link" onClick={() => navigate('search')}>See all</span>
           </div>
-          <div className="horizontal-scroll">
-            {trending.map(media => <AnimeCard key={media.id} media={media} onClick={(id) => nav(id)} />)}
+          <div className="h-scroll">
+            {trending.map(media => <AnimeCard key={media.id} media={media} onClick={nav} />)}
           </div>
         </div>
       )}
 
-      {/* Popular */}
+      {/* Most Popular */}
       {popular.length > 0 && (
         <div className="section">
           <div className="section-header">
-            <span className="section-title">Most Popular</span>
+            <span className="section-title"><Sparkles size={14} /> Most Popular</span>
             <span className="section-link" onClick={() => navigate('search')}>See all</span>
           </div>
-          <div className="horizontal-scroll">
-            {popular.map(media => <AnimeCard key={media.id} media={media} onClick={(id) => nav(id)} />)}
+          <div className="h-scroll">
+            {popular.map(media => <AnimeCard key={media.id} media={media} onClick={nav} />)}
           </div>
         </div>
       )}
@@ -146,8 +149,8 @@ export default function HomePage({ navigate }) {
           <div className="section-header">
             <span className="section-title">Upcoming</span>
           </div>
-          <div className="grid-scroll">
-            {upcoming.slice(0, 9).map(media => <GridCard key={media.id} media={media} onClick={(id) => nav(id)} />)}
+          <div className="grid-3">
+            {upcoming.slice(0, 9).map(media => <GridCard key={media.id} media={media} onClick={nav} />)}
           </div>
         </div>
       )}

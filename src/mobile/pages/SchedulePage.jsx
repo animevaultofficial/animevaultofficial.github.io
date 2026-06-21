@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, TrendingUp } from 'lucide-react';
 
 const ANILIST_URL = 'https://graphql.anilist.co';
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -79,30 +80,36 @@ export default function SchedulePage({ navigate }) {
   return (
     <div className="mobile-content">
       <div className="section-header" style={{ marginBottom: 12 }}>
-        <span className="section-title">📅 Weekly Schedule</span>
+        <span className="section-title"><Calendar size={16} /> Weekly Schedule</span>
       </div>
 
       {/* Day Pills */}
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 16, paddingBottom: 4, scrollbarWidth: 'none' }}>
+      <div className="h-scroll" style={{ marginBottom: 16 }}>
         {DAYS_SHORT.map((day, i) => (
           <button key={i} onClick={() => setSelectedDay(i)}
             style={{
               flexShrink: 0, padding: '8px 14px', borderRadius: 20, cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem',
-            background: selectedDay === i ? 'var(--brand-color)' : 'rgba(255,255,255,0.05)',
-            color: selectedDay === i ? '#fff' : i === today ? '#ff1a75' : '#94a3b8',
-            border: i === today && selectedDay !== i ? '2px solid rgba(255,26,117,0.4)' : selectedDay === i ? '2px solid var(--brand-color)' : '2px solid transparent'
+              background: selectedDay === i ? 'var(--brand)' : 'var(--border)',
+              color: selectedDay === i ? '#fff' : i === today ? 'var(--brand)' : 'var(--text3)',
+              border: i === today && selectedDay !== i ? '2px solid var(--brand-dim)' : '2px solid transparent',
+              fontFamily: 'var(--font)',
             }}>
             {day}
           </button>
         ))}
       </div>
 
-      <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 12 }}>{DAYS[selectedDay]} · {todayItems.length} airing</p>
+      <p style={{ fontSize: '0.85rem', color: 'var(--text3)', marginBottom: 12 }}>
+        {DAYS[selectedDay]} · {todayItems.length} airing
+      </p>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>Loading schedule...</div>
+        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text3)' }}>
+          <div className="loading-shimmer" style={{ width: 40, height: 40, borderRadius: '50%', margin: '0 auto 12px' }} />
+          <p>Loading schedule...</p>
+        </div>
       ) : todayItems.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text3)' }}>
           <div style={{ fontSize: '2rem', marginBottom: 8 }}>📺</div>
           <p>No anime airing this day</p>
         </div>
@@ -119,16 +126,16 @@ export default function SchedulePage({ navigate }) {
 
             return (
               <div key={item.id} onClick={() => nav(media.id)}
-                style={{ display: 'flex', gap: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: 10, border: isSoon ? '1px solid rgba(255,26,117,0.3)' : '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
-                <div style={{ width: 48, height: 68, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: '#1e293b' }}>
+                className="info-card" style={{ display: 'flex', gap: 12, padding: 10, cursor: 'pointer', border: isSoon ? '1px solid var(--brand-dim)' : '1px solid var(--border-light)' }}>
+                <div style={{ width: 48, height: 68, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: 'var(--surface2)' }}>
                   {image && <img src={image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
-                  <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>
-                    Ep {item.episode} · {isSoon ? '🔴 Airing now' : `${hours}:${mins}`}
+                  <div style={{ color: 'var(--text3)', fontSize: '0.75rem' }}>
+                    Ep {item.episode} · {isSoon ? <span style={{ color: 'var(--brand)' }}>🔴 Airing now</span> : `${hours}:${mins}`}
                   </div>
-                  {media.averageScore && <div style={{ color: 'var(--brand-color)', fontSize: '0.7rem', marginTop: 2 }}>⭐ {media.averageScore}%</div>}
+                  {media.averageScore && <div className="stat-pill" style={{ display: 'inline-block', marginTop: 4 }}>⭐ {media.averageScore}%</div>}
                 </div>
               </div>
             );
