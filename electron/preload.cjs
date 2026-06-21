@@ -83,3 +83,13 @@ contextBridge.exposeInMainWorld('electron', {
   setZoomFactor: (factor) => webFrame.setZoomFactor(factor),
 });
 
+// Simple download API
+contextBridge.exposeInMainWorld('electronDownload', {
+  start: (url, filename) => ipcRenderer.invoke('download:start', { url, filename }),
+  onProgress: (cb) => {
+    const h = (_e, data) => cb(data);
+    ipcRenderer.on('download-progress', h);
+    return () => ipcRenderer.removeListener('download-progress', h);
+  }
+});
+

@@ -139,6 +139,25 @@ const DownloadPage = () => {
                               </p>
                             </div>
                             <Download className="w-4 h-4 text-gray-400 group-hover:text-blue-300 flex-shrink-0" />
+                            {window && window.electronDownload && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  try {
+                                    window.electronDownload.start(asset.browser_download_url, asset.name).then(res => {
+                                      if (res?.success) alert('Download started: ' + res.path);
+                                      else alert('Failed to start download: ' + (res?.error || 'unknown'));
+                                    });
+                                  } catch (err) {
+                                    alert('Download not available in this environment');
+                                  }
+                                }}
+                                className="ml-2 px-2 py-1 rounded bg-blue-600 text-white text-xs"
+                              >
+                                Stream Download
+                              </button>
+                            )}
                           </a>
                         );
                       })}

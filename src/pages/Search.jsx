@@ -149,10 +149,10 @@ function Search() {
         }
       } else {
         data = await searchAnime(
-          trimmedSearch || null, 
-          typeFilter, 
-          genreFilter || null, 
-          1, 
+          trimmedSearch || null,
+          typeFilter,
+          genreFilter || null,
+          1,
           50,
           sortFilter,
           statusFilter === 'All' ? null : statusFilter,
@@ -244,6 +244,18 @@ function Search() {
     }, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  // Debounced real-time search: update search params when user types
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      // show trending when query is too short
+      return;
+    }
+    const debounceTimer = setTimeout(() => {
+      updateSearchParams({ nextQuery: query });
+    }, 400);
+    return () => clearTimeout(debounceTimer);
+  }, [query]);
 
   return (
     <div className="premium-search-page">

@@ -144,6 +144,10 @@ export async function userLogin(username, password) {
   const trimmedUser = (username || '').trim().toLowerCase().split('@')[0];
   if (!trimmedUser || !password) return { success: false, message: 'All fields are required.' };
 
+  const inputHash = simpleHash(password);
+  let dbUser = null;
+  let passwordValid = false;
+
   // Ensure DB connection
   const db = await getSql();
   if (db) {
@@ -153,8 +157,8 @@ export async function userLogin(username, password) {
         WHERE LOWER(username) = LOWER(${trimmedUser})
       `;
       if (result.length) {
+        dbUser = result[0];
         const storedHash = result[0].password;
-        const inputHash = simpleHash(password);
         if (storedHash === inputHash) {
           const { password: _, ...user } = result[0];
           // Sync to localStorage for offline fallback
@@ -166,37 +170,40 @@ export async function userLogin(username, password) {
           }
           return { success: true, user };
         }
-        return { success: false, message: 'Invalid password. Please try again.' };
+        passwordValid = false;
       }
     } catch (e) {
       warn('[AnimeVault DB] Neon login failed, falling back:', e?.message);
     }
   }
 
-  // LocalStorage fallback (or DB returned no match)
+  // LocalStorage fallback (check local cache if DB didn't work or if DB user exists but password didn't match in DB)
   const users = getUsers();
-  const user = users.find(u => u.username.toLowerCase() === trimmedUser.toLowerCase());
-  if (!user) {
-    return { success: false, message: 'Account does not exist. Please sign up first.' };
-  }
-
-  const inputHash = simpleHash(password);
-  if (user.password !== inputHash) {
+  const localUser = users.find(u => u.username.toLowerCase() === trimmedUser.toLowerCase());
+  
+  if (localUser) {
+    // Check if local user matches the password
+    if (localUser.password === inputHash) {
+      const { password: _, ...safeUser } = localUser;
+      return { success: true, user: safeUser };
+    }
+    // Password doesn't match in localStorage either
     return { success: false, message: 'Invalid password. Please try again.' };
   }
-
-  const { password: _, ...safeUser } = user;
-  return { success: true, user: safeUser };
+  
+  // User not found in either DB or localStorage
+  return { success: false, message: 'Account does not exist. Please sign up first.' };
 }
 
 
 
 export async function getProfile(userIdOrUsername) {
-  if (!sql) {
+  const db = await getSql();
+  if (!db) {
     return null;
   }
   try {
-    const result = await sql`
+    const result = await db`
       SELECT id, username, avatar, banner, is_admin, is_verified
       FROM users
       WHERE id = ${userIdOrUsername} OR username = ${userIdOrUsername}
@@ -236,11 +243,12 @@ export async function updateUserPassword(username, newPassword) {
 }
 
 export async function updateUserProfile(userId, newAvatar, newBanner) {
-  if (!sql) {
+  const db = await getSql();
+  if (!db) {
     return { success: false };
   }
   try {
-    const result = await sql`
+    const result = await db`
       UPDATE users
       SET avatar = ${newAvatar || null},
           banner = ${newBanner || null}
@@ -259,11 +267,12 @@ export async function updateUserProfile(userId, newAvatar, newBanner) {
 
 // Progress Functions
 export async function getProgress(userId) {
-  if (!sql) {
+  const db = await getSql();
+  if (!db) {
     return {};
   }
   try {
-    const result = await sql`
+    const result = await db`
       SELECT anime_id, episode, progress, rating, last_updated
       FROM user_progress
       WHERE user_id = ${userId}
@@ -285,13 +294,14 @@ export async function getProgress(userId) {
 }
 
 export async function updateProgress(userId, animeId, episode, progress, rating) {
-  if (!sql) {
+  const db = await getSql();
+  if (!db) {
     console.warn('[AnimeVault DB] Database not connected');
     return false;
   }
   try {
     const now = new Date().toISOString();
-    await sql`
+    await db`
       INSERT INTO user_progress (user_id, anime_id, episode, progress, rating, last_updated)
       VALUES (${userId}, ${animeId}, ${episode || 1}, ${progress || 0}, ${rating || null}, ${now})
       ON CONFLICT (user_id, anime_id) DO UPDATE
@@ -309,12 +319,13 @@ export async function updateProgress(userId, animeId, episode, progress, rating)
 
 // Favorites Functions
 export async function getFavorites(userId) {
-  if (!sql) {
+  const db = await getSql();
+  if (!db) {
     console.warn('[AnimeVault DB] Database not connected');
     return [];
   }
   try {
-    const result = await sql`
+    const result = await db`
       SELECT anime_id, favorited_at
       FROM user_favorites
       WHERE user_id = ${userId}
@@ -328,24 +339,25 @@ export async function getFavorites(userId) {
 }
 
 export async function toggleFavorite(userId, animeId) {
-  if (!sql) {
+  const db = await getSql();
+  if (!db) {
     console.warn('[AnimeVault DB] Database not connected');
     return false;
   }
   try {
-    const existing = await sql`
+    const existing = await db`
       SELECT id FROM user_favorites
       WHERE user_id = ${userId} AND anime_id = ${animeId}
     `;
 
     if (existing.length > 0) {
-      await sql`
+      await db`
         DELETE FROM user_favorites
         WHERE user_id = ${userId} AND anime_id = ${animeId}
       `;
       return { action: 'unliked' };
     } else {
-      await sql`
+      await db`
         INSERT INTO user_favorites (user_id, anime_id)
         VALUES (${userId}, ${animeId})
       `;
@@ -623,9 +635,10 @@ export async function removeReminder(userId, scheduleId) {
 
 // Admin Functions
 export async function isAdmin(userId) {
-  if (!sql) return false;
+  const db = await getSql();
+  if (!db) return false;
   try {
-    const result = await sql`
+    const result = await db`
       SELECT is_admin FROM users WHERE id = ${userId}
     `;
     return result[0]?.is_admin || false;
@@ -877,6 +890,7 @@ export async function deleteTrendingItem(id) {
   }
 }
 
+
 export async function getAllTrendingItems(pageType = 'anime') {
   const db = await getSql();
   if (!db) return [];
@@ -891,6 +905,78 @@ export async function getAllTrendingItems(pageType = 'anime') {
   }
 }
 
+export async function initializeTrendingDefaults() {
+  const db = await getSql();
+  if (!db) return;
+  try {
+    // Check if table already has items
+    const existing = await db`SELECT COUNT(*) as count FROM trending_board`;
+    if (existing[0].count > 0) return;
+
+    // Add default trending items
+    const defaults = [
+      {
+        page_type: 'anime',
+        media_id: '180745',
+        title: 'Classroom of the Elite Season 3',
+        description: 'Class D returns to a brutal merit-based school system where alliances, betrayals, and psychological tests decide who can climb to the top.',
+        image_url: 'https://m.media-amazon.com/images/M/MV5BMDg3MGVhNWUtYTQ2NS00ZDdiLTg5MTMtZmM5MjUzN2IxN2I4XkEyXkFqcGc@._V1_.jpg',
+        banner_url: 'https://occ-0-8407-2219.1.nflxso.net/dnm/api/v6/MgXQGyNr1xbI8tJSYiMWv5kXg5g/AAAABbu2mrfgMEMATRppz3WvutNHbUSBM3rWWq3nIBWGk3n1DgG9GVI1yX5gkfdDK73a0_L0SVQnfKp2HEIMdC9KeAXdmZB7VjTqO8EI0Pyv3C8DvfJtXEYE1mXA9g.jpg?r=6ae',
+        sort_order: 0,
+        active: true
+      },
+      {
+        page_type: 'anime',
+        media_id: '5114',
+        title: 'Fullmetal Alchemist: Brotherhood',
+        description: 'Two brothers search for the Philosopher\'s Stone after a forbidden ritual changes their lives forever.',
+        image_url: 'https://m.media-amazon.com/images/M/MV5BNDU3N2VkMjAtNjA5OS00ZDI0LThjODQtMjJlODY4NWE3Y2Y5XkEyXkFqcGdeQXVyNDg4MjkzNDk@._V1_.jpg',
+        banner_url: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRSo32Teh6AEGe5IwXO3EFDefYi89gXy9z50Q&s',
+        sort_order: 1,
+        active: true
+      },
+      {
+        page_type: 'anime',
+        media_id: '1535',
+        title: 'Death Note',
+        description: 'A genius student discovers a notebook with deadly power and begins a cat-and-mouse war against the world\'s greatest detective.',
+        image_url: 'https://m.media-amazon.com/images/M/MV5BODcyYjg0OWItNWU1Ni00YzA5LWI5OGItNzk0OTAwMDA4MTlkXkEyXkFqcGdeQXVyNjc1NjU5OTI@._V1_.jpg',
+        banner_url: 'https://occ-0-8407-444.1.nflxso.net/dnm/api/v6/MgXQGyNr1xbI8tJSYiMWv5kXg5g/AAAABfx1O1beK9b2mjMEQXxmAB3EGCOt-T7B4X1OfSvZPzNQ2dSbe77KUr2PCPYBMRBmIojLoOj1GykcqDRZp3G8cOXQjqCYOoyVBC5hysqmyE6jzKAZ5I8oH5KFYw.jpg?r=3bd',
+        sort_order: 2,
+        active: true
+      },
+      {
+        page_type: 'anime',
+        media_id: '1735',
+        title: 'Naruto: Shippuden',
+        description: 'Naruto continues his journey home with bigger battles, stronger rivals, and the dream of becoming Hokage still burning bright.',
+        image_url: 'https://m.media-amazon.com/images/M/MV5BZmQ1MzkyYjEtODAwOS00MGVjLTllMDgtODY5MzAzMDYxZDJkXkEyXkFqcGdeQXVyNTA4NjY1MTk@._V1_.jpg',
+        banner_url: 'https://static0.colliderimages.com/wordpress/wp-content/uploads/2025/02/naruto-header.jpg?w=1200&h=675&fit=crop',
+        sort_order: 3,
+        active: true
+      },
+      {
+        page_type: 'anime',
+        media_id: '1',
+        title: 'Cowboy Bebop',
+        description: 'A crew of bounty hunters chases criminals across space while their pasts slowly catch up with them.',
+        image_url: 'https://m.media-amazon.com/images/M/MV5BNGMwZWMwNjItNDkwYi00NDc5LWJkZDItMDBjYzQ1OTAwOTAxXkEyXkFqcGdeQXVyNzQ1ODk3MTc@._V1_.jpg',
+        banner_url: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFKyfoTGfnUGfst-p3uNe3DzlnCBKoEDY37A&s',
+        sort_order: 4,
+        active: true
+      }
+    ];
+
+    for (const item of defaults) {
+      await db`
+        INSERT INTO trending_board (page_type, media_id, title, description, image_url, banner_url, sort_order, active)
+        VALUES (${item.page_type}, ${item.media_id}, ${item.title}, ${item.description}, ${item.image_url}, ${item.banner_url}, ${item.sort_order}, ${item.active})
+      `;
+    }
+  } catch (e) {
+    console.warn('[AnimeVault DB] Failed to initialize trending defaults:', e?.message);
+  }
+}
 export async function getDatabaseStats() {
   const db = await getSql();
   if (!db) return {};
@@ -996,6 +1082,29 @@ export async function getRecentStories(limit = 20) {
   }
 }
 
+export async function getUserNotes(userId = null) {
+  const db = await getSql();
+  if (!db) return [];
+  try {
+    if (userId) {
+      return await db`
+        SELECT * FROM notes
+        WHERE user_id = ${userId}
+        ORDER BY created_at DESC
+      `;
+    } else {
+      return await db`
+        SELECT * FROM notes
+        WHERE expires_at > CURRENT_TIMESTAMP OR expires_at IS NULL
+        ORDER BY created_at DESC
+      `;
+    }
+  } catch (e) {
+    error('[AnimeVault DB] Failed to fetch notes:', e?.message);
+    return [];
+  }
+}
+
 export async function getRecentNotes(limit = 20) {
   const db = await getSql();
   if (!db) return [];
@@ -1046,6 +1155,25 @@ export async function deleteNote(noteId) {
     return true;
   } catch (e) {
     return false;
+  }
+}
+
+export async function updateNote(noteId, updates) {
+  const db = await getSql();
+  if (!db) return { success: false };
+  try {
+    const fields = [];
+    if (updates.content !== undefined) fields.push`content = ${updates.content}`;
+    if (updates.song_data !== undefined) fields.push`song_data = ${updates.song_data ? JSON.stringify(updates.song_data) : null}`;
+    fields.push`updated_at = CURRENT_TIMESTAMP`;
+
+    await db`
+      UPDATE notes SET ${fields} WHERE id = ${noteId}
+    `;
+    return { success: true };
+  } catch (e) {
+    error('[AnimeVault DB] Failed to update note:', e?.message);
+    return { success: false };
   }
 }
 
@@ -1680,8 +1808,8 @@ export async function updateUserStats(updates) {
 export async function getFavoritesLocal() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.FAVORITES) || '{}');
-  } catch (error) {
-    error('Error fetching favorites:', error);
+  } catch (err) {
+    error('Error fetching favorites:', err);
     return { animes: [], studios: [], characters: [] };
   }
 }
@@ -2317,7 +2445,7 @@ export async function checkUser2FA(email) {
     const trimmedUser = email.trim().toLowerCase().split('@')[0];
     const db = await getSql();
     if (!db) return false;
-    const result = await db`SELECT two_factor_enabled FROM users WHERE LOWER(username) = ${trimmedUser}`;
+    const result = await db`SELECT two_factor_enabled FROM users WHERE LOWER(username) = LOWER(${trimmedUser})`;
     return result.length > 0 ? result[0].two_factor_enabled : false;
   } catch (err) {
     console.error('Error checking 2FA:', err);

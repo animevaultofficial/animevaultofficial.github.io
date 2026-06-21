@@ -6,6 +6,7 @@ import {
   fetchAnimeBySeason,
   fetchAnimeByIds,
 } from "../api/anilist";
+import { getTrendingBoard } from "../api/db";
 import LatestSection from "../components/LatestSection";
 import {
   Play,
@@ -188,12 +189,38 @@ function Home() {
     async function load() {
       try {
         setLoading(true);
+        
+        // Try to get featured slides from database first
+        let dbFeaturedSlides = [];
+        try {
+          dbFeaturedSlides = await getTrendingBoard('anime');
+        } catch (dbErr) {
+          console.warn('Failed to fetch trending from database, using fallbacks:', dbErr);
+        }
+
+        // Use database items if available, otherwise use fallbacks
+        let featuredToUse = FEATURED_SLIDE_FALLBACKS;
+        if (dbFeaturedSlides && dbFeaturedSlides.length > 0) {
+          // Convert db format to feature slide format
+          featuredToUse = dbFeaturedSlides.slice(0, 10).map(item => ({
+            id: item.media_id,
+            title: { english: item.title },
+            description: item.description || 'No description available.',
+            bannerImage: item.banner_url,
+            coverImage: { extraLarge: item.image_url },
+            seasonYear: new Date().getFullYear(),
+            averageScore: 80,
+            format: 'TV'
+          }));
+        }
+
+        // Still fetch from AniList to enrich with latest data
         const [data, featured] = await Promise.all([
           fetchTrendingMedia("ANIME"),
-          fetchAnimeByIds(FEATURED_SLIDE_IDS),
+          fetchAnimeByIds(featuredToUse.map(f => f.id)),
         ]);
 
-        const orderedFeatured = FEATURED_SLIDE_FALLBACKS.map((fallback) => {
+        const orderedFeatured = featuredToUse.map((fallback) => {
           const fetched = featured.find(
             (anime) => Number(anime.id) === Number(fallback.id),
           );

@@ -47,7 +47,7 @@ import { useUser } from '../api/UserContext';
 import { useNavigate } from 'react-router-dom';
 const LogoIcon = () => <img src="/logo.png" alt="logo" style={{height:18, width:18}} />;
 import { Link } from 'react-router-dom';
-import { getSettings, saveSettings, resetSettings, toggle2FA } from '../api/db';
+import { getSettings, saveSettings, resetSettings, toggle2FA, updateUsername } from '../api/db';
 import { storage } from '../utils/storage';
 import {
   ACCENT_PRESETS,
@@ -147,7 +147,33 @@ export default function Settings() {
     }
   };
 
-  // Home customization handlers
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    let success = false;
+    try {
+      // Update avatar/banner via context
+      success = await updateProfile(avatarUrl, bannerUrl);
+      // Update username if changed
+      if (usernameInput && usernameInput !== user.username) {
+        const res = await updateUsername(user.id, usernameInput);
+        if (!res.success) {
+          alert(res.message || 'Failed to update username');
+        } else {
+          // refresh profile in context
+          await updateProfile(avatarUrl, bannerUrl);
+        }
+      }
+      if (success) setSaveStatus('Profile saved!');
+      else setSaveStatus('Failed to save profile');
+      setTimeout(() => setSaveStatus(''), 2000);
+    } catch (e) {
+      console.error(e);
+      setSaveStatus('Failed to save profile');
+      setTimeout(() => setSaveStatus(''), 2000);
+    }
+  };
+ 
+    // Home customization handlers
   const toggleHomeRow = (id) => {
     const newVisible = { ...homeLayout.visible, [id]: !homeLayout.visible[id] };
     const newLayout = { ...homeLayout, visible: newVisible };
@@ -198,19 +224,7 @@ export default function Settings() {
     reader.readAsText(file);
   };
 
-  const handleSaveProfile = async () => {
-    const success = await updateProfile(avatarUrl, bannerUrl);
-    if (success) {
-      setSaveStatus('Profile updated successfully!');
-      setTimeout(() => setSaveStatus(''), 2000);
-    } else {
-      setSaveStatus('Failed to update profile!');
-      setTimeout(() => setSaveStatus(''), 2000);
-    }
-    if (success) {
-      navigate('/');
-    }
-  };
+  
 
   const handleToggleGenre = (genre) => {
     const newGenres = settings.favoriteGenres.includes(genre)

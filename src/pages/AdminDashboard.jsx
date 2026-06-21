@@ -11,7 +11,8 @@ import {
   deleteUserAccount, getSiteStats, getDatabaseStats, getSystemInfo,
   bulkDeleteUsers, updateUsername, getUserDetails, getRecentStories,
   getRecentNotes, getRecentComments, deleteStory, deleteNote, deleteComment,
-  updateSiteSettings, fetchSiteSettings, getActiveSessions, revokeSession
+  updateSiteSettings, fetchSiteSettings, getActiveSessions, revokeSession,
+  getTrendingBoard, getAllTrendingItems, addTrendingItem, updateTrendingItem, deleteTrendingItem
 } from '../api/db';
 
 const TABS = [
@@ -49,6 +50,19 @@ export default function AdminDashboard() {
   const [notes, setNotes] = useState([]);
   const [comments, setComments] = useState([]);
   const [contentTab, setContentTab] = useState('stories');
+
+  // Trending items management
+  const [trendingItems, setTrendingItems] = useState([]);
+  const [newTrendingItem, setNewTrendingItem] = useState({
+    page_type: 'anime',
+    media_id: '',
+    title: '',
+    description: '',
+    image_url: '',
+    banner_url: '',
+    sort_order: 0
+  });
+  const [editingTrendingId, setEditingTrendingId] = useState(null);
 
   // Site settings
   const [siteSettings, setSiteSettings] = useState({ announcement: '', maintenance: 'false' });
@@ -94,12 +108,14 @@ export default function AdminDashboard() {
   const loadContent = useCallback(async () => {
     setLoading(prev => ({ ...prev, content: true }));
     try {
-      const [s, n, c] = await Promise.all([
-        getRecentStories(20), getRecentNotes(20), getRecentComments(20)
+      const [s, n, c, t] = await Promise.all([
+        getRecentStories(20), getRecentNotes(20), getRecentComments(20),
+        getAllTrendingItems('anime')
       ]);
       setStories(s);
       setNotes(n);
       setComments(c);
+      setTrendingItems(t);
     } catch (e) { console.error(e); }
     setLoading(prev => ({ ...prev, content: false }));
   }, []);
@@ -201,6 +217,67 @@ export default function AdminDashboard() {
         loadContent();
       } else showMessage('error', 'Failed to delete');
     } catch (e) { showMessage('error', e.message); }
+  };
+
+  // ── TRENDING ITEMS ACTIONS ──
+  const handleAddTrendingItem = async () => {
+    if (!newTrendingItem.title || !newTrendingItem.media_id) {
+      showMessage('error', 'Title and Media ID are required');
+      return;
+    }
+    try {
+      const result = await addTrendingItem(newTrendingItem);
+      if (result.success) {
+        showMessage('success', 'Trending item added');
+        setNewTrendingItem({
+          page_type: 'anime',
+          media_id: '',
+          title: '',
+          description: '',
+          image_url: '',
+          banner_url: '',
+          sort_order: 0
+        });
+        loadContent();
+      } else {
+        showMessage('error', result.error || 'Failed to add');
+      }
+    } catch (e) { showMessage('error', e.message); }
+  };
+
+  const handleUpdateTrendingItem = async (id) => {
+    try {
+      const item = trendingItems.find(t => t.id === id);
+      if (!item) return;
+      const result = await updateTrendingItem(id, item);
+      if (result.success) {
+        showMessage('success', 'Trending item updated');
+        loadContent();
+      } else {
+        showMessage('error', 'Failed to update');
+      }
+    } catch (e) { showMessage('error', e.message); }
+  };
+
+  const handleDeleteTrendingItem = async (id) => {
+    if (!window.confirm('Delete this trending item?')) return;
+    try {
+      const success = await deleteTrendingItem(id);
+      if (success) {
+        showMessage('success', 'Trending item deleted');
+        loadContent();
+      } else {
+        showMessage('error', 'Failed to delete');
+      }
+    } catch (e) { showMessage('error', e.message); }
+  };
+
+  const updateTrendingItemField = (id, field, value) => {
+    setTrendingItems(prev =>
+      prev.map(item =>
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    );
   };
 
   // ── SETTINGS ACTIONS ──
@@ -539,6 +616,7 @@ export default function AdminDashboard() {
               { id: 'stories', label: 'Stories', icon: Image, count: stories.length },
               { id: 'notes', label: 'Notes', icon: Bookmark, count: notes.length },
               { id: 'comments', label: 'Comments', icon: MessageSquare, count: comments.length },
+              { id: 'trending', label: 'Trending', icon: TrendingUp, count: trendingItems.length },
             ].map(t => (
               <button key={t.id} onClick={() => setContentTab(t.id)} style={{
                 padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
@@ -558,6 +636,122 @@ export default function AdminDashboard() {
           {loading.content ? (
             <div style={{ textAlign: 'center', padding: '60px' }}>
               <Loader size={32} style={{ animation: 'spin 1s linear infinite', color: '#ff1a75' }} />
+            </div>
+          ) : contentTab === 'trending' ? (
+            <div style={{ display: 'grid', gap: '1.5rem' }}>
+              {/* Add Trending Item Form */}
+              <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '1.5rem' }}>
+                <h4 style={{ margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#ff1a75' }}>
+                  <Plus size={18} /> Add Trending Item
+                </h4>
+                <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.75rem', fontWeight: '700', marginBottom: '4px' }}>Title *</label>
+                    <input type="text" value={newTrendingItem.title}
+                      onChange={e => setNewTrendingItem({ ...newTrendingItem, title: e.target.value })}
+                      placeholder="Anime title"
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontSize: '0.8rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.75rem', fontWeight: '700', marginBottom: '4px' }}>Media ID *</label>
+                    <input type="text" value={newTrendingItem.media_id}
+                      onChange={e => setNewTrendingItem({ ...newTrendingItem, media_id: e.target.value })}
+                      placeholder="e.g. 180745"
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontSize: '0.8rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.75rem', fontWeight: '700', marginBottom: '4px' }}>Sort Order</label>
+                    <input type="number" value={newTrendingItem.sort_order}
+                      onChange={e => setNewTrendingItem({ ...newTrendingItem, sort_order: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontSize: '0.8rem' }} />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.75rem', fontWeight: '700', marginBottom: '4px' }}>Description</label>
+                    <textarea value={newTrendingItem.description}
+                      onChange={e => setNewTrendingItem({ ...newTrendingItem, description: e.target.value })}
+                      placeholder="Brief description"
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontSize: '0.8rem', minHeight: '60px', fontFamily: 'inherit', resize: 'vertical' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.75rem', fontWeight: '700', marginBottom: '4px' }}>Cover Image URL</label>
+                    <input type="url" value={newTrendingItem.image_url}
+                      onChange={e => setNewTrendingItem({ ...newTrendingItem, image_url: e.target.value })}
+                      placeholder="https://..."
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontSize: '0.8rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.75rem', fontWeight: '700', marginBottom: '4px' }}>Banner Image URL</label>
+                    <input type="url" value={newTrendingItem.banner_url}
+                      onChange={e => setNewTrendingItem({ ...newTrendingItem, banner_url: e.target.value })}
+                      placeholder="https://..."
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontSize: '0.8rem' }} />
+                  </div>
+                </div>
+                <button onClick={handleAddTrendingItem}
+                  style={{ marginTop: '12px', padding: '10px 20px', borderRadius: '8px', border: 'none', background: 'rgba(255,26,117,0.2)', color: '#ff1a75', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Plus size={16} /> Add Item
+                </button>
+              </div>
+
+              {/* Trending Items List */}
+              <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b', fontWeight: '700', fontSize: '0.7rem', textTransform: 'uppercase' }}>ID</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b', fontWeight: '700', fontSize: '0.7rem', textTransform: 'uppercase' }}>Title</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b', fontWeight: '700', fontSize: '0.7rem', textTransform: 'uppercase' }}>Media ID</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b', fontWeight: '700', fontSize: '0.7rem', textTransform: 'uppercase' }}>Order</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b', fontWeight: '700', fontSize: '0.7rem', textTransform: 'uppercase' }}>Status</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b', fontWeight: '700', fontSize: '0.7rem', textTransform: 'uppercase' }}>Created</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'center', color: '#64748b', fontWeight: '700', fontSize: '0.7rem', textTransform: 'uppercase' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trendingItems.length === 0 ? (
+                      <tr><td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>No trending items.</td></tr>
+                    ) : (
+                      trendingItems.map((item, idx) => (
+                        <tr key={item.id} style={{
+                          borderBottom: '1px solid rgba(255,255,255,0.04)',
+                          background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)'
+                        }}>
+                          <td style={{ padding: '10px 12px', color: '#64748b', fontFamily: 'monospace', fontSize: '0.7rem' }}>{item.id}</td>
+                          <td style={{ padding: '10px 12px', color: '#fff', fontWeight: '600', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</td>
+                          <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: '0.75rem' }}>{item.media_id}</td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <input type="number" value={item.sort_order}
+                              onChange={e => updateTrendingItemField(item.id, 'sort_order', parseInt(e.target.value))}
+                              style={{ width: '50px', padding: '4px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontSize: '0.75rem' }} />
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <select value={item.active ? 'active' : 'inactive'}
+                              onChange={e => updateTrendingItemField(item.id, 'active', e.target.value === 'active')}
+                              style={{ padding: '4px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: item.active ? '#10b981' : '#ef4444', outline: 'none', fontSize: '0.75rem' }}>
+                              <option value="active">Active</option>
+                              <option value="inactive">Inactive</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: '0.75rem' }}>{formatDate(item.created_at)}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                              <button onClick={() => handleUpdateTrendingItem(item.id)} title="Save"
+                                style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer', background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
+                                <Save size={12} />
+                              </button>
+                              <button onClick={() => handleDeleteTrendingItem(item.id)} title="Delete"
+                                style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', cursor: 'pointer', background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : (
             <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>

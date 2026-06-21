@@ -15,6 +15,7 @@ import {
   createUserSession, restoreSession, deleteUserSession,
   userLogin as dbUserLogin
 } from './db';
+import { initializeTrendingDefaults } from './db';
 import {
   getUserStats, updateUserStats,
   getFavorites, addFavorite, removeFavorite,
@@ -47,6 +48,7 @@ export function UserProvider({ children }) {
 
       // 2. Fall back to Neon Auth session (only works if not refreshed)
       const { data } = await authClient.getSession();
+
       if (data?.session && data?.user) {
         const { user: currentUser } = data;
         const syncRes = await syncGoogleUserToDb(
@@ -73,6 +75,8 @@ export function UserProvider({ children }) {
 
   useEffect(() => {
     initSession();
+      // Initialize trending defaults on app load
+      initializeTrendingDefaults().catch(err => console.warn('Failed to init trending defaults:', err));
   }, []);
 
   const syncUserData = async () => {

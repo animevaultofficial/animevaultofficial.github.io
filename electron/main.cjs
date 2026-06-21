@@ -34,6 +34,11 @@ app.commandLine.appendSwitch("renderer-process-limit", "3");
 // ── Sub-modules ────────────────────────────────────────────────────────────────
 const blockStats = require("./ipc/blockStats.cjs");
 const storageIpc = require("./ipc/storage.cjs");
+const fs = require('fs');
+const https = require('https');
+const http = require('http');
+const { pipeline } = require('stream');
+const { v4: uuidv4 } = require('uuid');
 
 // ── Ad/tracker block list ───────────────────────────────────────────────────────
 // NOTE: Critical design dependencies (fonts.googleapis.com, fonts.gstatic.com)
@@ -222,6 +227,7 @@ function createWindow() {
     icon: path.join(__dirname, "../build/icon.ico"),
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
     frame: process.platform !== "win32",
+      show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -234,6 +240,10 @@ function createWindow() {
     },
   });
 
+    // Show window when ready to prevent visual flash
+    mainWindow.once("ready-to-show", () => {
+      mainWindow.show();
+    });
   // Force long-lived disk caching for TMDB images in the default session.
   session.defaultSession.webRequest.onHeadersReceived(
     { urls: ["*://image.tmdb.org/*"] },
@@ -314,6 +324,42 @@ function createWindow() {
     }
     if (app.isPackaged) {
       checkForUpdates();
+    }
+  });
+
+  // Simple download handler (renderer can call via preload)
+  ipcMain.handle('download:start', async (_event, { url, filename }) => {
+    try {
+      const saveDir = app.getPath('downloads') || app.getPath('userData');
+      const safeName = filename || path.basename(new URL(url).pathname) || `download-${Date.now()}`;
+      const outPath = path.join(saveDir, safeName);
+      const proto = url.startsWith('https') ? https : http;
+      const id = uuidv4();
+
+      const req = proto.get(url, (res) => {
+        const total = parseInt(res.headers['content-length'] || '0', 10);
+        let received = 0;
+        const fileStream = fs.createWriteStream(outPath);
+        res.on('data', (chunk) => {
+          received += chunk.length;
+          const pct = total ? Math.round((received / total) * 100) : null;
+          const mw = getMainWindow();
+          if (mw && !mw.isDestroyed()) mw.webContents.send('download-progress', { id, url, path: outPath, received, total, percent: pct });
+        });
+        pipeline(res, fileStream, (err) => {
+          const mw = getMainWindow();
+          if (mw && !mw.isDestroyed()) mw.webContents.send('download-progress', { id, url, path: outPath, finished: !err, error: err?.message });
+        });
+      });
+
+      req.on('error', (err) => {
+        const mw = getMainWindow();
+        if (mw && !mw.isDestroyed()) mw.webContents.send('download-progress', { id, url, path: null, finished: false, error: err.message });
+      });
+
+      return { success: true, id, path: outPath };
+    } catch (e) {
+      return { success: false, error: e?.message };
     }
   });
 
