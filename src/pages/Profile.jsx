@@ -33,18 +33,18 @@ export default function Profile() {
   const { userid } = useParams();
   const { user: currentUser, history: ownHistory, likes: ownLikes, continueWatching: ownContinueWatching, logout, clearHistory, updateProfile } = useUser();
   const navigate = useNavigate();
-  
+
   const isOwnProfile = currentUser && String(currentUser.id) === String(userid);
-  
+
   const [activeTab, setActiveTab] = useState('likes');
   const [recommendations, setRecommendations] = useState([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
-  
+
   // Public data state
   const [publicUser, setPublicUser] = useState(null);
   const [publicStats, setPublicStats] = useState({ followers: 0, following: 0 });
   const [loadingProfile, setLoadingProfile] = useState(true);
-  
+
   // Determine displayed data
   const user = isOwnProfile ? currentUser : publicUser;
   const history = isOwnProfile ? ownHistory : [];
@@ -74,7 +74,7 @@ export default function Profile() {
         }
         return;
       }
-      
+
       setLoadingProfile(true);
       try {
         const data = await fetchPublicUserProfile(userid);
@@ -104,7 +104,7 @@ export default function Profile() {
     if (!currentUser || !publicUser || isProcessingAction) return;
     setIsProcessingAction(true);
     let success = false;
-    
+
     if (action === 'follow') success = await followUser(currentUser.id, publicUser.id);
     if (action === 'unfollow') success = await unfollowUser(currentUser.id, publicUser.id);
     if (action === 'block') success = await blockUser(currentUser.id, publicUser.id);
@@ -124,7 +124,7 @@ export default function Profile() {
     if (!isOwnProfile) return;
     const file = e.target.files[0];
     if (!file) return;
-    
+
     if (file.size > 5 * 1024 * 1024) {
       alert("File is too large. Please select an image under 5MB.");
       return;
@@ -154,13 +154,22 @@ export default function Profile() {
         body: formData,
       });
 
-      const result = await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch {
+        // Response body is not valid JSON – read it as text for debugging
+        const text = await response.text();
+        console.error("Cloudinary upload failed (non-JSON response):", text);
+        alert(`Upload failed: Server returned an unexpected response (status ${response.status}). Check Cloudinary configuration.`);
+        return;
+      }
 
       if (response.ok && result.secure_url) {
         setUrl(result.secure_url);
       } else {
         console.error("Cloudinary upload failed:", result);
-        alert(`Upload failed: ${result.error?.message || "Unknown error"}`);
+        alert(`Upload failed: ${result.error?.message || `Server error (status ${response.status})`}`);
       }
     } catch (err) {
       console.error("Upload error:", err);
@@ -260,7 +269,7 @@ export default function Profile() {
       maxWidth: '1200px', margin: '40px auto 80px', padding: '0 20px',
       color: '#fff', animation: 'profileFadeIn 0.4s ease-out'
     }}>
-      
+
       {/* ── BANNER CONTAINER ── */}
       <div className="profile-banner-wrap" style={{
         position: 'relative', borderRadius: '20px', height: '320px',
@@ -272,12 +281,12 @@ export default function Profile() {
             src={bannerUrl}
             alt="User Profile Banner"
             style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isEditing ? 'brightness(0.6)' : 'none', transition: 'all 0.3s ease' }}
-            onError={() => {}}
+            onError={() => { }}
           />
         ) : (
           <div style={{ width: '100%', height: '100%', background: RANDOM_BANNER_COLOR }} />
         )}
-        
+
         {isOwnProfile && isEditing && (
           <div style={{
             position: 'absolute', top: '20px', right: '20px',
@@ -292,8 +301,8 @@ export default function Profile() {
 
         {/* Edit Toggle Icon */}
         {isOwnProfile && (
-          <button 
-            onClick={() => setIsEditing(!isEditing)} 
+          <button
+            onClick={() => setIsEditing(!isEditing)}
             style={{
               position: 'absolute', bottom: '20px', right: '20px',
               background: isEditing ? 'var(--brand-color)' : 'rgba(15, 15, 25, 0.75)',
@@ -319,19 +328,19 @@ export default function Profile() {
       }}>
         {/* Floating Circle Avatar */}
         <div className="profile-avatar-wrapper" style={{ position: 'relative', flexShrink: 0 }}>
-          <StoryAvatar 
-            user={{ ...user, avatar: avatarUrl }} 
-            viewerId={currentUser?.id} 
-            size={140} 
-            style={{ 
-              boxShadow: '0 8px 30px rgba(0,0,0,0.6)', 
+          <StoryAvatar
+            user={{ ...user, avatar: avatarUrl }}
+            viewerId={currentUser?.id}
+            size={140}
+            style={{
+              boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
               background: '#121220',
               border: '5px solid #06060c'
-            }} 
+            }}
           />
-          
+
           {isOwnProfile && !isEditing && (
-            <div 
+            <div
               onClick={() => setShowStoryUpload(true)}
               style={{
                 position: 'absolute', bottom: '5px', right: '5px', background: 'var(--brand-color)',
@@ -372,7 +381,7 @@ export default function Profile() {
             )}
             {user.is_admin ? (
               <span style={{
-                fontSize: '0.8rem', fontWeight: '900', 
+                fontSize: '0.8rem', fontWeight: '900',
                 background: 'linear-gradient(135deg, #ffd700, #ffaa00)',
                 color: '#000', padding: '6px 14px', borderRadius: '20px',
                 textTransform: 'uppercase', letterSpacing: '1.5px',
@@ -409,13 +418,13 @@ export default function Profile() {
               transition: 'all 0.2s ease', marginBottom: '10px',
               textDecoration: 'none'
             }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
             >
               <SettingsIcon size={16} /> Settings
             </Link>
 
-            <button 
+            <button
               onClick={() => { logout(); navigate('/'); }}
               style={{
                 padding: '12px 24px', background: 'rgba(239,68,68,0.08)',
@@ -435,7 +444,7 @@ export default function Profile() {
         {!isOwnProfile && currentUser && publicUser && (
           <div className="profile-actions-buttons" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             {connections.following.some(u => u.id === publicUser.id) ? (
-              <button 
+              <button
                 onClick={() => handleSocialAction('unfollow')}
                 disabled={isProcessingAction}
                 style={{
@@ -449,14 +458,14 @@ export default function Profile() {
                 Following
               </button>
             ) : (
-              <button 
+              <button
                 onClick={() => handleSocialAction('follow')}
                 disabled={isProcessingAction || connections.blocked.some(u => u.id === publicUser.id)}
                 style={{
                   padding: '12px 24px', background: 'var(--brand-color)',
                   border: 'none', color: '#000',
                   fontSize: '0.85rem', fontWeight: '800', borderRadius: '12px',
-                  cursor: (isProcessingAction || connections.blocked.some(u => u.id === publicUser.id)) ? 'not-allowed' : 'pointer', 
+                  cursor: (isProcessingAction || connections.blocked.some(u => u.id === publicUser.id)) ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s ease',
                   opacity: (isProcessingAction || connections.blocked.some(u => u.id === publicUser.id)) ? 0.5 : 1
                 }}
@@ -466,7 +475,7 @@ export default function Profile() {
             )}
 
             {connections.blocked.some(u => u.id === publicUser.id) ? (
-              <button 
+              <button
                 onClick={() => handleSocialAction('unblock')}
                 disabled={isProcessingAction}
                 style={{
@@ -480,7 +489,7 @@ export default function Profile() {
                 Unblock
               </button>
             ) : (
-              <button 
+              <button
                 onClick={() => handleSocialAction('block')}
                 disabled={isProcessingAction}
                 style={{
@@ -521,7 +530,7 @@ export default function Profile() {
                 opacity: isUploadingAvatar ? 0.6 : 1, pointerEvents: isUploadingAvatar ? 'none' : 'auto',
                 fontWeight: '800', fontSize: '0.85rem'
               }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 26, 117, 0.2)'}
-                 onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 26, 117, 0.1)'}>
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 26, 117, 0.1)'}>
                 {isUploadingAvatar ? (
                   <><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Uploading...</>
                 ) : (
@@ -533,9 +542,9 @@ export default function Profile() {
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', display: 'block', marginBottom: '6px' }}>Quick Preset Avatars:</span>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {PRESET_AVATARS.map((av, idx) => (
-                    <button 
-                      key={idx} 
-                      onClick={() => setAvatarUrl(av.url)} 
+                    <button
+                      key={idx}
+                      onClick={() => setAvatarUrl(av.url)}
                       style={{
                         padding: '6px 10px', fontSize: '0.7rem', fontWeight: '800',
                         background: avatarUrl === av.url ? 'var(--brand-color)' : 'rgba(255,255,255,0.04)',
@@ -560,7 +569,7 @@ export default function Profile() {
                 opacity: isUploadingBanner ? 0.6 : 1, pointerEvents: isUploadingBanner ? 'none' : 'auto',
                 fontWeight: '800', fontSize: '0.85rem'
               }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 26, 117, 0.2)'}
-                 onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 26, 117, 0.1)'}>
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 26, 117, 0.1)'}>
                 {isUploadingBanner ? (
                   <><Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> Uploading...</>
                 ) : (
@@ -572,9 +581,9 @@ export default function Profile() {
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', display: 'block', marginBottom: '6px' }}>Quick Preset Banners:</span>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {PRESET_BANNERS.map((bn, idx) => (
-                    <button 
-                      key={idx} 
-                      onClick={() => setBannerUrl(bn.url)} 
+                    <button
+                      key={idx}
+                      onClick={() => setBannerUrl(bn.url)}
                       style={{
                         padding: '6px 10px', fontSize: '0.7rem', fontWeight: '800',
                         background: bannerUrl === bn.url ? 'var(--brand-color)' : 'rgba(255,255,255,0.04)',
@@ -591,8 +600,8 @@ export default function Profile() {
           </div>
 
           <div style={{ display: 'flex', gap: '12px', marginTop: '20px', alignItems: 'center' }}>
-            <button 
-              onClick={handleSaveProfile} 
+            <button
+              onClick={handleSaveProfile}
               style={{
                 background: 'var(--brand-color)', color: '#000', border: 'none',
                 fontWeight: '900', fontSize: '0.85rem', padding: '11px 24px',
@@ -650,7 +659,7 @@ export default function Profile() {
       {/* ── DYNAMIC DASHBOARD CONTENT TABS ── */}
       <div className="profile-tabs-section" style={{ marginTop: '50px' }}>
         {/* Navigation Bar */}
-        <div className="profile-tabs-nav" style={{ 
+        <div className="profile-tabs-nav" style={{
           display: 'flex', gap: '15px', borderBottom: '1px solid rgba(255,255,255,0.08)',
           paddingBottom: '15px', marginBottom: '30px', overflowX: 'auto', whiteSpace: 'nowrap'
         }}>
@@ -703,7 +712,7 @@ export default function Profile() {
               border: 'none', background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444',
               cursor: 'pointer', transition: 'all 0.2s'
             }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)'}
-               onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}>
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}>
               <Trash2 size={12} /> Clear Stream History
             </button>
           )}
@@ -729,8 +738,8 @@ export default function Profile() {
                       borderRadius: '14px', overflow: 'hidden', display: 'flex', flexDirection: 'column',
                       transition: 'all 0.3s ease', position: 'relative'
                     }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'rgba(255, 26, 117, 0.4)'; }}
-                       onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.04)'; }}>
-                      
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.04)'; }}>
+
                       <div style={{ position: 'relative', aspectRatio: '16/9', overflow: 'hidden' }}>
                         <img src={getPosterUrl(item, 'card')} alt={item.media_title} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://placehold.co/300x169/1a1a2e/ff1a75.png?text=No+Image'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         <div style={{
@@ -749,8 +758,8 @@ export default function Profile() {
                         </h4>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: 'auto', alignItems: 'center' }}>
                           <span>{progressPct}% Completed</span>
-                          <Link 
-                            to={item.media_type === 'movie' || item.media_type === 'series' || item.media_type === 'tv' ? `/watch/${item.media_type}/${item.media_id}` : `/anime/${item.media_id}?episode=${item.episode}`} 
+                          <Link
+                            to={item.media_type === 'movie' || item.media_type === 'series' || item.media_type === 'tv' ? `/watch/${item.media_type}/${item.media_id}` : `/anime/${item.media_id}?episode=${item.episode}`}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none', color: 'var(--brand-color)', fontWeight: 'bold' }}
                           >
                             Resume <ExternalLink size={10} />
@@ -775,9 +784,9 @@ export default function Profile() {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '20px' }}>
                 {likes.map((item, idx) => (
-                  <Link 
-                    key={idx} 
-                    to={item.media_type === 'manga' ? `/manga/${item.media_id}` : (item.media_type === 'movie' || item.media_type === 'series' || item.media_type === 'tv' ? `/watch/${item.media_type}/${item.media_id}` : `/anime/${item.media_id}`)} 
+                  <Link
+                    key={idx}
+                    to={item.media_type === 'manga' ? `/manga/${item.media_id}` : (item.media_type === 'movie' || item.media_type === 'series' || item.media_type === 'tv' ? `/watch/${item.media_type}/${item.media_id}` : `/anime/${item.media_id}`)}
                     style={{ textDecoration: 'none', position: 'relative' }}
                   >
                     <div style={{
@@ -785,10 +794,10 @@ export default function Profile() {
                       aspectRatio: '2/3', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
                       transition: 'all 0.3s ease', boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
                     }} onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.04)'; e.currentTarget.style.borderColor = 'var(--brand-color)'; }}
-                       onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}>
-                      
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}>
+
                       <img src={getPosterUrl(item, 'poster')} alt={item.media_title} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://placehold.co/140x210/1a1a2e/ff1a75.png?text=No+Image'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      
+
                       <div style={{
                         position: 'absolute', top: '10px', left: '10px', background: 'rgba(0,0,0,0.7)',
                         padding: '3px 8px', borderRadius: '5px', fontSize: '0.6rem', fontWeight: '900', textTransform: 'uppercase', color: 'var(--brand-color)'
@@ -827,10 +836,10 @@ export default function Profile() {
                     background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
                     alignItems: 'center', transition: 'all 0.2s ease'
                   }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255, 26, 117, 0.2)'; }}
-                     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}>
-                    
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}>
+
                     <img src={getPosterUrl(item, 'list')} alt={item.media_title} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://placehold.co/45x64/1a1a2e/ff1a75.png?text=No+Img'; }} style={{ width: '45px', height: '64px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
-                    
+
                     <div style={{ flex: 1 }}>
                       <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#fff' }}>{item.media_title}</h4>
                       <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: 'var(--text-tertiary)', textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -839,7 +848,7 @@ export default function Profile() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{new Date(item.watched_at).toLocaleDateString()}</span>
-                      <Link 
+                      <Link
                         to={item.media_type === 'movie' || item.media_type === 'series' || item.media_type === 'tv' ? `/watch/${item.media_type}/${item.media_id}` : `/anime/${item.media_id}`}
                         style={{
                           background: 'rgba(255, 255, 255, 0.05)', color: '#fff', border: 'none',
@@ -879,8 +888,8 @@ export default function Profile() {
                       aspectRatio: '2/3', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
                       transition: 'all 0.3s ease'
                     }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'var(--brand-color)'; }}
-                       onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}>
-                      
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}>
+
                       <img src={getPosterUrl(item, 'card')} alt={item.media_title || item.title?.romaji} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       <div style={{
                         position: 'absolute', bottom: 0, left: 0, width: '100%',
