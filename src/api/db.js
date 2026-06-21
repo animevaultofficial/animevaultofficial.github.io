@@ -734,9 +734,245 @@ export async function getSiteStats() {
   }
 }
 
-// Site Settings & Init
+// ── ADVANCED ADMIN FUNCTIONS ──
+
+export async function updateSiteSettings(settings) {
+  const db = await getSql();
+  if (!db) return { success: false };
+  try {
+    // Store site settings in a dedicated table
+    await db`
+      CREATE TABLE IF NOT EXISTS site_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    `;
+    for (const [key, value] of Object.entries(settings)) {
+      await db`
+        INSERT INTO site_settings (key, value) VALUES (${key}, ${String(value)})
+        ON CONFLICT (key) DO UPDATE SET value = ${String(value)}
+      `;
+    }
+    return { success: true };
+  } catch (e) {
+    error('[AnimeVault DB] updateSiteSettings failed:', e?.message);
+    return { success: false };
+  }
+}
+
 export async function fetchSiteSettings() {
-  return { announcement: '', maintenance: 'false' };
+  const db = await getSql();
+  if (!db) return { announcement: '', maintenance: 'false' };
+  try {
+    await db`
+      CREATE TABLE IF NOT EXISTS site_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    `;
+    const rows = await db`SELECT key, value FROM site_settings`;
+    const settings = { announcement: '', maintenance: 'false' };
+    rows.forEach(r => { settings[r.key] = r.value; });
+    return settings;
+  } catch (e) {
+    return { announcement: '', maintenance: 'false' };
+  }
+}
+
+export async function getDatabaseStats() {
+  const db = await getSql();
+  if (!db) return {};
+  try {
+    const tables = ['users', 'stories', 'notes', 'user_watch_history', 'user_continue_watching', 'user_likes', 'user_reminders', 'user_favorites', 'user_follows', 'user_blocks', 'media_comments', 'user_sessions'];
+    const stats = {};
+    for (const table of tables) {
+      try {
+        const result = await db`SELECT COUNT(*) as count FROM ${db(table)}`;
+        stats[table] = parseInt(result[0].count, 10);
+      } catch { stats[table] = 0; }
+    }
+    return stats;
+  } catch (e) {
+    return {};
+  }
+}
+
+export async function getSystemInfo() {
+  const db = await getSql();
+  if (!db) return { dbConnected: false };
+  try {
+    const version = await db`SELECT version()`;
+    return {
+      dbConnected: true,
+      dbVersion: version[0]?.version || 'Unknown',
+      nodeEnv: import.meta.env.MODE || 'unknown',
+      buildTime: new Date().toISOString()
+    };
+  } catch (e) {
+    return { dbConnected: false, error: e?.message };
+  }
+}
+
+export async function bulkDeleteUsers(userIds) {
+  const db = await getSql();
+  if (!db) return { success: false, deleted: 0 };
+  try {
+    const result = await db`DELETE FROM users WHERE id = ANY(${userIds})`;
+    return { success: true, deleted: result.count || userIds.length };
+  } catch (e) {
+    error('[AnimeVault DB] bulkDeleteUsers failed:', e?.message);
+    return { success: false, deleted: 0 };
+  }
+}
+
+export async function updateUsername(userId, newUsername) {
+  const db = await getSql();
+  if (!db) return { success: false, message: 'Database offline' };
+  try {
+    const trimmed = (newUsername || '').trim().toLowerCase().split('@')[0];
+    if (trimmed.length < 3) return { success: false, message: 'Username must be at least 3 characters' };
+    await db`UPDATE users SET username = ${trimmed} WHERE id = ${userId}`;
+    return { success: true };
+  } catch (e) {
+    if (e?.message?.includes('duplicate') || e?.message?.includes('unique')) {
+      return { success: false, message: 'Username already taken' };
+    }
+    return { success: false, message: e?.message };
+  }
+}
+
+export async function getUserDetails(userId) {
+  const db = await getSql();
+  if (!db) return null;
+  try {
+    const users = await db`
+      SELECT id, username, avatar, banner, is_admin, is_verified, two_factor_enabled, created_at
+      FROM users WHERE id = ${userId}
+    `;
+    if (users.length === 0) return null;
+    const u = users[0];
+    // Get counts
+    const watchCount = await db`SELECT COUNT(*) as c FROM user_watch_history WHERE user_id = ${userId}`;
+    const likeCount = await db`SELECT COUNT(*) as c FROM user_likes WHERE user_id = ${userId}`;
+    const followCount = await db`SELECT COUNT(*) as c FROM user_follows WHERE follower_id = ${userId}`;
+    return {
+      ...u,
+      watchHistoryCount: parseInt(watchCount[0].c, 10),
+      likesCount: parseInt(likeCount[0].c, 10),
+      followingCount: parseInt(followCount[0].c, 10)
+    };
+  } catch (e) {
+    error('[AnimeVault DB] getUserDetails failed:', e?.message);
+    return null;
+  }
+}
+
+export async function getRecentStories(limit = 20) {
+  const db = await getSql();
+  if (!db) return [];
+  try {
+    return await db`
+      SELECT s.id, s.user_id, s.media_url, s.media_type, s.created_at, s.expires_at, u.username
+      FROM stories s
+      LEFT JOIN users u ON u.id::text = s.user_id
+      ORDER BY s.created_at DESC
+      LIMIT ${limit}
+    `;
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function getRecentNotes(limit = 20) {
+  const db = await getSql();
+  if (!db) return [];
+  try {
+    return await db`
+      SELECT n.id, n.user_id, n.content, n.created_at, n.expires_at, u.username
+      FROM notes n
+      LEFT JOIN users u ON u.id::text = n.user_id
+      ORDER BY n.created_at DESC
+      LIMIT ${limit}
+    `;
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function getRecentComments(limit = 20) {
+  const db = await getSql();
+  if (!db) return [];
+  try {
+    return await db`
+      SELECT id, user_id, username, media_id, comment_text, created_at
+      FROM media_comments
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function deleteStory(storyId) {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    await db`DELETE FROM stories WHERE id = ${storyId}`;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function deleteNote(noteId) {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    await db`DELETE FROM notes WHERE id = ${noteId}`;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function deleteComment(commentId) {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    await db`DELETE FROM media_comments WHERE id = ${commentId}`;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function getActiveSessions(limit = 50) {
+  const db = await getSql();
+  if (!db) return [];
+  try {
+    return await db`
+      SELECT s.id, s.user_id, s.device_name, s.created_at, s.last_active, s.expires_at, u.username
+      FROM user_sessions s
+      LEFT JOIN users u ON u.id = s.user_id
+      WHERE s.expires_at > NOW()
+      ORDER BY s.last_active DESC
+      LIMIT ${limit}
+    `;
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function revokeSession(sessionId) {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    await db`DELETE FROM user_sessions WHERE id = ${sessionId}`;
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 export async function initDatabase() {
