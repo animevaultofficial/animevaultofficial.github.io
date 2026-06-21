@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { Bell, Clock, Trophy, ChevronLeft, ChevronRight, Play } from 'lucide-react';
+import { Bell, Clock, Trophy, ChevronLeft, ChevronRight, Play, X } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getNotifications, getSettings, updateSetting } from '../api/database';
+import { getNotifications, getSettings, updateSetting, dismissNotification } from '../api/database';
 import { useUser } from '../api/UserContext';
 
 export default function Notifications() {
@@ -25,6 +24,13 @@ export default function Notifications() {
     mutationFn: ({ key, value }) => updateSetting(key, value),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
+    },
+  });
+
+  const dismissMutation = useMutation({
+    mutationFn: (id) => dismissNotification(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 
@@ -79,7 +85,7 @@ export default function Notifications() {
         <div className="notifications-header">
           <div className="header-left" style={{ gap: '0.75rem' }}>
             <Bell size={28} color="#ff1a75" />
-            <h1 style={{ fontSize: '1.75rem' }}>Welcome back, <span className="highlight">Adiyan</span></h1>
+            <h1 style={{ fontSize: '1.75rem' }}>Welcome back, <span className="highlight">{user?.username || 'User'}</span></h1>
           </div>
         </div>
 
@@ -172,11 +178,27 @@ export default function Notifications() {
                     <h3>Your Notifications</h3>
                   </div>
                   {filteredNotifications.map((notification) => (
-                    <div key={notification.id} className={`notification-card ${notification.read ? 'read' : 'unread'}`}>
+                    <div key={notification.id} className={`notification-card ${notification.read ? 'read' : 'unread'}`} style={{ position: 'relative' }}>
                       {notification.type === 'Episodes' && notification.image && (
                         <img src={notification.image} alt={notification.title} className="notification-image" style={{ width: '80px', height: '112px', flexShrink: 0 }} />
                       )}
-                      <div className="notification-content" style={{ minWidth: 0 }}>
+                      <button
+                        onClick={() => dismissMutation.mutate(notification.id)}
+                        style={{
+                          position: 'absolute', top: '10px', right: '10px',
+                          background: 'rgba(255,255,255,0.05)', border: 'none',
+                          color: '#64748b', cursor: 'pointer', borderRadius: '50%',
+                          width: '28px', height: '28px', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center',
+                          transition: 'all 0.2s', zIndex: 2
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,26,117,0.2)'; e.currentTarget.style.color = '#ff1a75'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#64748b'; }}
+                        title="Dismiss notification"
+                      >
+                        <X size={14} />
+                      </button>
+                      <div className="notification-content" style={{ minWidth: 0, paddingRight: '30px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
                           <h4 style={{ fontSize: '1rem', overflowWrap: 'anywhere' }}>{notification.title}</h4>
                           <span className="notification-time-desktop">{notification.time}</span>

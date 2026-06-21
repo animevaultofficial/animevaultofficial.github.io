@@ -91,14 +91,14 @@ export async function addReminder(reminder) {
       image: reminder.image,
       created_at: new Date().toISOString()
     };
-    
+
     // Check if reminder already exists
     const exists = reminders.find(r => r.schedule_id === newReminder.schedule_id);
     if (!exists) {
       reminders.push(newReminder);
       localStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(reminders));
     }
-    
+
     return newReminder;
   } catch (error) {
     console.error('Error adding reminder:', error);
@@ -160,6 +160,18 @@ export async function markNotificationAsRead(id) {
   } catch (error) {
     console.error('Error marking notification as read:', error);
     return null;
+  }
+}
+
+export async function dismissNotification(id) {
+  try {
+    const notifications = JSON.parse(localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) || '[]');
+    const filtered = notifications.filter(n => n.id !== id);
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(filtered));
+    return true;
+  } catch (error) {
+    console.error('Error dismissing notification:', error);
+    return false;
   }
 }
 
@@ -499,7 +511,7 @@ export async function acceptFriendRequest(requestId) {
       request.status = 'accepted';
       requests[requestIndex] = request;
       localStorage.setItem(STORAGE_KEYS.FRIEND_REQUESTS, JSON.stringify(requests));
-      
+
       // Add to friends
       const friends = JSON.parse(localStorage.getItem(STORAGE_KEYS.FRIENDS) || '[]');
       if (!friends.find(f => f.id === request.fromId)) {
@@ -511,7 +523,7 @@ export async function acceptFriendRequest(requestId) {
         });
         localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(friends));
       }
-      
+
       return { request, friends };
     }
     return null;

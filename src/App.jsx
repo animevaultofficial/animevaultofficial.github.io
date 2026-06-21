@@ -66,13 +66,13 @@ function App() {
         const settings = await fetchSiteSettings();
         if (settings?.announcement) setAnnouncement(settings.announcement);
         if (settings?.maintenance === 'true') setMaintenanceMode(true);
-        
+
         const savedAccent = storage.get('accentColor') || 'red';
         const savedTheme = storage.get('theme') || 'dark';
         const savedCustomVars = storage.get('customThemeVars');
         applyAccentColor(savedAccent);
         applyTheme(savedTheme, savedCustomVars);
-        
+
       } catch (err) {
         console.error('Failed to load global site settings:', err);
       } finally {
@@ -105,7 +105,7 @@ function App() {
     const windowParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(location.search);
     const token = windowParams.get('token') || hashParams.get('token');
-    
+
     if (token && location.pathname !== '/set-new-password') {
       navigate(`/set-new-password?token=${encodeURIComponent(token)}`, { replace: true });
     }
@@ -187,82 +187,94 @@ function App() {
             <span>AnimeVault</span>
           </FocusableLink>
         </div>
-        
+
         <nav className="topnav">
-           <FocusableNavLink
-             to="/"
-             className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-           >
-             Home
-           </FocusableNavLink>
-           <FocusableNavLink
-             to="/anime"
-             className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-           >
-             Anime
-           </FocusableNavLink>
-           <FocusableNavLink
-             to="/dramas-movies"
-             className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-           >
-             Dramas & Movies
-           </FocusableNavLink>
-           <FocusableNavLink
-             to="/schedule"
-             className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-           >
-             Schedule
-           </FocusableNavLink>
-           <FocusableNavLink
-             to="/collections"
-             className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-           >
-             Collections
-           </FocusableNavLink>
-           <FocusableNavLink
-             to="/community"
-             className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-           >
-             Community
-           </FocusableNavLink>
-           <FocusableNavLink
-             to="/stats"
-             className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-           >
-             Stats
-           </FocusableNavLink>
-           <FocusableNavLink
-             to="/notifications"
-             className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-           >
-             <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-               <Bell size={16} />
-               Notifications
-             </div>
-           </FocusableNavLink>
-           <FocusableNavLink
-             to="/download"
-             className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-           >
-             <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-               <DownloadIcon size={16} />
-               Download
-             </div>
-           </FocusableNavLink>
-         </nav>
+          <FocusableNavLink
+            to="/"
+            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          >
+            Home
+          </FocusableNavLink>
+          <FocusableNavLink
+            to="/anime"
+            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          >
+            Anime
+          </FocusableNavLink>
+          <FocusableNavLink
+            to="/dramas-movies"
+            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          >
+            Dramas & Movies
+          </FocusableNavLink>
+          <FocusableNavLink
+            to="/schedule"
+            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          >
+            Schedule
+          </FocusableNavLink>
+          <FocusableNavLink
+            to="/collections"
+            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          >
+            Collections
+          </FocusableNavLink>
+          <FocusableNavLink
+            to="/community"
+            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          >
+            Community
+          </FocusableNavLink>
+          <FocusableNavLink
+            to="/stats"
+            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          >
+            Stats
+          </FocusableNavLink>
+          <FocusableNavLink
+            to="/notifications"
+            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              <Bell size={16} />
+              Notifications
+            </div>
+          </FocusableNavLink>
+          <FocusableNavLink
+            to="/download"
+            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              <DownloadIcon size={16} />
+              Download
+            </div>
+          </FocusableNavLink>
+          {user?.is_admin && (
+            <FocusableNavLink
+              to="/admin/dashboard"
+              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+              style={{ color: '#ffd700' }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                <Award size={16} />
+                Admin
+              </div>
+            </FocusableNavLink>
+          )}
+        </nav>
         <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button 
-            className="topbar-search-form" 
+          <button
+            className="topbar-search-form"
             onClick={() => setIsSearchOpen(true)}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.75rem', 
-              padding: '0.5rem 1rem', 
-              background: 'var(--glass)', 
-              border: '1px solid var(--glass-border)', 
-              borderRadius: '8px', 
-              color: 'var(--text-secondary)', 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '0.5rem 1rem',
+              background: 'var(--glass)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '8px',
+              color: 'var(--text-secondary)',
               cursor: 'pointer',
               transition: 'all 0.2s ease'
             }}
@@ -271,13 +283,13 @@ function App() {
           >
             <SearchIcon size={18} aria-hidden="true" />
             <span style={{ fontSize: '0.9rem' }}>Search anime...</span>
-            <kbd style={{ 
-              background: 'rgba(255,255,255,0.05)', 
-              border: '1px solid rgba(255,255,255,0.1)', 
-              padding: '2px 6px', 
-              borderRadius: '4px', 
-              fontSize: '0.75rem', 
-              marginLeft: 'auto' 
+            <kbd style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '0.75rem',
+              marginLeft: 'auto'
             }}>⌘K</kbd>
           </button>
           {user ? (
@@ -289,7 +301,7 @@ function App() {
               cursor: 'pointer', transition: 'all 0.2s ease',
               boxShadow: '0 0 10px rgba(255, 26, 117, 0.1)'
             }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 26, 117, 0.18)'; e.currentTarget.style.boxShadow = '0 0 15px rgba(255, 26, 117, 0.3)'; }}
-               onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 26, 117, 0.08)'; e.currentTarget.style.boxShadow = '0 0 10px rgba(255, 26, 117, 0.1)'; }}>
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 26, 117, 0.08)'; e.currentTarget.style.boxShadow = '0 0 10px rgba(255, 26, 117, 0.1)'; }}>
               <User size={14} />
               <span>{user.username}</span>
             </FocusableLink>
@@ -301,7 +313,7 @@ function App() {
               background: 'var(--glass)', color: 'var(--text-secondary)',
               cursor: 'pointer', transition: 'all 0.2s ease'
             }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand-color)'; e.currentTarget.style.color = '#fff'; }}
-               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--glass-border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--glass-border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
               <User size={14} />
               <span>Sign In</span>
             </FocusableButton>
@@ -473,7 +485,7 @@ function App() {
           <span>Search</span>
         </NavLink>
       </nav>
-      
+
       {/* Postgres Neon Modals */}
       <AuthModal />
       <UpdateCenter />
