@@ -779,11 +779,123 @@ export async function fetchSiteSettings() {
   }
 }
 
+// ── TRENDING BOARD FUNCTIONS ──
+
+export async function getTrendingBoard(pageType = 'anime') {
+  const db = await getSql();
+  if (!db) return [];
+  try {
+    await db`
+      CREATE TABLE IF NOT EXISTS trending_board (
+        id SERIAL PRIMARY KEY,
+        page_type TEXT NOT NULL DEFAULT 'anime',
+        media_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        image_url TEXT,
+        banner_url TEXT,
+        sort_order INTEGER DEFAULT 0,
+        active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    return await db`
+      SELECT * FROM trending_board
+      WHERE page_type = ${pageType} AND active = true
+      ORDER BY sort_order ASC, created_at DESC
+      LIMIT 10
+    `;
+  } catch (e) {
+    error('[AnimeVault DB] getTrendingBoard failed:', e?.message);
+    return [];
+  }
+}
+
+export async function addTrendingItem(item) {
+  const db = await getSql();
+  if (!db) return { success: false };
+  try {
+    await db`
+      CREATE TABLE IF NOT EXISTS trending_board (
+        id SERIAL PRIMARY KEY,
+        page_type TEXT NOT NULL DEFAULT 'anime',
+        media_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        image_url TEXT,
+        banner_url TEXT,
+        sort_order INTEGER DEFAULT 0,
+        active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    await db`
+      INSERT INTO trending_board (page_type, media_id, title, description, image_url, banner_url, sort_order)
+      VALUES (${item.page_type || 'anime'}, ${item.media_id}, ${item.title}, ${item.description || null}, ${item.image_url || null}, ${item.banner_url || null}, ${item.sort_order || 0})
+    `;
+    return { success: true };
+  } catch (e) {
+    error('[AnimeVault DB] addTrendingItem failed:', e?.message);
+    return { success: false, error: e?.message };
+  }
+}
+
+export async function updateTrendingItem(id, updates) {
+  const db = await getSql();
+  if (!db) return { success: false };
+  try {
+    const fields = [];
+    if (updates.title !== undefined) fields.push`title = ${updates.title}`;
+    if (updates.description !== undefined) fields.push`description = ${updates.description}`;
+    if (updates.image_url !== undefined) fields.push`image_url = ${updates.image_url}`;
+    if (updates.banner_url !== undefined) fields.push`banner_url = ${updates.banner_url}`;
+    if (updates.sort_order !== undefined) fields.push`sort_order = ${updates.sort_order}`;
+    if (updates.active !== undefined) fields.push`active = ${updates.active}`;
+    if (updates.media_id !== undefined) fields.push`media_id = ${updates.media_id}`;
+    fields.push`updated_at = CURRENT_TIMESTAMP`;
+
+    await db`
+      UPDATE trending_board SET ${fields} WHERE id = ${id}
+    `;
+    return { success: true };
+  } catch (e) {
+    error('[AnimeVault DB] updateTrendingItem failed:', e?.message);
+    return { success: false };
+  }
+}
+
+export async function deleteTrendingItem(id) {
+  const db = await getSql();
+  if (!db) return false;
+  try {
+    await db`DELETE FROM trending_board WHERE id = ${id}`;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function getAllTrendingItems(pageType = 'anime') {
+  const db = await getSql();
+  if (!db) return [];
+  try {
+    return await db`
+      SELECT * FROM trending_board
+      WHERE page_type = ${pageType}
+      ORDER BY sort_order ASC, created_at DESC
+    `;
+  } catch (e) {
+    return [];
+  }
+}
+
 export async function getDatabaseStats() {
   const db = await getSql();
   if (!db) return {};
   try {
-    const tables = ['users', 'stories', 'notes', 'user_watch_history', 'user_continue_watching', 'user_likes', 'user_reminders', 'user_favorites', 'user_follows', 'user_blocks', 'media_comments', 'user_sessions', 'site_settings'];
+    const tables = ['users', 'stories', 'notes', 'user_watch_history', 'user_continue_watching', 'user_likes', 'user_reminders', 'user_favorites', 'user_follows', 'user_blocks', 'media_comments', 'user_sessions', 'site_settings', 'trending_board'];
     const stats = {};
     for (const table of tables) {
       try {
