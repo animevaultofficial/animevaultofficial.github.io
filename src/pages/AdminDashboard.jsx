@@ -3,7 +3,7 @@ import {
   Search, UserX, Shield, Trash2, RefreshCw, Loader,
   BadgeCheck, AlertTriangle, CheckCircle, Database, Settings, Users,
   BarChart3, Server, Bookmark, LogOut, MessageSquare, Image, Edit3, X,
-  Terminal, List, ChevronLeft, ChevronRight, Save, Link
+  Terminal, List, ChevronLeft, ChevronRight, Save, Link, TrendingUp, Plus
 } from 'lucide-react';
 import { useUser } from '../api/UserContext';
 import {
