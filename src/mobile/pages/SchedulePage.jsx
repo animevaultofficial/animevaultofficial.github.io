@@ -40,6 +40,7 @@ function getWeekRange() {
 }
 
 export default function SchedulePage({ navigate }) {
+  const nav = (id) => navigate('anime-detail', { id });
   const [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
@@ -117,7 +118,7 @@ export default function SchedulePage({ navigate }) {
             const isSoon = item.timeUntilAiring < 3600;
 
             return (
-              <div key={item.id} onClick={() => navigate('detail', { id: media.id })}
+              <div key={item.id} onClick={() => nav(media.id)}
                 style={{ display: 'flex', gap: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: 10, border: isSoon ? '1px solid rgba(255,26,117,0.3)' : '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
                 <div style={{ width: 48, height: 68, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: '#1e293b' }}>
                   {image && <img src={image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}

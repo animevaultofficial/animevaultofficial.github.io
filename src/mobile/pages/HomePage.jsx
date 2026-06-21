@@ -51,6 +51,7 @@ function SkeletonRow() {
 }
 
 export default function HomePage({ navigate }) {
+  const nav = (id) => navigate('anime-detail', { id });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const continueWatching = getContinueWatching();
@@ -80,7 +81,7 @@ export default function HomePage({ navigate }) {
     <div className="mobile-content">
       {/* Hero Banner */}
       {heroItem && (
-        <div className="hero-banner" onClick={() => navigate('detail', { id: heroItem.id })}>
+        <div className="hero-banner" onClick={() => nav(heroItem.id)}>
           <div className="hero-banner-content">
             <div className="hero-badge">Trending #1</div>
             <div className="hero-title">{getTitle(heroItem)}</div>
@@ -101,7 +102,7 @@ export default function HomePage({ navigate }) {
           </div>
           <div className="horizontal-scroll">
             {continueWatching.map(item => (
-              <div key={item.id} className="anime-card scroll-item" onClick={() => navigate('detail', { id: item.id })}>
+              <div key={item.id} className="anime-card scroll-item" onClick={() => nav(item.id)}>
                 <AnilistImage src={item.image} alt={item.title} className="anime-card-image" />
                 <div className="anime-card-info">
                   <div className="anime-card-title">{item.title}</div>
@@ -121,7 +122,7 @@ export default function HomePage({ navigate }) {
             <span className="section-link" onClick={() => navigate('search')}>See all</span>
           </div>
           <div className="horizontal-scroll">
-            {trending.map(media => <AnimeCard key={media.id} media={media} onClick={(id) => navigate('detail', { id })} />)}
+            {trending.map(media => <AnimeCard key={media.id} media={media} onClick={(id) => nav(id)} />)}
           </div>
         </div>
       )}
@@ -134,7 +135,7 @@ export default function HomePage({ navigate }) {
             <span className="section-link" onClick={() => navigate('search')}>See all</span>
           </div>
           <div className="horizontal-scroll">
-            {popular.map(media => <AnimeCard key={media.id} media={media} onClick={(id) => navigate('detail', { id })} />)}
+            {popular.map(media => <AnimeCard key={media.id} media={media} onClick={(id) => nav(id)} />)}
           </div>
         </div>
       )}
@@ -146,7 +147,7 @@ export default function HomePage({ navigate }) {
             <span className="section-title">Upcoming</span>
           </div>
           <div className="grid-scroll">
-            {upcoming.slice(0, 9).map(media => <GridCard key={media.id} media={media} onClick={(id) => navigate('detail', { id })} />)}
+            {upcoming.slice(0, 9).map(media => <GridCard key={media.id} media={media} onClick={(id) => nav(id)} />)}
           </div>
         </div>
       )}

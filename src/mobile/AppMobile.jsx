@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './mobile.css';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
-import AnimeDetailPage from './pages/AnimeDetailPage';
+import AnimeDetailsPage from './pages/AnimeDetailsPage';
 import CollectionsPage from './pages/CollectionsPage';
 import ProfilePage from './pages/ProfilePage';
 import SchedulePage from './pages/SchedulePage';
@@ -33,7 +33,7 @@ export default function AppMobile() {
   const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setSplashDone(true), 1800);
+    const timer = setTimeout(() => setSplashDone(true), 1500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -49,8 +49,8 @@ export default function AppMobile() {
 
   function renderPage() {
     switch (currentPage) {
-      case 'detail':
-        return <AnimeDetailPage params={pageParams} goBack={goBack} />;
+      case 'anime-detail':
+        return <AnimeDetailsPage params={pageParams} goBack={goBack} />;
       case 'drama-detail':
         return <DramaDetailPage params={pageParams} goBack={goBack} />;
       case 'search':
@@ -69,13 +69,12 @@ export default function AppMobile() {
     }
   }
 
-  const showBottomNav = currentPage !== 'detail' && currentPage !== 'drama-detail';
+  const showBottomNav = currentPage !== 'anime-detail' && currentPage !== 'drama-detail';
 
   return (
     <>
       {!splashDone && <SplashScreen />}
       <div className="mobile-app" style={{ opacity: splashDone ? 1 : 0, transition: 'opacity 0.4s ease' }}>
-        {/* Header - only on non-detail pages */}
         {showBottomNav && (
           <header className="mobile-header">
             <div className="mobile-header-left">
@@ -83,19 +82,15 @@ export default function AppMobile() {
               <span className="mobile-brand">AnimeVault</span>
             </div>
             <div className="mobile-header-right">
-              <button className="header-icon-btn" onClick={() => navigate('search')}>
-                🔍
-              </button>
+              <span style={{ color: '#ff1a75', fontSize: '0.75rem', fontWeight: 700, background: 'rgba(255,26,117,0.1)', padding: '4px 10px', borderRadius: 12 }}>v0.2</span>
             </div>
           </header>
         )}
 
-        {/* Page Content */}
         <main className="mobile-content-area">
           {renderPage()}
         </main>
 
-        {/* Bottom Navigation */}
         {showBottomNav && (
           <nav className="bottom-nav">
             {NAV_ITEMS.map(item => (

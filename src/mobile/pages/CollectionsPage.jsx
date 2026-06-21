@@ -17,6 +17,7 @@ function AnilistImage({ src, alt, className, fallback = '🎬' }) {
 }
 
 export default function CollectionsPage({ navigate }) {
+  const nav = (id) => navigate('anime-detail', { id });
   const [tab, setTab] = useState('favorites');
   const favorites = getFavorites();
   const continueWatching = getContinueWatching();
@@ -50,7 +51,7 @@ export default function CollectionsPage({ navigate }) {
               <div className="section-header"><span className="section-title">{favorites.length} Favorites</span></div>
               <div className="grid-scroll">
                 {favorites.map(item => (
-                  <div key={item.id} className="grid-card" onClick={() => navigate('detail', { id: item.id })}>
+                  <div key={item.id} className="grid-card" onClick={() => nav(item.id)}>
                     <AnilistImage src={item.image} alt={item.title} className="grid-card-image" />
                     <div className="grid-card-title">{item.title}</div>
                   </div>
@@ -74,7 +75,7 @@ export default function CollectionsPage({ navigate }) {
               <div className="section-header"><span className="section-title">Continue Watching</span></div>
               <div className="grid-scroll">
                 {continueWatching.map(item => (
-                  <div key={item.id} className="grid-card" onClick={() => navigate('detail', { id: item.id })}>
+                  <div key={item.id} className="grid-card" onClick={() => nav(item.id)}>
                     <AnilistImage src={item.image} alt={item.title} className="grid-card-image" />
                     <div className="grid-card-title">{item.title}</div>
                   </div>

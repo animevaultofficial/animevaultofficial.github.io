@@ -60,6 +60,7 @@ function AuthScreen({ onLogin }) {
 }
 
 export default function ProfilePage({ navigate }) {
+  const nav = (id) => navigate('anime-detail', { id });
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState('favorites');
 
@@ -111,7 +112,7 @@ export default function ProfilePage({ navigate }) {
           ? <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}><p>No favorites yet</p></div>
           : <div className="grid-scroll">
               {favorites.map(item => (
-                <div key={item.id} className="grid-card" onClick={() => navigate('detail', { id: item.id })}>
+                <div key={item.id} className="grid-card" onClick={() => nav(item.id)}>
                   <img src={item.image} alt={item.title} className="grid-card-image" style={{ objectFit: 'cover' }} />
                   <div className="grid-card-title">{item.title}</div>
                 </div>
@@ -124,7 +125,7 @@ export default function ProfilePage({ navigate }) {
           ? <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}><p>Nothing watched yet</p></div>
           : <div className="grid-scroll">
               {continueWatching.map(item => (
-                <div key={item.id} className="grid-card" onClick={() => navigate('detail', { id: item.id })}>
+                <div key={item.id} className="grid-card" onClick={() => nav(item.id)}>
                   <img src={item.image} alt={item.title} className="grid-card-image" style={{ objectFit: 'cover' }} />
                   <div className="grid-card-title">{item.title}</div>
                 </div>
