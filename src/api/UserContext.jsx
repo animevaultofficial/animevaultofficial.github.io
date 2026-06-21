@@ -12,7 +12,8 @@ import {
   updateUserProfile as dbUpdateUserProfile,
   fetchReminders, addReminder as dbAddReminder, removeReminder as dbRemoveReminder,
   syncGoogleUserToDb,
-  createUserSession, restoreSession, deleteUserSession
+  createUserSession, restoreSession, deleteUserSession,
+  userLogin as dbUserLogin
 } from './db';
 import {
   getUserStats, updateUserStats,
@@ -105,34 +106,74 @@ export function UserProvider({ children }) {
 
   const login = async (email, password, verificationCode) => {
     try {
-      let res;
+      // If we have a verification code, try Neon Auth OTP first
       if (verificationCode) {
-        res = await authClient.signIn.emailOtp({ email, otp: verificationCode });
-      } else {
-        res = await authClient.signIn.email({ email, password });
-      }
-      const loggedInUser = res?.user || res?.data?.user;
-      if (loggedInUser || (!res?.error && res?.data)) {
-        // Get Neon Auth session to extract user info
-        const { data } = await authClient.getSession();
-        if (data?.user) {
-          const syncRes = await syncGoogleUserToDb(
-            data.user.email,
-            data.user.name || data.user.email,
-            data.user.image,
-            data.user.emailVerified || data.user.email_verified || false
-          );
-          if (syncRes.success) {
-            await createUserSession(syncRes.user.id);
-            setUser(syncRes.user);
-          } else {
-            setUser({ id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false });
+        try {
+          const res = await authClient.signIn.emailOtp({ email, otp: verificationCode });
+          const loggedInUser = res?.user || res?.data?.user;
+          if (loggedInUser || (!res?.error && res?.data)) {
+            const { data } = await authClient.getSession();
+            if (data?.user) {
+              const syncRes = await syncGoogleUserToDb(
+                data.user.email,
+                data.user.name || data.user.email,
+                data.user.image,
+                data.user.emailVerified || data.user.email_verified || false
+              );
+              if (syncRes.success) {
+                await createUserSession(syncRes.user.id);
+                setUser(syncRes.user);
+              } else {
+                setUser({ id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false });
+              }
+            }
+            setShowAuthModal(false);
+            return { success: true };
           }
+          return { success: false, message: res?.error?.message || 'Verification failed.' };
+        } catch (otpErr) {
+          return { success: false, message: otpErr.message || 'Verification failed.' };
         }
+      }
+
+      // Try Neon Auth email/password login
+      try {
+        const res = await authClient.signIn.email({ email, password });
+        const loggedInUser = res?.user || res?.data?.user;
+        if (loggedInUser || (!res?.error && res?.data)) {
+          const { data } = await authClient.getSession();
+          if (data?.user) {
+            const syncRes = await syncGoogleUserToDb(
+              data.user.email,
+              data.user.name || data.user.email,
+              data.user.image,
+              data.user.emailVerified || data.user.email_verified || false
+            );
+            if (syncRes.success) {
+              await createUserSession(syncRes.user.id);
+              setUser(syncRes.user);
+            } else {
+              setUser({ id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false });
+            }
+          }
+          setShowAuthModal(false);
+          return { success: true };
+        }
+        // Neon Auth failed - fall through to DB login
+        warn('[AnimeVault Auth] Neon Auth login failed, falling back to DB login:', res?.error?.message);
+      } catch (neonErr) {
+        warn('[AnimeVault Auth] Neon Auth login threw, falling back to DB login:', neonErr.message);
+      }
+
+      // Fallback: try local DB login (works with users stored in Neon DB or localStorage)
+      const dbRes = await dbUserLogin(email, password);
+      if (dbRes.success) {
+        await createUserSession(dbRes.user.id);
+        setUser(dbRes.user);
         setShowAuthModal(false);
         return { success: true };
       }
-      return { success: false, message: res?.error?.message || 'Login failed. Please check your credentials.' };
+      return { success: false, message: dbRes.message || 'Login failed. Please check your credentials.' };
     } catch (e) {
       return { success: false, message: e.message };
     }
@@ -203,12 +244,12 @@ export function UserProvider({ children }) {
 
   const addToHistory = async (mediaId, mediaType, mediaTitle, mediaPoster) => {
     if (!user) return false;
-    
+
     await dbAddWatchHistory({ id: mediaId, title: mediaTitle, image: mediaPoster });
     await dbAddToHistory(user.id, mediaId, mediaType, mediaTitle, mediaPoster);
     await addXP(5);
     await addActivity();
-    
+
     syncUserData();
     return true;
   };
@@ -227,14 +268,14 @@ export function UserProvider({ children }) {
     const success = await dbUpdateContinueWatching(user.id, mediaId, mediaType, mediaTitle, mediaPoster, season, episode, progress, duration);
     if (success) {
       syncUserData();
-      
+
       const stats = await getUserStats();
       await updateUserStats({
         ...stats,
         episodesWatched: (stats.episodesWatched || 0) + 1,
         totalWatchTime: (stats.totalWatchTime || 0) + (duration || 0)
       });
-      
+
       await addXP(10);
       await addActivity();
     }
@@ -247,14 +288,14 @@ export function UserProvider({ children }) {
       setShowAuthModal(true);
       return { promptLogin: true };
     }
-    
+
     const result = await dbToggleLike(user.id, mediaId, mediaType, mediaTitle, mediaPoster);
     if (!result.error) {
       syncUserData();
-      
+
       const favorites = await getFavorites();
       const isAlreadyFavorite = favorites.animes?.some(f => String(f.id) === String(mediaId));
-      
+
       if (result.action === 'liked' && !isAlreadyFavorite) {
         await addFavorite('animes', { id: mediaId, title: mediaTitle, image: mediaPoster });
         await addXP(2);
