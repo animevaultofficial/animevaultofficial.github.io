@@ -154,14 +154,13 @@ export default function Profile() {
         body: formData,
       });
 
-      // Read the response body as text first, then attempt JSON parse
       const responseText = await response.text();
       let result;
       try {
         result = JSON.parse(responseText);
       } catch {
         console.error("Cloudinary upload failed (non-JSON response):", responseText);
-        alert(`Upload failed: Server returned an unexpected response (status ${response.status}). Check Cloudinary configuration.`);
+        alert(`Upload failed: Server returned status ${response.status}. Make sure your Cloudinary upload preset "${uploadPreset}" is configured for unsigned uploads and allows image files.`);
         return;
       }
 
@@ -169,7 +168,7 @@ export default function Profile() {
         setUrl(result.secure_url);
       } else {
         console.error("Cloudinary upload failed:", result);
-        alert(`Upload failed: ${result.error?.message || `Server error (status ${response.status})`}`);
+        alert(`Upload failed: ${result.error?.message || `Cloudinary returned status ${response.status}. Verify your upload preset settings.`}`);
       }
     } catch (err) {
       console.error("Upload error:", err);
