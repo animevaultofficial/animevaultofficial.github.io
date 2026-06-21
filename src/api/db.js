@@ -1425,7 +1425,8 @@ export function resetSettings() {
 export async function updateSetting(key, value) {
   try {
     const settings = getSettings();
-}
+    settings[key] = value;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     return { key, value };
   } catch (error) {
     console.error('Error updating setting:', error);
@@ -1433,6 +1434,15 @@ export async function updateSetting(key, value) {
   }
 }
 
+export async function syncGoogleUserToDb(email, googleAvatar, isEmailVerified) {
+  try {
+    const db = await getSql();
+    if (!db) return { success: false, message: 'Database not available' };
+
+    const trimmedUser = email.trim().toLowerCase().split('@')[0];
+
+    const existing = await db`
+      SELECT id, username, avatar, banner, is_admin, is_verified, created_at
       FROM users WHERE LOWER(username) = ${trimmedUser}
     `;
     
