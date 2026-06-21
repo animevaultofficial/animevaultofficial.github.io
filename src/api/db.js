@@ -1478,6 +1478,7 @@ async function ensureSessionTable() {
   const db = await getSql();
   if (!db) return false;
   try {
+    // Create table if it doesn't exist
     await db`
       CREATE TABLE IF NOT EXISTS user_sessions (
         id SERIAL PRIMARY KEY,
@@ -1490,9 +1491,12 @@ async function ensureSessionTable() {
         last_active TIMESTAMP DEFAULT NOW()
       )
     `;
+    // Ensure required columns exist (for older schemas)
+    await db`ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS device_id TEXT NOT NULL DEFAULT 'unknown_device'`;
+    await db`ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS device_name TEXT DEFAULT 'Unknown Device'`;
     return true;
   } catch (e) {
-    console.error('[AnimeVault DB] Failed to create user_sessions table:', e);
+    console.error('[AnimeVault DB] Failed to create/alter user_sessions table:', e);
     return false;
   }
 }
