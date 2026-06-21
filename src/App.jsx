@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import {
   Search as SearchIcon, Info, Home as HomeIcon, Tv as TvIcon,
-  AlertTriangle, User, Sparkles, Menu, X, Bell, Download as DownloadIcon, Users
+  AlertTriangle, User, Sparkles, Menu, X, Bell, Download as DownloadIcon, Users, Award
 } from 'lucide-react';
 import './styles/designTokens.css';
 import { useUser } from './api/UserContext';
