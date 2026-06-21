@@ -72,7 +72,7 @@ const FEATURED_SLIDE_FALLBACKS = [
     averageScore: 91,
     format: "TV",
     bannerImage:
-      "https://static0.colliderimages.com/wordpress/wp-content/uploads/2024/01/full-metal-alchemist.jpg",
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRSo32Teh6AEGe5IwXO3EFDefYi89gXy9z50Q&s",
   },
   {
     id: 1535,
