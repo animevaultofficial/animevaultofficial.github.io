@@ -3,7 +3,10 @@ const TMDB_BASE = 'https://api.themoviedb.org/3';
 
 async function tmdbFetch(endpoint) {
   try {
-    const res = await fetch(`${TMDB_BASE}${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
+    const url = new URL(`${TMDB_BASE}${endpoint}`);
+    url.searchParams.set('api_key', TMDB_API_KEY);
+    url.searchParams.set('language', 'en-US');
+    const res = await fetch(url.toString());
     return await res.json();
   } catch { return null; }
 }
@@ -38,17 +41,51 @@ export async function fetchMediaMeta(mediaType, tmdbId) {
   else return fetchTVDetails(tmdbId);
 }
 
-export function getPlayerUrl(mediaType, tmdbId, season, episode) {
-  if (mediaType === 'movie') {
-    return `https://vidsrc.to/embed/movie/${tmdbId}`;
-  } else {
-    return `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}`;
-  }
-}
+// ── Player Sources (matching web version) ──
+// Primary: Videasy (same as web's playerSources.js)
+// Fallbacks: VidSrc, VidKing
 
-const EMBED_SERVERS = [
-  { name: 'VidSrc', movie: (id) => `https://vidsrc.to/embed/movie/${id}`, tv: (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}` },
-  { name: '2Embed', movie: (id) => `https://www.2embed.cc/embed/${id}`, tv: (id, s, e) => `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}` },
-  { name: 'SuperEmbed', movie: (id) => `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1`, tv: (id, s, e) => `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
-  { name: 'VidKing', movie: (id) => `https://vidking.ru/embed/movie/${id}`, tv: (id, s, e) => `https://vidking.ru/embed/tv/${id}/${s}/${e}` },
+export const EMBED_SERVERS = [
+  {
+    name: 'Videasy',
+    colorParam: 'color',
+    params: { overlay: 'true' },
+    movie: (id) => `https://player.videasy.net/movie/${id}`,
+    tv: (id, s, e) => `https://player.videasy.net/tv/${id}/${s}/${e}`,
+  },
+  {
+    name: 'VidSrc',
+    movie: (id) => `https://vsembed.su/embed/movie/${id}`,
+    tv: (id, s, e) => `https://vsembed.su/embed/tv/${id}/${s}/${e}`,
+  },
+  {
+    name: 'VidKing',
+    colorParam: 'color',
+    params: { autoPlay: 'true' },
+    movie: (id) => `https://www.vidking.net/embed/movie/${id}`,
+    tv: (id, s, e) => `https://www.vidking.net/embed/tv/${id}/${s}/${e}`,
+  },
 ];
+
+export function getPlayerUrl(mediaType, tmdbId, season, episode, serverIndex = 0, accentColor = null) {
+  const server = EMBED_SERVERS[serverIndex] || EMBED_SERVERS[0];
+  let url;
+  if (mediaType === 'movie') {
+    url = server.movie(tmdbId);
+  } else {
+    url = server.tv(tmdbId, season || 1, episode || 1);
+  }
+  // Add accent color if supported
+  if (accentColor && server.colorParam) {
+    try {
+      const parsed = new URL(url);
+      parsed.searchParams.set(server.colorParam, accentColor.replace(/^#/, ''));
+      // Add any extra params
+      if (server.params) {
+        Object.entries(server.params).forEach(([k, v]) => parsed.searchParams.set(k, v));
+      }
+      return parsed.toString();
+    } catch { return url; }
+  }
+  return url;
+}

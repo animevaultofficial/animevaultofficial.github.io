@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, CalendarClock, Check, Heart, Info, ListVideo, Play, Star, SkipBack, SkipForward, Maximize, Minimize, Shield } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Check, Heart, Info, ListVideo, Play, Star, SkipBack, SkipForward, Maximize, Minimize, Shield, RefreshCw } from 'lucide-react';
 import { useUser } from '../../api/UserContext';
 import { fetchAnimeDetail, getImage, getTitle, stripHtml } from '../api/anilist';
 import { addContinueWatching, isFavorite, toggleFavorite } from '../api/storage';
-import { fetchStreamingEpisodes, fetchStreamingSources, findBestStreamingMatch, getAnimePlayUrl, probeMirrors } from '../api/streaming';
+import { fetchStreamingEpisodes, fetchStreamingSources, findBestStreamingMatch, EMBED_SERVERS, extractNumericId, probeMirrors } from '../api/streaming';
 import { stripAdParams, getProxiedEmbedUrl, isAdHeavyServer, isCleanServer } from '../api/adProxy';
 
 const LANGUAGES = [
@@ -46,11 +46,31 @@ export default function AnimeDetailsPage({ params, goBack }) {
   const [favorite, setFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [zenMode, setZenMode] = useState(true);
+  const [isFs, setIsFs] = useState(false);
+  const [swipeHint, setSwipeHint] = useState(null);
+  const [swipeProgress, setSwipeProgress] = useState(0);
+  const [serverIndex, setServerIndex] = useState(0);
+  const [iframeError, setIframeError] = useState(false);
+  const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
+  const playerWrapperRef = useRef(null);
   const enrichedRef = useRef(false);
 
   const id = params?.id;
 
-  useEffect(() => { probeMirrors().catch(() => {}); }, []);
+  useEffect(() => { probeMirrors().catch(() => { }); }, []);
+
+  const toggleFs = () => {
+    if (!playerWrapperRef.current) return;
+    if (document.fullscreenElement) document.exitFullscreen();
+    else playerWrapperRef.current.requestFullscreen();
+  };
+
+  useEffect(() => {
+    const handler = () => setIsFs(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -74,7 +94,7 @@ export default function AnimeDetailsPage({ params, goBack }) {
         setCurrentEpisode(fallbackEpisodes[0] || null);
         setFavorite(isLiked(nextMedia.id, 'anime') || isFavorite(nextMedia.id));
         setLoading(false);
-        enrichEpisodes(nextMedia).catch(() => {});
+        enrichEpisodes(nextMedia).catch(() => { });
       } catch (err) {
         setError(err.message || 'Failed to load anime.');
         setLoading(false);
@@ -167,15 +187,18 @@ export default function AnimeDetailsPage({ params, goBack }) {
   const currentNumber = currentEpisode?.number || 1;
 
   if (showPlayer && currentEpisode) {
-    const [zenMode, setZenMode] = useState(true);
-    const [isFs, setIsFs] = useState(false);
-    const [swipeHint, setSwipeHint] = useState(null);
-    const [swipeProgress, setSwipeProgress] = useState(0);
-    const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
-    const playerWrapperRef = useRef(null);
-
-    const rawUrl = getAnimePlayUrl(id, currentEpisode.number, language);
+    // Build embed URL using AniList ID (same as web version) from params or media
+    const embedAnimeId = extractNumericId(id) || extractNumericId(media?.id);
+    const activeServer = EMBED_SERVERS[serverIndex % EMBED_SERVERS.length];
+    const rawUrl = activeServer.buildUrl({ animeId: embedAnimeId, episode: currentEpisode.number, lang: language });
     const embedUrl = zenMode ? stripAdParams(rawUrl) : rawUrl;
+
+    const switchServer = () => {
+      setServerIndex(prev => prev + 1);
+      setIframeError(false);
+      setPlayerLoading(true);
+      setPlayerStatus('Switching server...');
+    };
 
     const goPrev = () => {
       const idx = episodes.findIndex(e => e.number === currentEpisode.number);
@@ -214,18 +237,6 @@ export default function AnimeDetailsPage({ params, goBack }) {
       }
       setSwipeHint(null);
       setSwipeProgress(0);
-    };
-
-    useEffect(() => {
-      const handler = () => setIsFs(!!document.fullscreenElement);
-      document.addEventListener('fullscreenchange', handler);
-      return () => document.removeEventListener('fullscreenchange', handler);
-    }, []);
-
-    const toggleFs = () => {
-      if (!playerWrapperRef.current) return;
-      if (document.fullscreenElement) document.exitFullscreen();
-      else playerWrapperRef.current.requestFullscreen();
     };
 
     return (
@@ -288,7 +299,7 @@ export default function AnimeDetailsPage({ params, goBack }) {
             </div>
           )}
           <iframe
-            key={`${currentEpisode.number}-${language}`}
+            key={`${currentEpisode.number}-${language}-${serverIndex}`}
             src={embedUrl}
             className="player-frame"
             allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
@@ -298,7 +309,26 @@ export default function AnimeDetailsPage({ params, goBack }) {
               setPlayerLoading(false);
               setPlayerStatus('');
             }}
+            onError={() => {
+              setIframeError(true);
+              setPlayerStatus('Server failed to load. Try switching servers.');
+            }}
           />
+
+          {/* Server switch button */}
+          <div className="ply-server-switch" style={{ position: 'absolute', top: 60, right: 12, zIndex: 10 }}>
+            <button
+              onClick={switchServer}
+              style={{
+                background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)',
+                color: '#fff', borderRadius: 8, padding: '6px 10px', fontSize: '.7rem',
+                display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer',
+              }}
+              title="Switch to another embed server"
+            >
+              <RefreshCw size={14} /> Server {serverIndex + 1}
+            </button>
+          </div>
 
           {/* Center navigation overlay buttons (desktop-style) */}
           <div className="ply-center-nav">

@@ -180,7 +180,7 @@ export async function userLogin(username, password) {
   // LocalStorage fallback (check local cache if DB didn't work or if DB user exists but password didn't match in DB)
   const users = getUsers();
   const localUser = users.find(u => u.username.toLowerCase() === trimmedUser.toLowerCase());
-  
+
   if (localUser) {
     // Check if local user matches the password
     if (localUser.password === inputHash) {
@@ -190,7 +190,7 @@ export async function userLogin(username, password) {
     // Password doesn't match in localStorage either
     return { success: false, message: 'Invalid password. Please try again.' };
   }
-  
+
   // User not found in either DB or localStorage
   return { success: false, message: 'Account does not exist. Please sign up first.' };
 }
@@ -1419,36 +1419,59 @@ export async function initDatabase() {
 
 export async function searchUsers(query, currentUserId) {
   const db = await getSql();
-  if (!db) return [];
-  try {
-    const searchTerm = `%${(query || '').toLowerCase()}%`;
+  if (db) {
+    try {
+      const searchTerm = `%${(query || '').toLowerCase()}%`;
 
-    if (!currentUserId) {
-      const result = await db`
-        SELECT id, username, avatar, banner, is_admin, is_verified
-        FROM users
-        WHERE LOWER(username) LIKE ${searchTerm}
-        LIMIT 50
-      `;
-      return result;
-    } else {
-      const result = await db`
-        SELECT id, username, avatar, banner, is_admin, is_verified
-        FROM users
-        WHERE LOWER(username) LIKE ${searchTerm}
-          AND id::text != ${currentUserId}::text
-          AND id::text NOT IN (
-            SELECT blocked_id::text FROM user_blocks WHERE blocker_id::text = ${currentUserId}::text
-          )
-          AND id::text NOT IN (
-            SELECT blocker_id::text FROM user_blocks WHERE blocked_id::text = ${currentUserId}::text
-          )
-        LIMIT 50
-      `;
-      return result;
+      if (!currentUserId) {
+        const result = await db`
+          SELECT id, username, avatar, banner, is_admin, is_verified
+          FROM users
+          WHERE LOWER(username) LIKE ${searchTerm}
+          LIMIT 50
+        `;
+        return result;
+      } else {
+        const result = await db`
+          SELECT id, username, avatar, banner, is_admin, is_verified
+          FROM users
+          WHERE LOWER(username) LIKE ${searchTerm}
+            AND id::text != ${currentUserId}::text
+            AND id::text NOT IN (
+              SELECT blocked_id::text FROM user_blocks WHERE blocker_id::text = ${currentUserId}::text
+            )
+            AND id::text NOT IN (
+              SELECT blocker_id::text FROM user_blocks WHERE blocked_id::text = ${currentUserId}::text
+            )
+          LIMIT 50
+        `;
+        return result;
+      }
+    } catch (e) {
+      error('[AnimeVault DB] Search users failed:', e?.message);
     }
+  }
+
+  // LocalStorage fallback: return all users except current user
+  try {
+    const users = JSON.parse(localStorage.getItem('animevault_users') || '[]');
+    const searchTerm = (query || '').toLowerCase();
+    return users
+      .filter(u => {
+        if (currentUserId && String(u.id) === String(currentUserId)) return false;
+        if (searchTerm && !u.username.toLowerCase().includes(searchTerm)) return false;
+        return true;
+      })
+      .map(u => ({
+        id: u.id,
+        username: u.username,
+        avatar: u.avatar || null,
+        banner: u.banner || null,
+        is_admin: u.is_admin || false,
+        is_verified: u.is_verified || false,
+      }))
+      .slice(0, 50);
   } catch (e) {
-    error('[AnimeVault DB] Search users failed:', e?.message);
     return [];
   }
 }

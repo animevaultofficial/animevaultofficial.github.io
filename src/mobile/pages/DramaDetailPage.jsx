@@ -1,12 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails } from '../api/movies';
-
-const EMBED_SERVERS = [
-  { name: 'VidSrc', movie: (id) => `https://vidsrc.to/embed/movie/${id}`, tv: (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}` },
-  { name: '2Embed', movie: (id) => `https://www.2embed.cc/embed/${id}`, tv: (id, s, e) => `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}` },
-  { name: 'SuperEmbed', movie: (id) => `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1`, tv: (id, s, e) => `https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
-  { name: 'VidKing', movie: (id) => `https://vidking.ru/embed/movie/${id}`, tv: (id, s, e) => `https://vidking.ru/embed/tv/${id}/${s}/${e}` },
-];
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowLeft, SkipBack, SkipForward, Maximize, Minimize, Shield } from 'lucide-react';
+import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails, EMBED_SERVERS, getPlayerUrl } from '../api/movies';
+import { stripAdParams } from '../api/adProxy';
 
 export default function DramaDetailPage({ params, goBack }) {
   const { id, mediaType, title: initialTitle } = params;
@@ -17,6 +12,15 @@ export default function DramaDetailPage({ params, goBack }) {
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [episodes, setEpisodes] = useState([]);
+  const [zenMode, setZenMode] = useState(true);
+  const [isFs, setIsFs] = useState(false);
+  const playerWrapperRef = useRef(null);
+
+  useEffect(() => {
+    const handler = () => setIsFs(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -36,7 +40,27 @@ export default function DramaDetailPage({ params, goBack }) {
     if (mediaType !== 'movie' && details?.seasons) {
       fetchTVSeasonDetails(id, selectedSeason).then(d => setEpisodes(d?.episodes || [])).catch(() => {});
     }
-  }, [selectedSeason]);
+  }, [id, mediaType, details?.seasons, selectedSeason]);
+
+  const toggleFs = () => {
+    if (!playerWrapperRef.current) return;
+    if (document.fullscreenElement) document.exitFullscreen();
+    else playerWrapperRef.current.requestFullscreen();
+  };
+
+  const goNextEp = () => {
+    const idx = episodes.findIndex(e => e.episode_number === selectedEpisode);
+    if (idx < episodes.length - 1) {
+      setSelectedEpisode(episodes[idx + 1].episode_number);
+    }
+  };
+
+  const goPrevEp = () => {
+    const idx = episodes.findIndex(e => e.episode_number === selectedEpisode);
+    if (idx > 0) {
+      setSelectedEpisode(episodes[idx - 1].episode_number);
+    }
+  };
 
   if (loading) {
     return (
@@ -67,35 +91,100 @@ export default function DramaDetailPage({ params, goBack }) {
   const seasons = details.seasons?.filter(s => s.season_number > 0) || [];
 
   if (showPlayer) {
-    const embedUrl = mediaType === 'movie'
+    const rawUrl = mediaType === 'movie'
       ? EMBED_SERVERS[embedServer].movie(id)
       : EMBED_SERVERS[embedServer].tv(id, selectedSeason, selectedEpisode);
+    const embedUrl = zenMode ? stripAdParams(rawUrl) : rawUrl;
 
     return (
-      <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 1000, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#111' }}>
-          <button onClick={() => setShowPlayer(false)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}>← Back</button>
-          <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{EMBED_SERVERS[embedServer].name}</div>
-          <div style={{ display: 'flex', gap: 6 }}>
+      <div ref={playerWrapperRef} className="player-screen" style={isFs ? { padding: 0 } : {}}>
+        {/* Top bar */}
+        <div className="player-topbar">
+          <button className="player-icon-btn" onClick={() => setShowPlayer(false)} aria-label="Back">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="player-title">
+            <strong>{title}</strong>
+            <span>{mediaType === 'movie' ? 'Movie' : `S${selectedSeason} E${selectedEpisode}`}</span>
+          </div>
+          <div className="player-language">
+            <button
+              className={`ply-zen-btn ${zenMode ? 'active' : ''}`}
+              onClick={() => setZenMode(!zenMode)}
+              title={zenMode ? 'Zen mode ON' : 'Zen mode OFF'}
+            >
+              <Shield size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Frame */}
+        <div className="player-frame-wrap">
+          {zenMode && (
+            <div className="ply-zen-badge"><Shield size={14} /> Zen</div>
+          )}
+          {mediaType !== 'movie' && (
+            <div className="ply-center-nav">
+              <button className="ply-nav-overlay" onClick={goPrevEp} aria-label="Previous episode">
+                <SkipBack size={36} />
+              </button>
+              <button className="ply-nav-overlay" onClick={goNextEp} aria-label="Next episode">
+                <SkipForward size={36} />
+              </button>
+              <button className="ply-fs-overlay" onClick={toggleFs} aria-label="Fullscreen">
+                {isFs ? <Minimize size={22} /> : <Maximize size={22} />}
+              </button>
+            </div>
+          )}
+          <iframe
+            key={`${selectedEpisode}-${embedServer}`}
+            src={embedUrl}
+            className="player-frame"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+            allowFullScreen
+            title={title}
+          />
+        </div>
+
+        {/* Episode rail + server selector */}
+        <div className="player-episode-rail">
+          {mediaType !== 'movie' && (
+            <>
+              <button className="ply-rail-nav" onClick={goPrevEp} disabled={selectedEpisode <= 1}>
+                <SkipBack size={16} />
+              </button>
+              <div className="ply-rail-scroll">
+                {episodes.slice(0, 100).map(ep => (
+                  <button
+                    key={ep.episode_number}
+                    className={ep.episode_number === selectedEpisode ? 'active' : ''}
+                    onClick={() => setSelectedEpisode(ep.episode_number)}
+                  >
+                    {ep.episode_number}
+                  </button>
+                ))}
+              </div>
+              <button className="ply-rail-nav" onClick={goNextEp} disabled={selectedEpisode >= episodes.length}>
+                <SkipForward size={16} />
+              </button>
+            </>
+          )}
+          <div style={{ display: 'flex', gap: 4, marginLeft: mediaType === 'movie' ? 0 : 'auto', flexShrink: 0 }}>
             {EMBED_SERVERS.map((s, i) => (
               <button key={s.name} onClick={() => setEmbedServer(i)}
-                style={{ background: i === embedServer ? 'var(--brand-color)' : '#333', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: 4, fontSize: '0.7rem', cursor: 'pointer' }}>
+                style={{
+                  height: 30, padding: '0 10px', borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,.12)',
+                  background: i === embedServer ? 'var(--brand)' : 'rgba(255,255,255,.08)',
+                  color: i === embedServer ? '#fff' : '#d1d5db',
+                  fontSize: '.65rem', fontWeight: 800, cursor: 'pointer',
+                  flexShrink: 0,
+                }}>
                 {s.name}
               </button>
             ))}
           </div>
         </div>
-        <iframe src={embedUrl} style={{ flex: 1, border: 'none', width: '100%' }} allow="autoplay; fullscreen" allowFullScreen title={title} />
-        {mediaType !== 'movie' && (
-          <div style={{ display: 'flex', gap: 6, padding: '8px 12px', overflowX: 'auto', background: '#111', scrollbarWidth: 'none' }}>
-            {episodes.slice(0, 30).map(ep => (
-              <button key={ep.episode_number} onClick={() => setSelectedEpisode(ep.episode_number)}
-                style={{ background: ep.episode_number === selectedEpisode ? 'var(--brand-color)' : '#333', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: 6, fontSize: '0.8rem', cursor: 'pointer', flexShrink: 0 }}>
-                {ep.episode_number}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     );
   }

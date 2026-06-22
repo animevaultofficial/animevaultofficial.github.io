@@ -29,7 +29,7 @@ function loadHealthCache() {
 }
 
 function saveHealthCache(cache) {
-  try { localStorage.setItem(HEALTH_CACHE_KEY, JSON.stringify(cache)); } catch {}
+  try { localStorage.setItem(HEALTH_CACHE_KEY, JSON.stringify(cache)); } catch { }
 }
 
 function markMirrorHealth(mirror, healthy) {
@@ -179,7 +179,37 @@ export const EMBED_SERVERS = [
   },
 ];
 
-// AnimePlay direct embed (the main one from web)
+// Helper to extract numeric ID from potentially prefixed IDs (e.g. "mal-12345" -> "12345")
+export function extractNumericId(rawId) {
+  if (!rawId) return null;
+  const str = String(rawId).trim();
+  const match = str.match(/(\d+)$/);
+  return match ? match[1] : str;
+}
+
+// Detect if ID is a MAL ID (starts with "mal-" prefix)
+export function isMalId(rawId) {
+  if (!rawId) return false;
+  return String(rawId).trim().toLowerCase().startsWith('mal-');
+}
+
+// Get MegaPlay embed URL - supports both AniList IDs (/stream/ani/) and MAL IDs (/stream/mal/)
 export function getAnimePlayUrl(animeId, episode, lang = 'sub') {
-  return `https://animeplay.cfd/stream/ani/${animeId}/${episode}/${lang}`;
+  const numericId = extractNumericId(animeId);
+  const route = isMalId(animeId) ? 'mal' : 'ani';
+  return `https://animeplay.cfd/stream/${route}/${numericId || animeId}/${episode}/${lang}`;
+}
+
+// Get fallback embed URLs to try (tries both AniList and MAL routes + other servers)
+export function getFallbackEmbedUrl(animeId, episode, lang = 'sub') {
+  const numericId = extractNumericId(animeId);
+  const id = numericId || animeId;
+  const servers = [
+    `https://animeplay.cfd/stream/ani/${id}/${episode}/${lang}`,
+    `https://animeplay.cfd/stream/mal/${id}/${episode}/${lang}`,
+    `https://animeplay.cfd/stream/ani/${id}/${episode}/dub`,
+    `https://vsembed.su/embed/tv/${id}/${episode}`,
+    `https://multiembed.mov/directstream.php?video_id=${id}&s=anime&e=${episode}`,
+  ];
+  return servers;
 }

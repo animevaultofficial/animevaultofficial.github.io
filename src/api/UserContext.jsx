@@ -3,7 +3,19 @@ import { createAuthClient } from '@neondatabase/auth';
 import { log, warn, error } from '../utils/logger.js';
 
 // Neon Auth client
-const authClient = createAuthClient(import.meta.env.VITE_NEON_AUTH_URL);
+const authClient = createAuthClient(import.meta.env.VITE_NEON_AUTH_URL, {
+  fetch: (url, options = {}) => {
+    const newOptions = { ...options };
+    newOptions.headers = { ...newOptions.headers };
+    // Fix for Capacitor WebView: Origin may be null/missing, provide a fallback
+    if (!newOptions.headers['Origin'] && !newOptions.headers['origin']) {
+      newOptions.headers['Origin'] = (window.location.origin && window.location.origin !== 'null')
+        ? window.location.origin
+        : 'https://animevaultofficial.github.io';
+    }
+    return fetch(url, newOptions);
+  }
+});
 
 import {
   fetchWatchHistory, addToHistory as dbAddToHistory, clearWatchHistory as dbClearWatchHistory,
@@ -13,7 +25,8 @@ import {
   fetchReminders, addReminder as dbAddReminder, removeReminder as dbRemoveReminder,
   syncGoogleUserToDb,
   createUserSession, restoreSession, deleteUserSession,
-  userLogin as dbUserLogin
+  userLogin as dbUserLogin,
+  userSignup as dbUserSignup
 } from './db';
 import { initializeTrendingDefaults } from './db';
 import {
@@ -24,6 +37,30 @@ import {
 } from './database';
 
 const UserContext = createContext(null);
+const LOCAL_SESSION_USER_KEY = 'animevault_session_user';
+
+function readLocalSessionUser() {
+  try {
+    const raw = localStorage.getItem(LOCAL_SESSION_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistLocalSessionUser(user) {
+  try {
+    if (user) localStorage.setItem(LOCAL_SESSION_USER_KEY, JSON.stringify(user));
+  } catch {
+    // localStorage can be unavailable in some mobile webview/privacy modes.
+  }
+}
+
+function clearLocalSessionUser() {
+  try {
+    localStorage.removeItem(LOCAL_SESSION_USER_KEY);
+  } catch {}
+}
 
 export function UserProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -42,6 +79,7 @@ export function UserProvider({ children }) {
       const dbUser = await restoreSession();
       if (dbUser) {
         log('[AnimeVault Auth] Session restored from DB');
+        persistLocalSessionUser(dbUser);
         setUser(dbUser);
         return;
       }
@@ -60,23 +98,26 @@ export function UserProvider({ children }) {
         if (syncRes.success) {
           // Create a persistent DB session so future refreshes work
           await createUserSession(syncRes.user.id);
+          persistLocalSessionUser(syncRes.user);
           setUser(syncRes.user);
         } else {
-          setUser({ id: currentUser.id, username: currentUser.email || currentUser.name || 'User', avatar: currentUser.image || null, banner: null, is_admin: false });
+          const fallbackUser = { id: currentUser.id, username: currentUser.email || currentUser.name || 'User', avatar: currentUser.image || null, banner: null, is_admin: false };
+          persistLocalSessionUser(fallbackUser);
+          setUser(fallbackUser);
         }
       } else {
-        setUser(null);
+        setUser(readLocalSessionUser());
       }
     } catch (err) {
       warn('[AnimeVault Auth] Session init failed:', err);
-      setUser(null);
+      setUser(readLocalSessionUser());
     }
   };
 
   useEffect(() => {
     initSession();
-      // Initialize trending defaults on app load
-      initializeTrendingDefaults().catch(err => console.warn('Failed to init trending defaults:', err));
+    // Initialize trending defaults on app load
+    initializeTrendingDefaults().catch(err => console.warn('Failed to init trending defaults:', err));
   }, []);
 
   const syncUserData = async () => {
@@ -126,9 +167,12 @@ export function UserProvider({ children }) {
               );
               if (syncRes.success) {
                 await createUserSession(syncRes.user.id);
+                persistLocalSessionUser(syncRes.user);
                 setUser(syncRes.user);
               } else {
-                setUser({ id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false });
+                const fallbackUser = { id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false };
+                persistLocalSessionUser(fallbackUser);
+                setUser(fallbackUser);
               }
             }
             setShowAuthModal(false);
@@ -155,9 +199,12 @@ export function UserProvider({ children }) {
             );
             if (syncRes.success) {
               await createUserSession(syncRes.user.id);
+              persistLocalSessionUser(syncRes.user);
               setUser(syncRes.user);
             } else {
-              setUser({ id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false });
+              const fallbackUser = { id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false };
+              persistLocalSessionUser(fallbackUser);
+              setUser(fallbackUser);
             }
           }
           setShowAuthModal(false);
@@ -173,6 +220,7 @@ export function UserProvider({ children }) {
       const dbRes = await dbUserLogin(email, password);
       if (dbRes.success) {
         await createUserSession(dbRes.user.id);
+        persistLocalSessionUser(dbRes.user);
         setUser(dbRes.user);
         setShowAuthModal(false);
         return { success: true };
@@ -186,7 +234,12 @@ export function UserProvider({ children }) {
   const signup = async (email, password) => {
     try {
       const name = email.split('@')[0];
-      const res = await authClient.signUp.email({ email, password, name });
+      let res = null;
+      try {
+        res = await authClient.signUp.email({ email, password, name });
+      } catch (neonErr) {
+        warn('[AnimeVault Auth] Neon Auth signup threw, falling back to DB signup:', neonErr.message);
+      }
       const signedUpUser = res?.user || res?.data?.user;
       if (signedUpUser || (!res?.error && res?.data)) {
         const { data } = await authClient.getSession();
@@ -199,15 +252,31 @@ export function UserProvider({ children }) {
           );
           if (syncRes.success) {
             await createUserSession(syncRes.user.id);
+            persistLocalSessionUser(syncRes.user);
             setUser(syncRes.user);
           } else {
-            setUser({ id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false });
+            const fallbackUser = { id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false };
+            persistLocalSessionUser(fallbackUser);
+            setUser(fallbackUser);
           }
         }
         setShowAuthModal(false);
         return { success: true };
       }
-      return { success: false, message: res?.error?.message || 'Signup failed' };
+
+      if (res?.error?.message) {
+        warn('[AnimeVault Auth] Neon Auth signup failed, falling back to DB signup:', res.error.message);
+      }
+
+      const dbRes = await dbUserSignup(email, password);
+      if (dbRes.success) {
+        await createUserSession(dbRes.user.id);
+        persistLocalSessionUser(dbRes.user);
+        setUser(dbRes.user);
+        setShowAuthModal(false);
+        return { success: true };
+      }
+      return { success: false, message: dbRes.message || res?.error?.message || 'Signup failed' };
     } catch (e) {
       return { success: false, message: e.message };
     }
@@ -241,6 +310,7 @@ export function UserProvider({ children }) {
   const logout = async () => {
     // Delete DB session first
     await deleteUserSession();
+    clearLocalSessionUser();
     // Then sign out of Neon Auth
     try { await authClient.signOut(); } catch (e) { /* ignore */ }
     setUser(null);
@@ -318,6 +388,7 @@ export function UserProvider({ children }) {
     if (!user) return false;
     const res = await dbUpdateUserProfile(user.id, avatarUrl, bannerUrl);
     if (res.success) {
+      persistLocalSessionUser(res.user);
       setUser(res.user);
       return true;
     }
@@ -353,6 +424,7 @@ export function UserProvider({ children }) {
   return (
     <UserContext.Provider value={{
       user,
+      setUser,
       history,
       continueWatching,
       likes,

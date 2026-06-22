@@ -17,6 +17,7 @@ import DramaDetailPage from './pages/DramaDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import StatsPage from './pages/StatsPage';
 import NotificationsPage from './pages/NotificationsPage';
+import CommunityPage from './pages/CommunityPage';
 
 function Splash() {
   return (
@@ -30,18 +31,22 @@ function Splash() {
 
 function Sidebar({ currentPage, navigate, open, close, user }) {
   const sections = [
-    { label: 'Browse', items: [
-      { id: 'home', label: 'Home', icon: Home },
-      { id: 'search', label: 'Search', icon: Search },
-      { id: 'dramas', label: 'Shows & Movies', icon: Film },
-      { id: 'schedule', label: 'Schedule', icon: Calendar },
-    ]},
-    { label: 'Library', items: [
-      { id: 'collections', label: 'My List', icon: Heart },
-      { id: 'notifications', label: 'Notifications', icon: Bell },
-      { id: 'stats', label: 'Stats', icon: BarChart3 },
-      { id: 'community', label: 'Community', icon: Users },
-    ]},
+    {
+      label: 'Browse', items: [
+        { id: 'home', label: 'Home', icon: Home },
+        { id: 'search', label: 'Search', icon: Search },
+        { id: 'dramas', label: 'Shows & Movies', icon: Film },
+        { id: 'schedule', label: 'Schedule', icon: Calendar },
+      ]
+    },
+    {
+      label: 'Library', items: [
+        { id: 'collections', label: 'My List', icon: Heart },
+        { id: 'notifications', label: 'Notifications', icon: Bell },
+        { id: 'stats', label: 'Stats', icon: BarChart3 },
+        { id: 'community', label: 'Community', icon: Users },
+      ]
+    },
   ];
 
   return (
@@ -115,7 +120,7 @@ export default function AppMobile() {
     async function boot() {
       try {
         await initializeDatabase();
-        try { await initDatabase(); } catch {}
+        try { await initDatabase(); } catch { }
         const settings = await fetchSiteSettings();
         if (settings?.announcement) setAnnouncement(settings.announcement);
 
@@ -142,7 +147,7 @@ export default function AppMobile() {
       case 'settings': return <SettingsPage goBack={back} />;
       case 'notifications': return <NotificationsPage navigate={nav} />;
       case 'stats': return <StatsPage navigate={nav} />;
-      case 'community': return <MobilePlaceholder title="Community" detail="Community data uses the same database layer as the web app. Posting surfaces are kept lightweight on mobile." />;
+      case 'community': return <CommunityPage navigate={nav} />;
       case 'profile': return <ProfilePage navigate={nav} />;
       default: return <HomePage navigate={nav} />;
     }
