@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Flame, Clock, Sparkles, Calendar } from 'lucide-react';
+import { TrendingUp, Flame, Clock, Sparkles, Calendar, Star, Play, Info } from 'lucide-react';
 import { useUser } from '../../api/UserContext';
 import { fetchHomeData, getTitle, getImage } from '../api/anilist';
 import { getContinueWatching } from '../api/storage';
@@ -80,21 +80,99 @@ export default function HomePage({ navigate }) {
   const upcoming = data?.upcoming?.media || [];
   const slides = trending.slice(0,5);
 
+  const getBanner = (m) => m?.bannerImage || getImage(m, 'large');
+  const getDesc = (m) => m?.description?.replace(/<[^>]+>/g, '').slice(0, 150) || 'No description available.';
+
   return (
     <div className="page">
+      {/* Flashcard Hero Carousel (matching web version) */}
       {slides.length > 0 && (
-        <div className="hero" onClick={() => nav(slides[slide]?.id)}>
-          <div className="hc">
-            <div className="hbadge"><TrendingUp size={10} /> #{slide+1} Trending</div>
-            <div className="htitle">{getTitle(slides[slide])}</div>
-            <div className="hsub">
-              {slides[slide]?.averageScore ? `⭐ ${slides[slide].averageScore}%` : ''}
-              {slides[slide]?.episodes ? ` · ${slides[slide].episodes} eps` : ''}
-              {slides[slide]?.seasonYear ? ` · ${slides[slide].seasonYear}` : ''}
-            </div>
-          </div>
-          <div className="hdots">
-            {slides.map((_,i) => <div key={i} className={`hdot ${i===slide?'active':'inactive'}`} />)}
+        <div style={{ marginBottom: '1.25rem', position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-lg)', height: 280 }}>
+          {slides.map((anime, index) => {
+            const isActive = index === slide;
+            return (
+              <div
+                key={anime.id}
+                style={{
+                  position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+                  opacity: isActive ? 1 : 0,
+                  visibility: isActive ? 'visible' : 'hidden',
+                  transition: 'opacity 0.8s ease-in-out, visibility 0.8s ease-in-out',
+                  zIndex: isActive ? 2 : 1,
+                }}
+              >
+                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                  {getBanner(anime) ? (
+                    <img src={getBanner(anime)} alt={getTitle(anime)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', background: 'var(--surface2)' }} />
+                  )}
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'linear-gradient(to top, rgba(3,15,22,.95) 20%, rgba(3,15,22,.3) 55%, transparent 100%)',
+                    zIndex: 1,
+                  }} />
+                </div>
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 3,
+                  padding: '1rem',
+                  transform: isActive ? 'translateY(0)' : 'translateY(20px)',
+                  opacity: isActive ? 1 : 0,
+                  transition: 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s',
+                }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    background: 'var(--brand)', color: '#fff',
+                    fontSize: '.6rem', fontWeight: 800, textTransform: 'uppercase',
+                    padding: '2px 8px', borderRadius: 4, marginBottom: '.35rem',
+                  }}>
+                    <TrendingUp size={10} /> #{index + 1} Trending
+                  </span>
+                  <h2 style={{ fontSize: '1.3rem', fontWeight: 900, marginBottom: '.2rem', lineHeight: 1.2 }}>{getTitle(anime)}</h2>
+                  <div style={{ display: 'flex', gap: '.75rem', marginBottom: '.35rem', fontSize: '.72rem', color: 'var(--text3)' }}>
+                    {anime.averageScore && <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Star size={12} /> {anime.averageScore}%</span>}
+                    {anime.seasonYear && <span>{anime.seasonYear}</span>}
+                    {anime.format && <span>{anime.format}</span>}
+                    {anime.episodes && <span>{anime.episodes} eps</span>}
+                  </div>
+                  <p style={{ fontSize: '.75rem', color: 'var(--text2)', lineHeight: 1.4, marginBottom: '.65rem', maxHeight: 40, overflow: 'hidden' }}>
+                    {getDesc(anime).slice(0, 120)}
+                  </p>
+                  <div style={{ display: 'flex', gap: '.6rem' }}>
+                    <button onClick={(e) => { e.stopPropagation(); nav(anime.id); }} style={{
+                      background: 'var(--brand)', color: '#fff', border: 'none',
+                      padding: '.5rem 1rem', borderRadius: 8, fontWeight: 700, fontSize: '.78rem',
+                      display: 'flex', alignItems: 'center', gap: '.35rem',
+                      boxShadow: '0 4px 15px rgba(255,26,117,0.4)',
+                    }}>
+                      <Play size={14} fill="currentColor" /> Watch
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); nav(anime.id); }} style={{
+                      background: 'rgba(255,255,255,.1)', color: '#fff', border: '1px solid rgba(255,255,255,.2)',
+                      padding: '.5rem 1rem', borderRadius: 8, fontWeight: 600, fontSize: '.78rem',
+                      display: 'flex', alignItems: 'center', gap: '.35rem',
+                    }}>
+                      <Info size={14} /> Details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {/* Dots */}
+          <div style={{ position: 'absolute', bottom: '10px', right: '14px', zIndex: 4, display: 'flex', gap: 4 }}>
+            {slides.map((_, i) => (
+              <div
+                key={i}
+                onClick={() => setSlide(i)}
+                style={{
+                  width: i === slide ? '18px' : '6px', height: '6px',
+                  borderRadius: i === slide ? '3px' : '50%',
+                  background: i === slide ? 'var(--brand)' : 'rgba(255,255,255,.3)',
+                  transition: 'all 0.3s ease', cursor: 'pointer',
+                }}
+              />
+            ))}
           </div>
         </div>
       )}

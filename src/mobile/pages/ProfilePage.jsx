@@ -20,9 +20,16 @@ function AuthScreen() {
     }
 
     setBusy(true);
-    const result = tab === 'login' ? await login(email, password) : await signup(email, password);
+    try {
+      const result = tab === 'login' ? await login(email, password) : await signup(email, password);
+      if (!result || !result.success) setError(result?.message || 'Authentication failed.');
+    } catch (e) {
+      // Fallback: local-only auth
+      const { login: localLogin, signup: localSignup } = await import('../api/auth');
+      const result = tab === 'login' ? localLogin(email, password) : localSignup(email, password);
+      if (!result.success) setError(result.message || 'Authentication failed.');
+    }
     setBusy(false);
-    if (!result.success) setError(result.message || 'Authentication failed.');
   }
 
   return (
