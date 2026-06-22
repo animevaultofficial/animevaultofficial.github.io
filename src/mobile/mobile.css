@@ -647,24 +647,164 @@ input,textarea,button,select { font-family:var(--font); outline:none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .player-episode-rail {
   display: flex;
-  gap: .4rem;
-  overflow-x: auto;
-  padding: .65rem;
+  align-items: center;
+  gap: .3rem;
+  padding: .5rem .65rem;
   background: rgba(8,8,8,.98);
   border-top: 1px solid rgba(255,255,255,.1);
-  scrollbar-width: none;
 }
-.player-episode-rail::-webkit-scrollbar { display: none; }
-.player-episode-rail button {
-  min-width: 42px;
+.ply-rail-nav {
+  flex-shrink: 0;
+  width: 34px;
   height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.08);
+  color: #d1d5db;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.ply-rail-nav:disabled { opacity: .3; pointer-events: none; }
+.ply-rail-nav:active { background: rgba(255,255,255,.16); }
+.ply-rail-scroll {
+  flex: 1;
+  display: flex;
+  gap: .35rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0;
+}
+.ply-rail-scroll::-webkit-scrollbar { display: none; }
+.ply-rail-scroll button {
+  flex-shrink: 0;
+  min-width: 40px;
+  height: 32px;
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 999px;
   background: rgba(255,255,255,.08);
   color: #d1d5db;
   font-weight: 900;
+  font-size: .78rem;
+  cursor: pointer;
 }
-.player-episode-rail button.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+.ply-rail-scroll button:active { background: rgba(255,255,255,.16); }
+.ply-rail-scroll button.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+/* ── Player Swipe Hints ── */
+.ply-swipe-hint {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5rem;
+  padding: 1.2rem 1rem;
+  border-radius: var(--radius);
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-weight: 800;
+  font-size: .8rem;
+  pointer-events: none;
+}
+.ply-swipe-left { left: 1rem; }
+.ply-swipe-right { right: 1rem; }
+
+/* ── Zen Mode ── */
+.ply-zen-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.08);
+  color: #9ca3af;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.ply-zen-btn.active { background: rgba(16,185,129,.2); color: #10b981; border-color: rgba(16,185,129,.4); }
+.ply-zen-badge {
+  position: absolute;
+  top: .5rem;
+  left: .5rem;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .25rem .5rem;
+  border-radius: 999px;
+  background: rgba(16,185,129,.2);
+  color: #10b981;
+  font-size: .65rem;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+/* ── Center Navigation Overlay ── */
+.ply-center-nav {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 .5rem;
+  pointer-events: none;
+}
+.ply-nav-overlay {
+  pointer-events: auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,.45);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.player-frame-wrap:hover .ply-nav-overlay,
+.player-frame-wrap:active .ply-nav-overlay { opacity: 1; }
+.ply-nav-overlay:active { background: rgba(0,0,0,.65); }
+.ply-fs-overlay {
+  position: absolute;
+  bottom: .75rem;
+  right: .75rem;
+  pointer-events: auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.player-frame-wrap:hover .ply-fs-overlay,
+.player-frame-wrap:active .ply-fs-overlay { opacity: 1; }
+.ply-fs-overlay:active { background: rgba(0,0,0,.7); }
+
+/* ── Landscape orientation ── */
+@media (orientation: landscape) {
+  .player-screen { flex-direction: row; flex-wrap: wrap; }
+  .player-topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 10; background: rgba(0,0,0,.7); min-height: 44px; padding: .35rem .6rem; }
+  .player-frame-wrap { flex: 1; min-height: 0; width: 100%; height: 100%; }
+  .player-episode-rail { position: absolute; bottom: 0; left: 0; right: 0; z-index: 10; background: rgba(0,0,0,.7); padding: .35rem .5rem; }
+  .ply-rail-scroll button { min-width: 36px; height: 28px; font-size: .7rem; }
+  .ply-rail-nav { width: 30px; height: 30px; }
+  .ply-center-nav { padding: 0 1.5rem; }
+  .ply-nav-overlay { width: 44px; height: 44px; }
+}
 
 .detail-skeleton { background: linear-gradient(90deg, var(--surface) 25%, rgba(255,255,255,.04) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shim 1.5s infinite; border-radius: var(--radius); }
 .hero-skeleton { height: 360px; }

@@ -1,14 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, CalendarClock, Check, Heart, Info, ListVideo, Play, Star } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Check, Heart, Info, ListVideo, Play, Star, SkipBack, SkipForward, Maximize, Minimize, Shield } from 'lucide-react';
 import { useUser } from '../../api/UserContext';
 import { fetchAnimeDetail, getImage, getTitle, stripHtml } from '../api/anilist';
 import { addContinueWatching, isFavorite, toggleFavorite } from '../api/storage';
 import { fetchStreamingEpisodes, fetchStreamingSources, findBestStreamingMatch, getAnimePlayUrl, probeMirrors } from '../api/streaming';
+import { stripAdParams, getProxiedEmbedUrl, isAdHeavyServer, isCleanServer } from '../api/adProxy';
 
 const LANGUAGES = [
   { id: 'sub', label: 'Sub' },
   { id: 'dub', label: 'Dub' },
 ];
+
+const SWIPE_THRESHOLD = 80;
 
 function buildFallbackEpisodes(media) {
   let count = media?.episodes;
@@ -164,38 +167,131 @@ export default function AnimeDetailsPage({ params, goBack }) {
   const currentNumber = currentEpisode?.number || 1;
 
   if (showPlayer && currentEpisode) {
-    const embedUrl = getAnimePlayUrl(id, currentEpisode.number, language);
+    const [zenMode, setZenMode] = useState(true);
+    const [isFs, setIsFs] = useState(false);
+    const [swipeHint, setSwipeHint] = useState(null);
+    const [swipeProgress, setSwipeProgress] = useState(0);
+    const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
+    const playerWrapperRef = useRef(null);
+
+    const rawUrl = getAnimePlayUrl(id, currentEpisode.number, language);
+    const embedUrl = zenMode ? stripAdParams(rawUrl) : rawUrl;
+
+    const goPrev = () => {
+      const idx = episodes.findIndex(e => e.number === currentEpisode.number);
+      if (idx > 0) handleWatch(episodes[idx - 1]);
+    };
+    const goNext = () => {
+      const idx = episodes.findIndex(e => e.number === currentEpisode.number);
+      if (idx < episodes.length - 1) handleWatch(episodes[idx + 1]);
+    };
+
+    const onTouchStart = (e) => {
+      const t = e.touches[0];
+      touchStartRef.current = { x: t.clientX, y: t.clientY, time: Date.now() };
+      setSwipeProgress(0);
+      setSwipeHint(null);
+    };
+    const onTouchMove = (e) => {
+      const t = e.touches[0];
+      const dx = t.clientX - touchStartRef.current.x;
+      const dy = t.clientY - touchStartRef.current.y;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 20) {
+        e.preventDefault();
+        const p = Math.min(Math.abs(dx) / SWIPE_THRESHOLD, 1);
+        setSwipeProgress(p);
+        if (dx > 30) setSwipeHint('prev');
+        else if (dx < -30) setSwipeHint('next');
+        else setSwipeHint(null);
+      }
+    };
+    const onTouchEnd = (e) => {
+      const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+      const dt = Date.now() - touchStartRef.current.time;
+      if (Math.abs(dx) > SWIPE_THRESHOLD || (Math.abs(dx) > 40 && dt < 300)) {
+        if (dx > 0) goPrev();
+        else goNext();
+      }
+      setSwipeHint(null);
+      setSwipeProgress(0);
+    };
+
+    useEffect(() => {
+      const handler = () => setIsFs(!!document.fullscreenElement);
+      document.addEventListener('fullscreenchange', handler);
+      return () => document.removeEventListener('fullscreenchange', handler);
+    }, []);
+
+    const toggleFs = () => {
+      if (!playerWrapperRef.current) return;
+      if (document.fullscreenElement) document.exitFullscreen();
+      else playerWrapperRef.current.requestFullscreen();
+    };
+
     return (
-      <div className="player-screen">
+      <div
+        ref={playerWrapperRef}
+        className="player-screen"
+        style={isFs ? { padding: 0 } : {}}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* Swipe Hints */}
+        {swipeHint === 'prev' && (
+          <div className="ply-swipe-hint ply-swipe-left" style={{ opacity: swipeProgress }}>
+            <SkipBack size={28} />
+            <span>Previous</span>
+          </div>
+        )}
+        {swipeHint === 'next' && (
+          <div className="ply-swipe-hint ply-swipe-right" style={{ opacity: swipeProgress }}>
+            <SkipForward size={28} />
+            <span>Next</span>
+          </div>
+        )}
+
+        {/* Top Bar */}
         <div className="player-topbar">
           <button className="player-icon-btn" onClick={() => setShowPlayer(false)} aria-label="Back">
             <ArrowLeft size={20} />
           </button>
           <div className="player-title">
             <strong>{title}</strong>
-            <span>Episode {currentEpisode.number} · {language.toUpperCase()}</span>
+            <span>Ep {currentEpisode.number} · {language.toUpperCase()}</span>
           </div>
           <div className="player-language">
-            {LANGUAGES.map(item => (
-              <button key={item.id} className={language === item.id ? 'active' : ''} onClick={() => setLanguage(item.id)}>
-                {item.label}
-              </button>
-            ))}
+            <button
+              className={`ply-zen-btn ${zenMode ? 'active' : ''}`}
+              onClick={() => setZenMode(!zenMode)}
+              title={zenMode ? 'Zen mode (ad blocking) ON' : 'Zen mode OFF'}
+            >
+              <Shield size={16} />
+            </button>
+            <button onClick={() => setLanguage(language === 'sub' ? 'dub' : 'sub')} className="active">
+              {language.toUpperCase()}
+            </button>
           </div>
         </div>
 
+        {/* Player Frame */}
         <div className="player-frame-wrap">
           {playerLoading && (
             <div className="player-loading">
               <div className="spinner" />
-              <span>{playerStatus || 'Loading'}</span>
+              <span>{playerStatus || 'Loading stream...'}</span>
+            </div>
+          )}
+          {zenMode && (
+            <div className="ply-zen-badge" title="Ad blocking active">
+              <Shield size={14} /> Zen
             </div>
           )}
           <iframe
             key={`${currentEpisode.number}-${language}`}
             src={embedUrl}
             className="player-frame"
-            allow="autoplay; fullscreen; picture-in-picture"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
             allowFullScreen
             title={`${title} Episode ${currentEpisode.number}`}
             onLoad={() => {
@@ -203,18 +299,40 @@ export default function AnimeDetailsPage({ params, goBack }) {
               setPlayerStatus('');
             }}
           />
+
+          {/* Center navigation overlay buttons (desktop-style) */}
+          <div className="ply-center-nav">
+            <button className="ply-nav-overlay" onClick={goPrev} aria-label="Previous episode">
+              <SkipBack size={36} />
+            </button>
+            <button className="ply-nav-overlay" onClick={goNext} aria-label="Next episode">
+              <SkipForward size={36} />
+            </button>
+            <button className="ply-fs-overlay" onClick={toggleFs} aria-label="Fullscreen">
+              {isFs ? <Minimize size={22} /> : <Maximize size={22} />}
+            </button>
+          </div>
         </div>
 
+        {/* Episode Rail with navigation arrows (horizontal) */}
         <div className="player-episode-rail">
-          {episodes.slice(0, 100).map(episode => (
-            <button
-              key={`${episode.id}-${episode.number}`}
-              className={episode.number === currentEpisode.number ? 'active' : ''}
-              onClick={() => handleWatch(episode)}
-            >
-              {episode.number}
-            </button>
-          ))}
+          <button className="ply-rail-nav" onClick={goPrev} disabled={currentEpisode.number <= 1}>
+            <SkipBack size={16} />
+          </button>
+          <div className="ply-rail-scroll">
+            {episodes.slice(0, 200).map(episode => (
+              <button
+                key={`${episode.id}-${episode.number}`}
+                className={episode.number === currentEpisode.number ? 'active' : ''}
+                onClick={() => handleWatch(episode)}
+              >
+                {episode.number}
+              </button>
+            ))}
+          </div>
+          <button className="ply-rail-nav" onClick={goNext} disabled={currentEpisode.number >= episodes.length}>
+            <SkipForward size={16} />
+          </button>
         </div>
       </div>
     );
