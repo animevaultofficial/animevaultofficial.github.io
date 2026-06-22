@@ -4,7 +4,7 @@ import { useUser } from '../../api/UserContext';
 import { fetchAnimeDetail, getImage, getTitle, stripHtml } from '../api/anilist';
 import { addContinueWatching, isFavorite, toggleFavorite } from '../api/storage';
 import { fetchStreamingEpisodes, fetchStreamingSources, findBestStreamingMatch, EMBED_SERVERS, extractNumericId, probeMirrors } from '../api/streaming';
-import { stripAdParams, getProxiedEmbedUrl, isAdHeavyServer, isCleanServer } from '../api/adProxy';
+import { stripAdParams, getProxiedEmbedUrl, isAdHeavyServer, isCleanServer, isUrlBlocked, getFallbackUrls } from '../api/adProxy';
 
 const LANGUAGES = [
   { id: 'sub', label: 'Sub' },
@@ -32,7 +32,7 @@ function formatAiring(nextAiringEpisode) {
   return `Episode ${nextAiringEpisode.episode} airs in ${days}d ${hours}h`;
 }
 
-export default function AnimeDetailsPage({ params, goBack }) {
+export default function AnimeDetailsPage({ params, goBack, navigate }) {
   const { user, updateContinueWatching, addToHistory, toggleLike, isLiked } = useUser();
   const [media, setMedia] = useState(null);
   const [episodes, setEpisodes] = useState([]);
@@ -55,6 +55,10 @@ export default function AnimeDetailsPage({ params, goBack }) {
   const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
   const playerWrapperRef = useRef(null);
   const enrichedRef = useRef(false);
+  const streamingInfoRef = useRef(streamingInfo);
+
+  // Keep ref in sync with state
+  useEffect(() => { streamingInfoRef.current = streamingInfo; }, [streamingInfo]);
 
   const id = params?.id;
 
@@ -123,18 +127,20 @@ export default function AnimeDetailsPage({ params, goBack }) {
 
   const handleWatch = useCallback((episode) => {
     if (!episode || !media) return;
+    const currentMedia = media;
+    const currentStreamingInfo = streamingInfoRef.current;
     setCurrentEpisode(episode);
     setShowPlayer(true);
     setPlayerLoading(true);
     setPlayerStatus('Preparing stream');
 
-    addContinueWatching({ id: media.id, title: getTitle(media), image: getImage(media), episode: episode.number });
+    addContinueWatching({ id: currentMedia.id, title: getTitle(currentMedia), image: getImage(currentMedia), episode: episode.number });
     if (user) {
-      updateContinueWatching(media.id, 'anime', getTitle(media), getImage(media), 1, episode.number, 0, media.duration || 0);
-      addToHistory(media.id, 'anime', getTitle(media), getImage(media));
+      updateContinueWatching(currentMedia.id, 'anime', getTitle(currentMedia), getImage(currentMedia), 1, episode.number, 0, currentMedia.duration || 0);
+      addToHistory(currentMedia.id, 'anime', getTitle(currentMedia), getImage(currentMedia));
     }
 
-    if (!streamingInfo.id) {
+    if (!currentStreamingInfo.id) {
       setTimeout(() => {
         setPlayerLoading(false);
         setPlayerStatus('');
@@ -142,11 +148,11 @@ export default function AnimeDetailsPage({ params, goBack }) {
       return;
     }
 
-    fetchStreamingSources(episode.id, streamingInfo.provider)
+    fetchStreamingSources(episode.id, currentStreamingInfo.provider)
       .then(sources => setPlayerStatus(sources?.length ? 'Stream ready' : 'Using embedded player'))
       .catch(() => setPlayerStatus('Using embedded player'))
       .finally(() => setPlayerLoading(false));
-  }, [addToHistory, media, streamingInfo, updateContinueWatching, user]);
+  }, [addToHistory, media, updateContinueWatching, user]);
 
   const handleFavorite = useCallback(async () => {
     if (!media) return;
@@ -191,7 +197,16 @@ export default function AnimeDetailsPage({ params, goBack }) {
     const embedAnimeId = extractNumericId(id) || extractNumericId(media?.id);
     const activeServer = EMBED_SERVERS[serverIndex % EMBED_SERVERS.length];
     const rawUrl = activeServer.buildUrl({ animeId: embedAnimeId, episode: currentEpisode.number, lang: language });
-    const embedUrl = zenMode ? stripAdParams(rawUrl) : rawUrl;
+    // Full streambert ad blocking:
+    // - Strip ad tracking params
+    // - Auto-route ad-heavy servers through CORS proxy
+    // - Block known ad/tracker domains
+    let embedUrl;
+    if (zenMode) {
+      embedUrl = getProxiedEmbedUrl(rawUrl, isAdHeavyServer(rawUrl));
+    } else {
+      embedUrl = rawUrl;
+    }
 
     const switchServer = () => {
       setServerIndex(prev => prev + 1);
@@ -459,7 +474,7 @@ export default function AnimeDetailsPage({ params, goBack }) {
                 const rec = node.mediaRecommendation;
                 if (!rec) return null;
                 return (
-                  <button key={rec.id} className="anime-card" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                  <button key={rec.id} className="anime-card" onClick={() => navigate('anime-detail', { id: rec.id })}>
                     <img src={getImage(rec) || '/logo.png'} alt={getTitle(rec)} className="anime-card-image" />
                     <span className="anime-card-title">{getTitle(rec)}</span>
                     <span className="anime-card-sub">{rec.averageScore ? `${rec.averageScore}%` : 'Recommended'}</span>

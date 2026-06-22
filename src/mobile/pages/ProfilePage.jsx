@@ -7,33 +7,113 @@ import StoryAvatar from '../../components/StoryAvatar';
 import StoryUploadModal from '../../components/StoryUploadModal';
 
 function AuthScreen() {
-  const { login, signup, loginWithGoogle } = useUser();
+  const { login, signup, sendVerificationCode, loginWithGoogle } = useUser();
   const [tab, setTab] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState('email_password'); // 'email_password' or 'otp'
+
+  const resetForm = () => { setEmail(''); setPassword(''); setVerificationCode(''); setError(''); setSuccess(''); setStep('email_password'); };
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError('');
+    setSuccess('');
+
+    if (step === 'otp') {
+      if (!verificationCode.trim()) {
+        setError('Verification code is required.');
+        return;
+      }
+      setBusy(true);
+      try {
+        const result = await login(email, password, verificationCode.trim());
+        if (result.success) {
+          setSuccess('Welcome back!');
+          setTimeout(() => resetForm(), 800);
+        } else {
+          setError(result.message || 'Verification failed.');
+        }
+      } catch (e) {
+        setError(e.message || 'Verification failed.');
+      }
+      setBusy(false);
+      return;
+    }
+
     if (!email.trim() || !password) {
       setError('All fields are required.');
       return;
     }
+
     setBusy(true);
     try {
-      const result = tab === 'login'
-        ? await login(email, password, null)
-        : await signup(email, password);
-      if (result.success) {
-        setEmail('');
-        setPassword('');
+      if (tab === 'login') {
+        // Check if 2FA is needed (like web version)
+        try {
+          const { checkUser2FA } = await import('../../api/db');
+          const needs2FA = await checkUser2FA(email.trim());
+          if (needs2FA) {
+            const res = await sendVerificationCode(email.trim());
+            if (res.success) {
+              setSuccess('2-Step Verification required. Code sent to email!');
+              setStep('otp');
+            } else {
+              setError(res.message || 'Failed to send verification code.');
+            }
+            setBusy(false);
+            return;
+          }
+        } catch {}
+        // No 2FA, login directly
+        const result = await login(email, password, null);
+        if (result.success) {
+          setSuccess('Welcome back!');
+          setTimeout(() => resetForm(), 800);
+        } else {
+          setError(result.message || 'Login failed.');
+        }
       } else {
-        setError(result.message || 'Authentication failed.');
+        const result = await signup(email, password);
+        if (result.success) {
+          setSuccess('Account created!');
+          setTimeout(() => resetForm(), 800);
+        } else {
+          setError(result.message || 'Signup failed.');
+        }
       }
     } catch (e) {
       setError(e.message || 'Authentication failed.');
+    }
+    setBusy(false);
+  }
+
+  async function handleForgotPassword() {
+    setError('');
+    setSuccess('');
+    if (!email.trim()) {
+      setError('Please enter your email first.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/resetPassword', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess('Password reset link sent to your email!');
+      } else {
+        setError(data.error || 'Failed to send reset link.');
+      }
+    } catch (e) {
+      setError('Network error. Please try again.');
     }
     setBusy(false);
   }
@@ -48,7 +128,7 @@ function AuthScreen() {
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         {['login', 'signup'].map(t => (
-          <button key={t} onClick={() => setTab(t)}
+          <button key={t} onClick={() => { setTab(t); resetForm(); }}
             style={{
               flex: 1, padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: '0.8rem', fontFamily: 'inherit',
               background: tab === t ? '#ff1a75' : 'rgba(255,255,255,0.04)',
@@ -59,32 +139,79 @@ function AuthScreen() {
         ))}
       </div>
 
+      {error && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', borderRadius: 10, padding: '10px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <span>⚠</span><span style={{ flex: 1, textAlign: 'left' }}>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', borderRadius: 10, padding: '10px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <span>✓</span><span style={{ flex: 1, textAlign: 'left' }}>{success}</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 14, position: 'relative' }}>
+        {/* Email field - hidden during OTP step */}
+        <div style={{ marginBottom: 14, position: 'relative', display: step === 'otp' ? 'none' : 'block' }}>
           <User size={16} style={{ position: 'absolute', top: 12, left: 12, color: 'var(--text-tertiary)' }} />
-          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)}
+          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} disabled={step === 'otp'}
             style={{
               width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)',
               border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#fff',
               outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box'
             }} />
         </div>
+
+        {/* Password field - hidden during OTP step */}
         <div style={{ marginBottom: 20, position: 'relative' }}>
-          <span style={{ position: 'absolute', top: 12, left: 12, color: 'var(--text-tertiary)', fontSize: 16 }}>🔒</span>
-          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
-            style={{
-              width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)',
-              border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#fff',
-              outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box'
-            }} />
+          <div style={{ display: step === 'otp' ? 'none' : 'block' }}>
+            <span style={{ position: 'absolute', top: 12, left: 12, color: 'var(--text-tertiary)', fontSize: 16 }}>🔒</span>
+            <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} disabled={step === 'otp'}
+              style={{
+                width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)',
+                border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#fff',
+                outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box'
+              }} />
+          </div>
+
+          {/* OTP Verification Code Input */}
+          {tab === 'login' && step === 'otp' && (
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', top: 12, left: 12, color: 'var(--text-tertiary)', fontSize: 16 }}>✉</span>
+              <input type="text" value={verificationCode} onChange={e => setVerificationCode(e.target.value)} placeholder="6-Digit Verification Code" autoFocus
+                style={{
+                  width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(255,26,117,0.3)', borderRadius: 10, color: '#fff',
+                  outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box',
+                  boxShadow: '0 0 10px rgba(255,26,117,0.1)'
+                }} />
+              <div style={{ textAlign: 'center', marginTop: 12 }}>
+                <button type="button" onClick={() => setStep('email_password')}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}>
+                  Back to Login
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Forgot Password Link */}
+          {tab === 'login' && step !== 'otp' && (
+            <div style={{ textAlign: 'right', marginTop: 8 }}>
+              <button type="button" onClick={handleForgotPassword}
+                style={{ background: 'none', border: 'none', color: '#ff1a75', fontSize: '0.75rem', cursor: 'pointer', padding: 0 }}>
+                Forgot password?
+              </button>
+            </div>
+          )}
         </div>
-        {error && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: '0 0 12px' }}>{error}</p>}
+
         <button type="submit" disabled={busy}
           style={{
             width: '100%', padding: 12, background: '#ff1a75', color: '#000', fontWeight: 900,
-            border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: '0.85rem', marginBottom: 16
+            border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: '0.85rem', marginBottom: 16,
+            boxShadow: '0 0 15px rgba(255,26,117,0.3)'
           }}>
-          {busy ? 'Processing...' : tab === 'login' ? 'Sign In' : 'Create Account'}
+          {busy ? 'Processing...' : tab === 'login' ? (step === 'otp' ? 'Verify & Sign In' : 'Sign In') : 'Create Account'}
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0', gap: 12 }}>

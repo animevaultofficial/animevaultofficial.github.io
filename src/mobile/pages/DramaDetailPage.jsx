@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, SkipBack, SkipForward, Maximize, Minimize, Shield } from 'lucide-react';
-import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails, EMBED_SERVERS, getPlayerUrl } from '../api/movies';
-import { stripAdParams } from '../api/adProxy';
+import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails, EMBED_SERVERS } from '../api/movies';
+import { stripAdParams, getProxiedEmbedUrl, isAdHeavyServer, isCleanServer, isUrlBlocked } from '../api/adProxy';
 
 export default function DramaDetailPage({ params, goBack }) {
   const { id, mediaType, title: initialTitle } = params;
@@ -94,7 +94,17 @@ export default function DramaDetailPage({ params, goBack }) {
     const rawUrl = mediaType === 'movie'
       ? EMBED_SERVERS[embedServer].movie(id)
       : EMBED_SERVERS[embedServer].tv(id, selectedSeason, selectedEpisode);
-    const embedUrl = zenMode ? stripAdParams(rawUrl) : rawUrl;
+    
+    // Full streambert ad blocking:
+    // 1. Strip ad tracking params from URL
+    // 2. Auto-route ad-heavy servers through CORS proxy
+    // 3. Block known ad/tracker domains
+    let embedUrl;
+    if (zenMode) {
+      embedUrl = getProxiedEmbedUrl(rawUrl, isAdHeavyServer(rawUrl));
+    } else {
+      embedUrl = rawUrl;
+    }
 
     return (
       <div ref={playerWrapperRef} className="player-screen" style={isFs ? { padding: 0 } : {}}>

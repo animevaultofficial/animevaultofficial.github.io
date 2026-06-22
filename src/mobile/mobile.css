@@ -274,16 +274,36 @@ input,textarea,button,select { font-family:var(--font); outline:none; }
 .anim-d3 { animation-delay:.15s; }
 .anim-d4 { animation-delay:.2s; }
 
-/* Web parity cleanup: mobile pages use both the launch class names above and
-   class names shared with the web app. Keep the aliases here so screens render
-   consistently without each page carrying one-off inline layout rules. */
-:root {
-  --brand: var(--red, #e50914);
-  --brand2: var(--red2, #ff1a24);
-  --brand-dim: var(--red-dim, rgba(229,9,20,0.15));
-  --brand-color: var(--brand);
-  --border-light: var(--border);
+/* Shared classes referenced by mobile pages */
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: .55rem; }
+.grid-3 > * { width: 100%; }
+.loading-shimmer {
+  background: linear-gradient(90deg, var(--surface) 25%, rgba(255,255,255,.03) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shim 1.5s infinite;
+  border-radius: var(--radius);
 }
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--text3);
+  text-align: center;
+}
+
+/* Settings page shared classes */
+.palette-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+.palette-swatch { width: 44px; height: 44px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: all 0.15s; }
+.palette-swatch.active { border-color: #fff; transform: scale(1.1); box-shadow: var(--brand-glow); }
+.theme-card { background: var(--surface2); border: 2px solid var(--border); border-radius: var(--radius); padding: .75rem; cursor: pointer; text-align: center; transition: all 0.15s; }
+.theme-card.active { border-color: var(--brand); background: var(--brand-dim); }
+.theme-card-preview { width: 100%; height: 56px; border-radius: var(--radius-sm); margin-bottom: 6px; }
+.avatar-edit { position: relative; width: 80px; height: 80px; border-radius: 50%; overflow: hidden; margin: 0 auto; cursor: pointer; }
+.avatar-edit img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .2s; }
+.avatar-edit:hover .avatar-overlay { opacity: 1; }
 
 .mobile-content {
   padding: .85rem;
@@ -760,18 +780,16 @@ input,textarea,button,select { font-family:var(--font); outline:none; }
   height: 48px;
   border-radius: 50%;
   border: none;
-  background: rgba(0,0,0,.45);
+  background: rgba(0,0,0,.5);
   backdrop-filter: blur(4px);
   color: #fff;
   display: grid;
   place-items: center;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity .2s;
+  opacity: .75;
+  transition: opacity .2s, background .15s;
 }
-.player-frame-wrap:hover .ply-nav-overlay,
-.player-frame-wrap:active .ply-nav-overlay { opacity: 1; }
-.ply-nav-overlay:active { background: rgba(0,0,0,.65); }
+.ply-nav-overlay:active { background: rgba(255,255,255,.2); opacity: 1; }
 .ply-fs-overlay {
   position: absolute;
   bottom: .75rem;
@@ -781,18 +799,16 @@ input,textarea,button,select { font-family:var(--font); outline:none; }
   height: 40px;
   border-radius: 50%;
   border: none;
-  background: rgba(0,0,0,.5);
+  background: rgba(0,0,0,.55);
   backdrop-filter: blur(4px);
   color: #fff;
   display: grid;
   place-items: center;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity .2s;
+  opacity: .75;
+  transition: opacity .2s, background .15s;
 }
-.player-frame-wrap:hover .ply-fs-overlay,
-.player-frame-wrap:active .ply-fs-overlay { opacity: 1; }
-.ply-fs-overlay:active { background: rgba(0,0,0,.7); }
+.ply-fs-overlay:active { background: rgba(255,255,255,.2); opacity: 1; }
 
 /* ── Landscape orientation ── */
 @media (orientation: landscape) {

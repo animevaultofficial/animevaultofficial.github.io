@@ -138,7 +138,7 @@ export default function AppMobile() {
 
   const render = () => {
     switch (page) {
-      case 'anime-detail': return <AnimeDetailsPage params={params} goBack={back} />;
+      case 'anime-detail': return <AnimeDetailsPage params={params} goBack={back} navigate={nav} />;
       case 'drama-detail': return <DramaDetailPage params={params} goBack={back} />;
       case 'search': return <SearchPage navigate={nav} />;
       case 'collections': return <CollectionsPage navigate={nav} />;
