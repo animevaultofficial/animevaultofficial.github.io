@@ -1,29 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { User, Heart, Clock, Settings, LogOut, ChevronRight, Bookmark, Star } from 'lucide-react';
-import { getStoredUser, login, signup, logout, clearUser } from '../api/auth';
-import { getFavorites, getContinueWatching } from '../api/storage';
+import React, { useState } from 'react';
+import { Clock, Heart, LogOut, Mail, Shield, Settings, User } from 'lucide-react';
+import { useUser } from '../../api/UserContext';
+import { getContinueWatching, getFavorites } from '../api/storage';
 
-function AuthScreen({ onLogin }) {
+function AuthScreen() {
+  const { login, signup, loginWithGoogle } = useUser();
   const [tab, setTab] = useState('login');
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  async function handleSubmit(event) {
+    event.preventDefault();
     setError('');
-    if (!username.trim() || !password) { setError('All fields required'); return; }
-    const res = tab === 'login' ? login(username, password) : signup(username, password);
-    if (res.success) onLogin(res.user);
-    else setError(res.message || 'Failed');
-  };
+    if (!email.trim() || !password) {
+      setError('All fields are required.');
+      return;
+    }
+
+    setBusy(true);
+    const result = tab === 'login' ? await login(email, password) : await signup(email, password);
+    setBusy(false);
+    if (!result.success) setError(result.message || 'Authentication failed.');
+  }
 
   return (
-    <div className="mobile-content" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '70vh' }}>
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <img src="/logo.png" alt="AnimeVault" style={{ width: 80, height: 80, borderRadius: 20, marginBottom: 12 }} />
-        <h2 style={{ fontSize: '1.3rem', fontWeight: 800 }}>AnimeVault</h2>
-        <p style={{ color: 'var(--text3)', fontSize: '0.85rem', marginTop: 4 }}>Sign in to sync your data</p>
+    <div className="mobile-content auth-panel">
+      <div className="auth-brand">
+        <img src="/logo.png" alt="AnimeVault" />
+        <h2>AnimeVault</h2>
+        <p>Sign in to sync favorites, history, reminders, and profile data.</p>
       </div>
 
       <div className="tab-bar">
@@ -32,58 +39,76 @@ function AuthScreen({ onLogin }) {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="search-bar" style={{ marginBottom: 12 }}>
-          <User size={18} color="var(--text3)" />
-          <input type="text" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
-        </div>
-        <div className="search-bar" style={{ marginBottom: 12 }}>
-          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
-        </div>
-        {error && <p style={{ color: '#ff4444', fontSize: '0.8rem', marginBottom: 12, textAlign: 'center' }}>{error}</p>}
-        <button type="submit" className="btn-primary" style={{ width: '100%', padding: '0.9rem' }}>
-          {tab === 'login' ? 'Sign In' : 'Create Account'}
+        <label className="search-bar">
+          <Mail size={18} color="var(--text3)" />
+          <input type="email" placeholder="Email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" />
+        </label>
+        <label className="search-bar">
+          <Shield size={18} color="var(--text3)" />
+          <input type="password" placeholder="Password" value={password} onChange={event => setPassword(event.target.value)} autoComplete={tab === 'login' ? 'current-password' : 'new-password'} />
+        </label>
+        {error && <p className="form-error">{error}</p>}
+        <button type="submit" className="btn-primary wide" disabled={busy}>
+          {busy ? 'Please wait...' : tab === 'login' ? 'Sign In' : 'Create Account'}
+        </button>
+        <button type="button" className="btn-ghost wide" onClick={loginWithGoogle}>
+          Continue with Google
         </button>
       </form>
     </div>
   );
 }
 
-export default function ProfilePage({ navigate, onUserChange }) {
-  const nav = (id) => navigate('anime-detail', { id });
-  const [user, setUser] = useState(null);
+function normalizeLikes(likes) {
+  return (likes || []).map(item => ({
+    id: item.media_id || item.id,
+    title: item.media_title || item.title,
+    image: item.media_poster || item.image,
+  })).filter(item => item.id);
+}
+
+function normalizeContinueWatching(items) {
+  return (items || []).map(item => ({
+    id: item.media_id || item.id,
+    title: item.media_title || item.title,
+    image: item.media_poster || item.image,
+    episode: item.episode,
+  })).filter(item => item.id);
+}
+
+export default function ProfilePage({ navigate }) {
+  const { user, logout, history, continueWatching: syncedContinue, likes } = useUser();
   const [tab, setTab] = useState('favorites');
 
-  useEffect(() => { setUser(getStoredUser()); }, []);
+  if (!user) return <AuthScreen />;
 
-  const handleLogout = () => { clearUser(); setUser(null); onUserChange?.(null); };
+  const localFavorites = getFavorites();
+  const localContinueWatching = getContinueWatching();
+  const favorites = likes?.length ? normalizeLikes(likes) : localFavorites;
+  const continueWatching = syncedContinue?.length ? normalizeContinueWatching(syncedContinue) : localContinueWatching;
 
-  if (!user) return <AuthScreen onLogin={(u) => { setUser(u); onUserChange?.(u); }} />;
-
-  const favorites = getFavorites();
-  const continueWatching = getContinueWatching();
+  const nav = id => navigate('anime-detail', { id });
 
   return (
     <div className="mobile-content">
-      {/* Profile Header */}
-      <div style={{ textAlign: 'center', padding: '1rem 0', marginBottom: 16 }}>
-        <img src={user.avatar || '/logo.png'} alt="" style={{ width: 72, height: 72, borderRadius: 36, marginBottom: 8, border: '2px solid var(--brand)' }} />
-        <h2 style={{ fontSize: '1.2rem', fontWeight: 700 }}>{user.username}</h2>
-        <p style={{ color: 'var(--text3)', fontSize: '0.8rem' }}>{favorites.length} favorites · {continueWatching.length} watching</p>
+      <div className="profile-head">
+        <img src={user.avatar || '/logo.png'} alt="" />
+        <h2>{user.username || user.email || 'AnimeVault User'}</h2>
+        <p>{favorites.length} favorites · {continueWatching.length} watching</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid-3" style={{ marginBottom: 16 }}>
-        <div className="info-card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.3rem', fontWeight: 800 }}>{favorites.length}</div>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text3)' }}>Favorites</div>
+      <div className="grid-3 profile-stats">
+        <div className="info-card">
+          <strong>{favorites.length}</strong>
+          <span>Favorites</span>
         </div>
-        <div className="info-card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.3rem', fontWeight: 800 }}>{continueWatching.length}</div>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text3)' }}>Watching</div>
+        <div className="info-card">
+          <strong>{history.length || continueWatching.length}</strong>
+          <span>History</span>
         </div>
-        <div className="info-card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.3rem', fontWeight: 800 }}>0.2</div>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text3)' }}>Version</div>
+        <div className="info-card">
+          <strong>{user.is_admin ? 'Admin' : 'User'}</strong>
+          <span>Role</span>
         </div>
       </div>
 
@@ -91,55 +116,64 @@ export default function ProfilePage({ navigate, onUserChange }) {
         {[
           { id: 'favorites', label: 'Favorites', icon: Heart },
           { id: 'watching', label: 'Watching', icon: Clock },
-          { id: 'settings', label: 'Settings', icon: Settings },
-        ].map(t => {
-          const Icon = t.icon;
+          { id: 'settings', label: 'Account', icon: Settings },
+        ].map(item => {
+          const Icon = item.icon;
           return (
-            <button key={t.id} className={`tab-item ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>
-              <Icon size={14} /> {t.label}
+            <button key={item.id} className={`tab-item ${tab === item.id ? 'active' : ''}`} onClick={() => setTab(item.id)}>
+              <Icon size={14} /> {item.label}
             </button>
           );
         })}
       </div>
 
       {tab === 'favorites' && (
-        favorites.length === 0
-          ? <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text3)' }}><Heart size={36} style={{ opacity: 0.3, marginBottom: 8 }} /><p>No favorites yet</p></div>
-          : <div className="grid-3">
-              {favorites.map(item => (
-                <div key={item.id} className="grid-card" onClick={() => nav(item.id)}>
-                  <img src={item.image} alt={item.title} className="grid-card-img" style={{ objectFit: 'cover' }} />
-                  <div className="grid-card-title">{item.title}</div>
-                </div>
-              ))}
-            </div>
+        favorites.length === 0 ? (
+          <div className="empty"><Heart size={36} /><p>No favorites yet</p></div>
+        ) : (
+          <div className="grid-3">
+            {favorites.map(item => (
+              <button key={item.id} className="grid-card" onClick={() => nav(item.id)}>
+                <img src={item.image || '/logo.png'} alt={item.title} className="grid-card-img" />
+                <span className="grid-card-title">{item.title}</span>
+              </button>
+            ))}
+          </div>
+        )
       )}
 
       {tab === 'watching' && (
-        continueWatching.length === 0
-          ? <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text3)' }}><Clock size={36} style={{ opacity: 0.3, marginBottom: 8 }} /><p>Nothing watched yet</p></div>
-          : <div className="grid-3">
-              {continueWatching.map(item => (
-                <div key={item.id} className="grid-card" onClick={() => nav(item.id)}>
-                  <img src={item.image} alt={item.title} className="grid-card-img" style={{ objectFit: 'cover' }} />
-                  <div className="grid-card-title">{item.title}</div>
-                </div>
-              ))}
-            </div>
+        continueWatching.length === 0 ? (
+          <div className="empty"><Clock size={36} /><p>Nothing watched yet</p></div>
+        ) : (
+          <div className="grid-3">
+            {continueWatching.map(item => (
+              <button key={`${item.id}-${item.episode || ''}`} className="grid-card" onClick={() => nav(item.id)}>
+                <img src={item.image || '/logo.png'} alt={item.title} className="grid-card-img" />
+                <span className="grid-card-title">{item.title}</span>
+              </button>
+            ))}
+          </div>
+        )
       )}
 
       {tab === 'settings' && (
         <div>
-          <div className="info-card" style={{ marginBottom: 8 }}>
-            <div className="info-label">App Version</div>
-            <div className="info-value">0.2.121</div>
+          <div className="info-card account-row">
+            <User size={18} />
+            <div>
+              <div className="info-label">Signed in as</div>
+              <div className="info-value">{user.username || user.email || 'AnimeVault User'}</div>
+            </div>
           </div>
-          <div className="info-card" style={{ marginBottom: 8 }}>
-            <div className="info-label">Data</div>
-            <div className="info-value">{favorites.length} favorites · {continueWatching.length} in history</div>
+          <div className="info-card account-row">
+            <Shield size={18} />
+            <div>
+              <div className="info-label">Synced data</div>
+              <div className="info-value">{favorites.length} favorites · {history.length || continueWatching.length} history items</div>
+            </div>
           </div>
-          <button onClick={handleLogout}
-            style={{ width: '100%', padding: '0.9rem', background: 'rgba(255,50,50,0.1)', color: '#ff4444', border: '1px solid rgba(255,50,50,0.3)', borderRadius: 'var(--radius)', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'var(--font)' }}>
+          <button onClick={logout} className="btn-danger wide">
             <LogOut size={16} /> Sign Out
           </button>
         </div>

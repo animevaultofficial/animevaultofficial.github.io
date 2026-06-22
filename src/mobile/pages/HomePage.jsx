@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Flame, Clock, Sparkles, Calendar } from 'lucide-react';
+import { useUser } from '../../api/UserContext';
 import { fetchHomeData, getTitle, getImage } from '../api/anilist';
 import { getContinueWatching } from '../api/storage';
 
@@ -45,6 +46,7 @@ function GCard({ m, onClick }) {
 }
 
 export default function HomePage({ navigate }) {
+  const { continueWatching: syncedContinue } = useUser();
   const nav = (id) => navigate('anime-detail', { id });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,13 @@ export default function HomePage({ navigate }) {
   const [selSeason, setSelSeason] = useState('SPRING');
   const [selYear, setSelYear] = useState(CY);
   const [slide, setSlide] = useState(0);
-  const cw = getContinueWatching();
+  const cw = syncedContinue?.length
+    ? syncedContinue.map(item => ({
+        id: item.media_id || item.id,
+        title: item.media_title || item.title,
+        image: item.media_poster || item.image,
+      })).filter(item => item.id)
+    : getContinueWatching();
 
   useEffect(() => { fetchHomeData().then(setData).catch(console.error).finally(()=>setLoading(false)); }, []);
   useEffect(() => { if (!data) return; const i = setInterval(() => { const t = data?.trending?.media || []; setSlide(p => (p+1) % Math.min(5, t.length)); }, 6000); return () => clearInterval(i); }, [data]);

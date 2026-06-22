@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Heart, Clock, Bookmark } from 'lucide-react';
+import { useUser } from '../../api/UserContext';
 import { getFavorites, getContinueWatching } from '../api/storage';
 
 function AnilistImage({ src, alt, className, fallback = '🎬' }) {
@@ -17,10 +18,15 @@ function AnilistImage({ src, alt, className, fallback = '🎬' }) {
 }
 
 export default function CollectionsPage({ navigate }) {
+  const { likes, continueWatching: syncedContinue } = useUser();
   const nav = (id) => navigate('anime-detail', { id });
   const [tab, setTab] = useState('favorites');
-  const favorites = getFavorites();
-  const continueWatching = getContinueWatching();
+  const favorites = likes?.length
+    ? likes.map(item => ({ id: item.media_id, title: item.media_title, image: item.media_poster })).filter(item => item.id)
+    : getFavorites();
+  const continueWatching = syncedContinue?.length
+    ? syncedContinue.map(item => ({ id: item.media_id, title: item.media_title, image: item.media_poster })).filter(item => item.id)
+    : getContinueWatching();
 
   return (
     <div className="mobile-content">

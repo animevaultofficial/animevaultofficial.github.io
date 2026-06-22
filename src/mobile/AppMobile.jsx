@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Search, Film, Calendar, User, Menu, X, Heart, ChevronRight } from 'lucide-react';
+import { Home, Search, Film, Calendar, User, Menu, X, Heart, ChevronRight, Bell, BarChart3, Settings, Users } from 'lucide-react';
 import './mobile.css';
+import { useUser } from '../api/UserContext';
+import { initDatabase, fetchSiteSettings } from '../api/db';
+import { initializeDatabase } from '../api/database';
+import { applyAccentColor, applyTheme } from '../utils/appearance';
+import { storage } from '../utils/storage';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
 import AnimeDetailsPage from './pages/AnimeDetailsPage';
@@ -10,6 +15,8 @@ import SchedulePage from './pages/SchedulePage';
 import DramasMoviesPage from './pages/DramasMoviesPage';
 import DramaDetailPage from './pages/DramaDetailPage';
 import SettingsPage from './pages/SettingsPage';
+import StatsPage from './pages/StatsPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 function Splash() {
   return (
@@ -31,6 +38,9 @@ function Sidebar({ currentPage, navigate, open, close, user }) {
     ]},
     { label: 'Library', items: [
       { id: 'collections', label: 'My List', icon: Heart },
+      { id: 'notifications', label: 'Notifications', icon: Bell },
+      { id: 'stats', label: 'Stats', icon: BarChart3 },
+      { id: 'community', label: 'Community', icon: Users },
     ]},
   ];
 
@@ -66,6 +76,10 @@ function Sidebar({ currentPage, navigate, open, close, user }) {
             onClick={() => { navigate('profile'); close(); }}>
             <User size={18} /> Profile
           </button>
+          <button className={`sb-item ${currentPage === 'settings' ? 'active' : ''}`}
+            onClick={() => { navigate('settings'); close(); }}>
+            <Settings size={18} /> Settings
+          </button>
         </nav>
         <div className="sb-foot" onClick={() => { navigate('profile'); close(); }}>
           <img src={user?.avatar || '/logo.png'} alt="" className="sb-av" />
@@ -89,14 +103,30 @@ const NAV = [
 ];
 
 export default function AppMobile() {
+  const { user } = useUser();
   const [page, setPage] = useState('home');
   const [params, setParams] = useState({});
   const [splash, setSplash] = useState(false);
   const [sidebar, setSidebar] = useState(false);
-  const [user, setUser] = useState(null);
+  const [announcement, setAnnouncement] = useState('');
 
   useEffect(() => { const t = setTimeout(() => setSplash(true), 1500); return () => clearTimeout(t); }, []);
-  useEffect(() => { try { const s = localStorage.getItem('av_mobile_user'); if (s) setUser(JSON.parse(s)); } catch {} }, []);
+  useEffect(() => {
+    async function boot() {
+      try {
+        await initializeDatabase();
+        try { await initDatabase(); } catch {}
+        const settings = await fetchSiteSettings();
+        if (settings?.announcement) setAnnouncement(settings.announcement);
+
+        applyAccentColor(storage.get('accentColor') || 'red');
+        applyTheme(storage.get('theme') || 'dark', storage.get('customThemeVars'));
+      } catch (err) {
+        console.warn('[AnimeVault Mobile] startup skipped:', err?.message || err);
+      }
+    }
+    boot();
+  }, []);
 
   const nav = (p, pr = {}) => { setPage(p); setParams(pr); setSidebar(false); };
   const back = () => { setPage('home'); setParams({}); };
@@ -110,7 +140,10 @@ export default function AppMobile() {
       case 'schedule': return <SchedulePage navigate={nav} />;
       case 'dramas': return <DramasMoviesPage navigate={nav} />;
       case 'settings': return <SettingsPage goBack={back} />;
-      case 'profile': return <ProfilePage navigate={nav} onUserChange={setUser} />;
+      case 'notifications': return <NotificationsPage navigate={nav} />;
+      case 'stats': return <StatsPage navigate={nav} />;
+      case 'community': return <MobilePlaceholder title="Community" detail="Community data uses the same database layer as the web app. Posting surfaces are kept lightweight on mobile." />;
+      case 'profile': return <ProfilePage navigate={nav} />;
       default: return <HomePage navigate={nav} />;
     }
   };
@@ -122,6 +155,7 @@ export default function AppMobile() {
       {!splash && <Splash />}
       <Sidebar currentPage={page} navigate={nav} open={sidebar} close={() => setSidebar(false)} user={user} />
       <div className="app" style={{ opacity: splash ? 1 : 0, transition: 'opacity .4s' }}>
+        {announcement && showNav && <div className="mobile-announcement">{announcement}</div>}
         {showNav && (
           <header className="header">
             <div className="header-left">
@@ -148,5 +182,16 @@ export default function AppMobile() {
         )}
       </div>
     </>
+  );
+}
+
+function MobilePlaceholder({ title, detail }) {
+  return (
+    <div className="mobile-content">
+      <div className="empty">
+        <h2>{title}</h2>
+        <p>{detail}</p>
+      </div>
+    </div>
   );
 }
