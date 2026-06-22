@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Search, Film, Calendar, User, Menu, X, Heart, ChevronRight, Bell, BarChart3, Settings, Users } from 'lucide-react';
+import { Home, Search, Film, Calendar, User, Menu, X, Heart, ChevronRight, Bell, BarChart3, Settings, Users, RefreshCw } from 'lucide-react';
 import './mobile.css';
 import { useUser } from '../api/UserContext';
 import { initDatabase, fetchSiteSettings } from '../api/db';
@@ -18,6 +18,7 @@ import SettingsPage from './pages/SettingsPage';
 import StatsPage from './pages/StatsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import CommunityPage from './pages/CommunityPage';
+import UpdatesPage from './pages/UpdatesPage';
 
 function Splash() {
   return (
@@ -85,6 +86,10 @@ function Sidebar({ currentPage, navigate, open, close, user }) {
             onClick={() => { navigate('settings'); close(); }}>
             <Settings size={18} /> Settings
           </button>
+          <button className={`sb-item ${currentPage === 'updates' ? 'active' : ''}`}
+            onClick={() => { navigate('updates'); close(); }}>
+            <RefreshCw size={18} /> Updates
+          </button>
         </nav>
         <div className="sb-foot" onClick={() => { navigate('profile'); close(); }}>
           <img src={user?.avatar || '/logo.png'} alt="" className="sb-av" />
@@ -148,6 +153,7 @@ export default function AppMobile() {
       case 'notifications': return <NotificationsPage navigate={nav} />;
       case 'stats': return <StatsPage navigate={nav} />;
       case 'community': return <CommunityPage navigate={nav} />;
+      case 'updates': return <UpdatesPage goBack={back} />;
       case 'profile': return <ProfilePage navigate={nav} />;
       default: return <HomePage navigate={nav} />;
     }
