@@ -398,6 +398,9 @@ function initAutoUpdater() {
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  // Full downloads are more reliable across Windows/macOS/Linux and avoid
+  // differential-update helper failures that previously surfaced as skipped updates.
+  autoUpdater.disableDifferentialDownload = true;
   autoUpdater.allowPrerelease = false;
   autoUpdater.logger = console;
   autoUpdater.requestHeaders = {
@@ -486,10 +489,10 @@ function initAutoUpdater() {
         progress: 0,
       });
     } else if (errorMsg.includes("PSModulePath") || errorMsg.includes("chcp 65001") || errorMsg.includes("powershell.exe -NoProfile -NonInteractive -I auto update")) {
-      console.warn("[AutoUpdater] PowerShell command error - likely a packaging issue");
+      console.warn("[AutoUpdater] Native updater helper failed; retrying with full-download updater path");
       sendUpdateStatus({
         status: "error",
-        message: "⏩ Skipping auto-update for now. Check GitHub for latest releases: https://github.com/adiyanhehe/Anime-Vault/releases",
+        message: "Update helper failed. Restart AnimeVault and run Check for updates again; full-package updates are now forced to avoid skipped differential downloads.",
         progress: 0,
       });
     } else {
