@@ -1,7 +1,9 @@
 {
   "name": "animevault",
   "private": true,
+
   "version": "0.2.132",
+
   "description": "The ultimate anime streaming experience",
   "author": "AnimeVault Team",
   "type": "module",
