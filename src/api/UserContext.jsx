@@ -39,6 +39,18 @@ import {
 const UserContext = createContext(null);
 const LOCAL_SESSION_USER_KEY = 'animevault_session_user';
 
+function getAuthCallbackURL() {
+  const fallback = 'https://animevaultofficial.github.io/';
+  try {
+    const { origin, pathname } = window.location;
+    const isNativeShell = origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('file://');
+    if (isNativeShell) return fallback;
+    return `${origin}${pathname || '/'}`;
+  } catch {
+    return fallback;
+  }
+}
+
 function readLocalSessionUser() {
   try {
     const raw = localStorage.getItem(LOCAL_SESSION_USER_KEY);
@@ -296,11 +308,13 @@ export function UserProvider({ children }) {
     try {
       // Trigger Google OAuth flow via Neon Auth
       // The callback URL is the current location (root) where the app will resume after sign-in
+      const callbackURL = getAuthCallbackURL();
       await authClient.signIn.social({
         provider: 'google',
-        // Redirect back to the app root after successful sign-in
-        callbackURL: '/',
-        // Optional callbacks for new users or errors can be added here
+        // Use an absolute, allow-listed URL. Relative callbacks fail in Electron
+        // and Android WebView because OAuth providers reject file/capacitor origins.
+        callbackURL,
+        redirectTo: callbackURL,
       });
     } catch (e) {
       console.error('Google login failed:', e);
