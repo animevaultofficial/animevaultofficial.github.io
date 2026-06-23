@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Palette, User, Shield, Bell, Cog, RefreshCw, Save, Download, Upload, Eye, EyeOff, Check, X, Camera } from 'lucide-react';
+import { APP_VERSION } from '../../version.js';
 
 const ACCENTS = [
   { id: 'red', color: '#e50914', label: 'Red' },
@@ -147,7 +148,7 @@ export default function SettingsPage({ goBack }) {
         <div>
           <div className="info-card" style={{ marginBottom: 8 }}>
             <div className="info-label">Version</div>
-            <div className="info-value">0.2.121</div>
+            <div className="info-value">{APP_VERSION}</div>
           </div>
           <div className="info-card" style={{ marginBottom: 8 }}>
             <div className="info-label">Build</div>

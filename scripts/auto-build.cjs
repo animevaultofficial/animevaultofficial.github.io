@@ -12,9 +12,12 @@ function run(command) {
 
 // Bump version
 run('npm run bump-version');
-// Commit and push version bump
-run('git add package.json');
-run('git commit -m "chore: bump version"');
+// Commit and push version bump. npm version also updates package-lock.json;
+// keep the shared runtime version file in sync so mobile update checks never lag.
+const pkg = require('../package.json');
+require('fs').writeFileSync(require('path').join(__dirname, '..', 'src', 'version.js'), `export const APP_VERSION = '${pkg.version}';\n`);
+run('git add package.json package-lock.json src/version.js');
+run(`git commit -m "chore: bump version to v${pkg.version}"`);
 run('git push');
 
 // Build targets sequentially
