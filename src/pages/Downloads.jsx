@@ -10,7 +10,7 @@ const DownloadPage = () => {
     const fetchReleases = async () => {
       try {
         const response = await fetch(
-          'https://api.github.com/repos/adiyanhehe/Anime-Vault/releases'
+          'https://api.github.com/repos/animevaultofficial/animevaultofficial.github.io/releases'
         );
         if (!response.ok) throw new Error('Failed to fetch releases');
         
@@ -175,7 +175,7 @@ const DownloadPage = () => {
             All releases are automatically built and published from source
           </p>
           <a
-            href="https://github.com/adiyanhehe/Anime-Vault/releases"
+            href="https://github.com/animevaultofficial/animevaultofficial.github.io/releases"
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-400 hover:text-blue-300 text-sm mt-2 inline-block"

@@ -115,7 +115,9 @@
     "publish": [
       {
         "provider": "github",
-        "releaseType": "release"
+        "releaseType": "release",
+        "owner": "animevaultofficial",
+        "repo": "animevaultofficial.github.io"
       }
     ]
   },

@@ -471,7 +471,7 @@ function initAutoUpdater() {
       console.warn("[AutoUpdater] 404 Error - Build not available for this platform");
       sendUpdateStatus({
         status: "error",
-        message: `⚠️ Build unavailable for ${process.platform}. This is normal for pre-release versions. Check releases: https://github.com/adiyanhehe/Anime-Vault/releases`,
+        message: `⚠️ Build unavailable for ${process.platform}. This is normal for pre-release versions. Check releases: https://github.com/animevaultofficial/animevaultofficial.github.io/releases`,
         progress: 0,
       });
     } else if (errorMsg.includes("ENOTFOUND") || errorMsg.includes("ECONNREFUSED") || errorMsg.includes("Network")) {

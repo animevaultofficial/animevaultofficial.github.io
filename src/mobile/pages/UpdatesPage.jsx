@@ -3,7 +3,7 @@ import { ArrowLeft, RefreshCw, Download, CheckCircle, AlertTriangle, Package, Ex
 import { APP_VERSION } from '../../version.js';
 
 const CURRENT_VERSION = APP_VERSION;
-const GITHUB_REPO = 'adiyanhehe/Anime-Vault';
+const GITHUB_REPO = 'animevaultofficial/animevaultofficial.github.io';
 const UPDATE_CHECK_KEY = 'av_last_update_check';
 
 export default function UpdatesPage({ goBack }) {
