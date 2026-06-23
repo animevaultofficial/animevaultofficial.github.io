@@ -7,7 +7,7 @@ import '../styles/download.css';
 import packageJson from '../../package.json';
 
 const VERSION = packageJson.version;
-const REPOSITORY = 'adiyanhehe/Anime-Vault';
+const REPOSITORY = 'animevaultofficial/animevaultofficial.github.io';
 const releaseAssetUrl = (assetName) => `https://github.com/${REPOSITORY}/releases/latest/download/${assetName}`;
 
 const platforms = [

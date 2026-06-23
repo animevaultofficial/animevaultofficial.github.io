@@ -1,7 +1,7 @@
 {
   "name": "animevault",
   "private": true,
-  "version": "0.2.130",
+  "version": "0.2.131",
   "description": "The ultimate anime streaming experience",
   "author": "AnimeVault Team",
   "type": "module",
@@ -115,7 +115,9 @@
     "publish": [
       {
         "provider": "github",
-        "releaseType": "release"
+        "releaseType": "release",
+        "owner": "animevaultofficial",
+        "repo": "animevaultofficial.github.io"
       }
     ]
   },

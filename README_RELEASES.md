@@ -9,7 +9,7 @@ The in-app download page links can keep using GitHub's latest-release download
 URL format:
 
 ```text
-https://github.com/adiyanhehe/Anime-Vault/releases/latest/download/<asset-name>
+https://github.com/animevaultofficial/animevaultofficial.github.io/releases/latest/download/<asset-name>
 ```
 
 ## Triggers (the "signal")
@@ -29,7 +29,7 @@ External signal example (curl):
 curl -X POST \
   -H "Accept: application/vnd.github+json" \
   -H "Authorization: Bearer <PAT with repo:write>" \
-  https://api.github.com/repos/adiyanhehe/Anime-Vault/dispatches \
+  https://api.github.com/repos/animevaultofficial/animevaultofficial.github.io/dispatches \
   -d '{"event_type":"release"}'
 ```
 
