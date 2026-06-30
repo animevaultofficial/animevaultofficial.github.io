@@ -19,6 +19,7 @@ import StatsPage from './pages/StatsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import CommunityPage from './pages/CommunityPage';
 import UpdatesPage from './pages/UpdatesPage';
+import { checkMobileUpdate, downloadApkInBackground } from './api/updates';
 
 function Splash() {
   return (
@@ -119,6 +120,8 @@ export default function AppMobile() {
   const [splash, setSplash] = useState(false);
   const [sidebar, setSidebar] = useState(false);
   const [announcement, setAnnouncement] = useState('');
+  const [updatePrompt, setUpdatePrompt] = useState(null);
+  const [updateProgress, setUpdateProgress] = useState(0);
 
   useEffect(() => { const t = setTimeout(() => setSplash(true), 1500); return () => clearTimeout(t); }, []);
   useEffect(() => {
@@ -138,13 +141,30 @@ export default function AppMobile() {
     boot();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function autoUpdate() {
+      try {
+        const info = await checkMobileUpdate();
+        if (cancelled || !info.isOutdated) return;
+        setUpdatePrompt({ ...info, status: info.apkUrl ? 'Downloading update in the background…' : 'Update available' });
+        const ready = await downloadApkInBackground(info, progress => { if (!cancelled) setUpdateProgress(progress); });
+        if (!cancelled) setUpdatePrompt({ ...ready, status: ready.downloaded ? 'Update downloaded. Open the APK to install.' : 'Open release page to download the APK.' });
+      } catch (err) {
+        console.warn('[AnimeVault Mobile] auto update skipped:', err?.message || err);
+      }
+    }
+    const timer = setTimeout(autoUpdate, 2500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, []);
+
   const nav = (p, pr = {}) => { setPage(p); setParams(pr); setSidebar(false); };
   const back = () => { setPage('home'); setParams({}); };
 
   const render = () => {
     switch (page) {
       case 'anime-detail': return <AnimeDetailsPage params={params} goBack={back} navigate={nav} />;
-      case 'drama-detail': return <DramaDetailPage params={params} goBack={back} />;
+      case 'drama-detail': return <DramaDetailPage params={params} goBack={back} navigate={nav} />;
       case 'search': return <SearchPage navigate={nav} />;
       case 'collections': return <CollectionsPage navigate={nav} />;
       case 'schedule': return <SchedulePage navigate={nav} />;
@@ -165,6 +185,19 @@ export default function AppMobile() {
     <>
       {!splash && <Splash />}
       <Sidebar currentPage={page} navigate={nav} open={sidebar} close={() => setSidebar(false)} user={user} />
+      {updatePrompt && (
+        <div className="update-toast">
+          <div>
+            <strong>AnimeVault v{updatePrompt.latestVersion}</strong>
+            <span>{updatePrompt.status}{updateProgress > 0 && updateProgress < 100 ? ` ${updateProgress}%` : ''}</span>
+          </div>
+          <button onClick={() => {
+            const url = updatePrompt.downloadUrl || updatePrompt.apkUrl || updatePrompt.releaseUrl;
+            window.open(url, '_blank', 'noopener,noreferrer');
+          }}>Open APK</button>
+          <button className="ghost" onClick={() => setUpdatePrompt(null)}>Later</button>
+        </div>
+      )}
       <div className="app" style={{ opacity: splash ? 1 : 0, transition: 'opacity .4s' }}>
         {announcement && showNav && <div className="mobile-announcement">{announcement}</div>}
         {showNav && (
