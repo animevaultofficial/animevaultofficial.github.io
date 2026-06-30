@@ -33,7 +33,7 @@ function formatAiring(nextAiringEpisode) {
 }
 
 export default function AnimeDetailsPage({ params, goBack, navigate }) {
-  const { user, updateContinueWatching, addToHistory, toggleLike, isLiked } = useUser();
+  const { user, updateContinueWatching, addToHistory, toggleLike, isLiked, setAuthTab } = useUser();
   const [media, setMedia] = useState(null);
   const [episodes, setEpisodes] = useState([]);
   const [currentEpisode, setCurrentEpisode] = useState(null);
@@ -127,6 +127,11 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
 
   const handleWatch = useCallback((episode) => {
     if (!episode || !media) return;
+    if (!user) {
+      setAuthTab('login');
+      navigate('profile');
+      return;
+    }
     const currentMedia = media;
     const currentStreamingInfo = streamingInfoRef.current;
     setCurrentEpisode(episode);
@@ -135,10 +140,8 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
     setPlayerStatus('Preparing stream');
 
     addContinueWatching({ id: currentMedia.id, title: getTitle(currentMedia), image: getImage(currentMedia), episode: episode.number });
-    if (user) {
-      updateContinueWatching(currentMedia.id, 'anime', getTitle(currentMedia), getImage(currentMedia), 1, episode.number, 0, currentMedia.duration || 0);
-      addToHistory(currentMedia.id, 'anime', getTitle(currentMedia), getImage(currentMedia));
-    }
+    updateContinueWatching(currentMedia.id, 'anime', getTitle(currentMedia), getImage(currentMedia), 1, episode.number, 0, currentMedia.duration || 0);
+    addToHistory(currentMedia.id, 'anime', getTitle(currentMedia), getImage(currentMedia));
 
     if (!currentStreamingInfo.id) {
       setTimeout(() => {
@@ -152,7 +155,7 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
       .then(sources => setPlayerStatus(sources?.length ? 'Stream ready' : 'Using embedded player'))
       .catch(() => setPlayerStatus('Using embedded player'))
       .finally(() => setPlayerLoading(false));
-  }, [addToHistory, media, updateContinueWatching, user]);
+  }, [addToHistory, media, navigate, setAuthTab, updateContinueWatching, user]);
 
   const handleFavorite = useCallback(async () => {
     if (!media) return;
@@ -257,7 +260,7 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
     return (
       <div
         ref={playerWrapperRef}
-        className="player-screen"
+        className="player-screen player-screen-v2"
         style={isFs ? { padding: 0 } : {}}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -278,7 +281,7 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
         )}
 
         {/* Top Bar */}
-        <div className="player-topbar">
+        <div className="player-topbar player-topbar-v2">
           <button className="player-icon-btn" onClick={() => setShowPlayer(false)} aria-label="Back">
             <ArrowLeft size={20} />
           </button>
@@ -301,7 +304,7 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
         </div>
 
         {/* Player Frame */}
-        <div className="player-frame-wrap">
+        <div className="player-frame-wrap player-frame-wrap-v2">
           {playerLoading && (
             <div className="player-loading">
               <div className="spinner" />
@@ -331,14 +334,9 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
           />
 
           {/* Server switch button */}
-          <div className="ply-server-switch" style={{ position: 'absolute', top: 60, right: 12, zIndex: 10 }}>
+          <div className="ply-server-switch">
             <button
               onClick={switchServer}
-              style={{
-                background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)',
-                color: '#fff', borderRadius: 8, padding: '6px 10px', fontSize: '.7rem',
-                display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer',
-              }}
               title="Switch to another embed server"
             >
               <RefreshCw size={14} /> Server {serverIndex + 1}

@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, RefreshCw, Download, CheckCircle, AlertTriangle, Package, ExternalLink, Loader } from 'lucide-react';
 import { APP_VERSION } from '../../version.js';
+import { UPDATE_CHECK_KEY, checkMobileUpdate, downloadApkInBackground } from '../api/updates';
 
 const CURRENT_VERSION = APP_VERSION;
-const GITHUB_REPO = 'animevaultofficial/animevaultofficial.github.io';
-const UPDATE_CHECK_KEY = 'av_last_update_check';
 
 export default function UpdatesPage({ goBack }) {
   const [checking, setChecking] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
   const [lastChecked, setLastChecked] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem(UPDATE_CHECK_KEY);
@@ -20,34 +21,17 @@ export default function UpdatesPage({ goBack }) {
   async function checkForUpdates(silent = false) {
     setChecking(true);
     try {
-      const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
-      if (!res.ok) throw new Error('Failed to fetch');
-      const data = await res.json();
-      const latestVersion = data.tag_name?.replace(/^v/, '') || data.name?.replace(/^v/, '') || '';
-      const isOutdated = latestVersion && compareVersions(CURRENT_VERSION, latestVersion) < 0;
-
-      setUpdateInfo({
-        currentVersion: CURRENT_VERSION,
-        latestVersion: latestVersion || CURRENT_VERSION,
-        isOutdated,
-        releaseUrl: data.html_url || `https://github.com/${GITHUB_REPO}/releases`,
-        releaseNotes: data.body?.slice(0, 1500) || 'No release notes available.',
-        publishedAt: data.published_at ? new Date(data.published_at).toLocaleDateString() : 'Unknown',
-      });
-
-      localStorage.setItem(UPDATE_CHECK_KEY, String(Date.now()));
-      setLastChecked(new Date().toLocaleString());
-
-      if (isOutdated && !silent) {
-        // Show notification that update is available
-      }
+      const info = await checkMobileUpdate();
+      setUpdateInfo(info);
+      const stored = localStorage.getItem(UPDATE_CHECK_KEY);
+      if (stored) setLastChecked(new Date(parseInt(stored)).toLocaleString());
     } catch (err) {
       if (!silent) {
         setUpdateInfo({
           currentVersion: CURRENT_VERSION,
           latestVersion: CURRENT_VERSION,
           isOutdated: false,
-          releaseUrl: `https://github.com/${GITHUB_REPO}/releases`,
+          releaseUrl: 'https://github.com/animevaultofficial/animevaultofficial.github.io/releases',
           releaseNotes: null,
           publishedAt: null,
           error: 'Could not check for updates. Check your connection.',
@@ -57,14 +41,18 @@ export default function UpdatesPage({ goBack }) {
     setChecking(false);
   }
 
-  function compareVersions(a, b) {
-    const pa = a.split('.').map(Number);
-    const pb = b.split('.').map(Number);
-    for (let i = 0; i < 3; i++) {
-      if ((pa[i] || 0) > (pb[i] || 0)) return 1;
-      if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+  async function downloadUpdate() {
+    if (!updateInfo) return;
+    setDownloading(true);
+    setDownloadProgress(0);
+    try {
+      const ready = await downloadApkInBackground(updateInfo, setDownloadProgress);
+      setUpdateInfo(ready);
+      window.open(ready.downloadUrl || ready.apkUrl || ready.releaseUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      window.open(updateInfo.releaseUrl, '_blank', 'noopener,noreferrer');
     }
-    return 0;
+    setDownloading(false);
   }
 
   return (
@@ -160,7 +148,7 @@ export default function UpdatesPage({ goBack }) {
       {/* View on GitHub */}
       {updateInfo?.releaseUrl && (
         <a
-          href={updateInfo.releaseUrl}
+          href={updateInfo.downloadUrl || updateInfo.apkUrl || updateInfo.releaseUrl}
           target="_blank"
           rel="noopener noreferrer"
           style={{
@@ -176,20 +164,21 @@ export default function UpdatesPage({ goBack }) {
 
       {/* Update Button - only show when outdated */}
       {updateInfo?.isOutdated && (
-        <a
-          href={updateInfo.releaseUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
+          onClick={downloadUpdate}
+          disabled={downloading}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             width: '100%', padding: 14, background: '#10b981',
             color: '#fff', fontWeight: 900, border: 'none',
-            borderRadius: 12, cursor: 'pointer', fontSize: '0.9rem',
+            borderRadius: 12, cursor: downloading ? 'progress' : 'pointer', fontSize: '0.9rem',
             textDecoration: 'none', fontFamily: 'var(--font)',
             boxShadow: '0 4px 15px rgba(16,185,129,0.4)',
           }}>
-          <Download size={18} /> Download v{updateInfo.latestVersion}
-        </a>
+          {downloading ? <Loader size={18} className="spin" /> : <Download size={18} />}
+          {downloading ? `Downloading APK${downloadProgress ? ` ${downloadProgress}%` : '…'}` : (updateInfo.apkUrl ? `Open APK v${updateInfo.latestVersion}` : `Download v${updateInfo.latestVersion}`)}
+        </button>
       )}
     </div>
   );
