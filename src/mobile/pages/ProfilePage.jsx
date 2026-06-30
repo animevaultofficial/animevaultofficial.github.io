@@ -119,117 +119,68 @@ function AuthScreen() {
   }
 
   return (
-    <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-      <div style={{ marginBottom: 24 }}>
-        <img src="/logo.png" alt="AnimeVault" style={{ width: 80, height: 80, borderRadius: 20, marginBottom: 12 }} />
-        <h2 style={{ margin: '0 0 4px', fontWeight: 900, fontSize: '1.5rem' }}>AnimeVault</h2>
-        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>Sign in to sync favorites, history & progress</p>
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        {['login', 'signup'].map(t => (
-          <button key={t} onClick={() => { setTab(t); resetForm(); }}
-            style={{
-              flex: 1, padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: '0.8rem', fontFamily: 'inherit',
-              background: tab === t ? '#ff1a75' : 'rgba(255,255,255,0.04)',
-              color: tab === t ? '#000' : '#fff'
-            }}>
-            {t === 'login' ? 'Sign In' : 'Sign Up'}
-          </button>
-        ))}
-      </div>
-
-      {error && (
-        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', borderRadius: 10, padding: '10px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span>⚠</span><span style={{ flex: 1, textAlign: 'left' }}>{error}</span>
-        </div>
-      )}
-      {success && (
-        <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', borderRadius: 10, padding: '10px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span>✓</span><span style={{ flex: 1, textAlign: 'left' }}>{success}</span>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        {/* Email field - hidden during OTP step */}
-        <div style={{ marginBottom: 14, position: 'relative', display: step === 'otp' ? 'none' : 'block' }}>
-          <User size={16} style={{ position: 'absolute', top: 12, left: 12, color: 'var(--text-tertiary)' }} />
-          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} disabled={step === 'otp'}
-            style={{
-              width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)',
-              border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#fff',
-              outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box'
-            }} />
+    <div className="mobile-auth-shell">
+      <div className="mobile-auth-card">
+        <div className="auth-brand">
+          <img src="/logo.png" alt="AnimeVault" className="mobile-auth-logo" />
+          <h2 className="mobile-auth-title">AnimeVault</h2>
+          <p className="mobile-auth-sub">Sign in to sync favorites, history, reminders and watch progress on every device.</p>
         </div>
 
-        {/* Password field - hidden during OTP step */}
-        <div style={{ marginBottom: 20, position: 'relative' }}>
-          <div style={{ display: step === 'otp' ? 'none' : 'block' }}>
-            <span style={{ position: 'absolute', top: 12, left: 12, color: 'var(--text-tertiary)', fontSize: 16 }}>🔒</span>
-            <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} disabled={step === 'otp'}
-              style={{
-                width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)',
-                border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: '#fff',
-                outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box'
-              }} />
-          </div>
+        <div className="mobile-auth-tabs" role="tablist" aria-label="Authentication tabs">
+          {['login', 'signup'].map(t => (
+            <button key={t} type="button" className={`mobile-auth-tab ${tab === t ? 'active' : ''}`} onClick={() => { setTab(t); resetForm(); }}>
+              {t === 'login' ? 'Sign In' : 'Sign Up'}
+            </button>
+          ))}
+        </div>
 
-          {/* OTP Verification Code Input */}
+        {error && <div className="mobile-auth-alert error"><span>⚠</span><span>{error}</span></div>}
+        {success && <div className="mobile-auth-alert success"><span>✓</span><span>{success}</span></div>}
+
+        <form onSubmit={handleSubmit}>
+          {step !== 'otp' && (
+            <>
+              <label className="mobile-auth-field">
+                <User size={17} />
+                <input className="mobile-auth-input" type="email" inputMode="email" autoComplete="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} />
+              </label>
+              <label className="mobile-auth-field">
+                <span className="field-icon">🔒</span>
+                <input className="mobile-auth-input" type="password" autoComplete={tab === 'login' ? 'current-password' : 'new-password'} placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+              </label>
+            </>
+          )}
+
           {tab === 'login' && step === 'otp' && (
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', top: 12, left: 12, color: 'var(--text-tertiary)', fontSize: 16 }}>✉</span>
-              <input type="text" value={verificationCode} onChange={e => setVerificationCode(e.target.value)} placeholder="6-Digit Verification Code" autoFocus
-                style={{
-                  width: '100%', padding: '11px 12px 11px 38px', background: 'rgba(0,0,0,0.3)',
-                  border: '1px solid rgba(255,26,117,0.3)', borderRadius: 10, color: '#fff',
-                  outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box',
-                  boxShadow: '0 0 10px rgba(255,26,117,0.1)'
-                }} />
-              <div style={{ textAlign: 'center', marginTop: 12 }}>
-                <button type="button" onClick={() => setStep('email_password')}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}>
-                  Back to Login
-                </button>
-              </div>
+            <label className="mobile-auth-field">
+              <span className="field-icon">✉</span>
+              <input className="mobile-auth-input" type="text" inputMode="numeric" value={verificationCode} onChange={e => setVerificationCode(e.target.value)} placeholder="6-digit verification code" autoFocus />
+            </label>
+          )}
+
+          {tab === 'login' && step === 'otp' ? (
+            <div style={{ textAlign: 'center', margin: '-.25rem 0 .75rem' }}>
+              <button type="button" className="mobile-auth-link" onClick={() => setStep('email_password')}>Back to sign in</button>
+            </div>
+          ) : tab === 'login' && (
+            <div style={{ textAlign: 'right', margin: '-.25rem 0 .75rem' }}>
+              <button type="button" className="mobile-auth-link" onClick={handleForgotPassword}>Forgot password?</button>
             </div>
           )}
 
-          {/* Forgot Password Link */}
-          {tab === 'login' && step !== 'otp' && (
-            <div style={{ textAlign: 'right', marginTop: 8 }}>
-              <button type="button" onClick={handleForgotPassword}
-                style={{ background: 'none', border: 'none', color: '#ff1a75', fontSize: '0.75rem', cursor: 'pointer', padding: 0 }}>
-                Forgot password?
-              </button>
-            </div>
-          )}
-        </div>
+          <button type="submit" disabled={busy} className="mobile-auth-submit">
+            {busy ? 'Processing...' : tab === 'login' ? (step === 'otp' ? 'Verify & Sign In' : 'Sign In') : 'Create Account'}
+          </button>
 
-        <button type="submit" disabled={busy}
-          style={{
-            width: '100%', padding: 12, background: '#ff1a75', color: '#000', fontWeight: 900,
-            border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: '0.85rem', marginBottom: 16,
-            boxShadow: '0 0 15px rgba(255,26,117,0.3)'
-          }}>
-          {busy ? 'Processing...' : tab === 'login' ? (step === 'otp' ? 'Verify & Sign In' : 'Sign In') : 'Create Account'}
-        </button>
+          <div className="mobile-auth-divider">OR</div>
 
-        <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0', gap: 12 }}>
-          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>OR</span>
-          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
-        </div>
-
-        <button type="button" onClick={loginWithGoogle}
-          style={{
-            width: '100%', padding: 12, background: '#fff', color: '#000', fontWeight: 900,
-            border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: '0.85rem',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10
-          }}>
-          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
-          Continue with Google
-        </button>
-      </form>
+          <button type="button" onClick={loginWithGoogle} className="mobile-auth-google">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
+            Continue with Google
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
