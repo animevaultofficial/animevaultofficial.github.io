@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, SkipBack, SkipForward, Maximize, Minimize, Shield } from 'lucide-react';
+import { ArrowLeft, SkipBack, SkipForward, Maximize, Minimize, Shield, RefreshCw } from 'lucide-react';
 import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails, EMBED_SERVERS } from '../api/movies';
 import { stripAdParams, getProxiedEmbedUrl, isAdHeavyServer, isCleanServer, isUrlBlocked } from '../api/adProxy';
+import { useUser } from '../../api/UserContext';
 
-export default function DramaDetailPage({ params, goBack }) {
+export default function DramaDetailPage({ params, goBack, navigate }) {
+  const { user, setAuthTab } = useUser();
   const { id, mediaType, title: initialTitle } = params;
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -14,6 +16,7 @@ export default function DramaDetailPage({ params, goBack }) {
   const [episodes, setEpisodes] = useState([]);
   const [zenMode, setZenMode] = useState(true);
   const [isFs, setIsFs] = useState(false);
+  const [playerLoading, setPlayerLoading] = useState(false);
   const playerWrapperRef = useRef(null);
 
   useEffect(() => {
@@ -46,6 +49,12 @@ export default function DramaDetailPage({ params, goBack }) {
     if (!playerWrapperRef.current) return;
     if (document.fullscreenElement) document.exitFullscreen();
     else playerWrapperRef.current.requestFullscreen();
+  };
+
+  const requireWatch = () => {
+    if (user) { setPlayerLoading(true); setShowPlayer(true); return; }
+    setAuthTab('login');
+    navigate?.('profile');
   };
 
   const goNextEp = () => {
@@ -107,9 +116,9 @@ export default function DramaDetailPage({ params, goBack }) {
     }
 
     return (
-      <div ref={playerWrapperRef} className="player-screen" style={isFs ? { padding: 0 } : {}}>
+      <div ref={playerWrapperRef} className="player-screen player-screen-v2" style={isFs ? { padding: 0 } : {}}>
         {/* Top bar */}
-        <div className="player-topbar">
+        <div className="player-topbar player-topbar-v2">
           <button className="player-icon-btn" onClick={() => setShowPlayer(false)} aria-label="Back">
             <ArrowLeft size={20} />
           </button>
@@ -129,7 +138,8 @@ export default function DramaDetailPage({ params, goBack }) {
         </div>
 
         {/* Frame */}
-        <div className="player-frame-wrap">
+        <div className="player-frame-wrap player-frame-wrap-v2">
+          {playerLoading && <div className="player-loading"><div className="spinner" /><span>Opening player…</span></div>}
           {zenMode && (
             <div className="ply-zen-badge"><Shield size={14} /> Zen</div>
           )}
@@ -153,6 +163,7 @@ export default function DramaDetailPage({ params, goBack }) {
             allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
             allowFullScreen
             title={title}
+            onLoad={() => setPlayerLoading(false)}
           />
         </div>
 
@@ -179,17 +190,9 @@ export default function DramaDetailPage({ params, goBack }) {
               </button>
             </>
           )}
-          <div style={{ display: 'flex', gap: 4, marginLeft: mediaType === 'movie' ? 0 : 'auto', flexShrink: 0 }}>
+          <div className="ply-server-pills">
             {EMBED_SERVERS.map((s, i) => (
-              <button key={s.name} onClick={() => setEmbedServer(i)}
-                style={{
-                  height: 30, padding: '0 10px', borderRadius: 999,
-                  border: '1px solid rgba(255,255,255,.12)',
-                  background: i === embedServer ? 'var(--brand)' : 'rgba(255,255,255,.08)',
-                  color: i === embedServer ? '#fff' : '#d1d5db',
-                  fontSize: '.65rem', fontWeight: 800, cursor: 'pointer',
-                  flexShrink: 0,
-                }}>
+              <button key={s.name} onClick={() => { setEmbedServer(i); setPlayerLoading(true); }} className={i === embedServer ? 'active' : ''}>
                 {s.name}
               </button>
             ))}
@@ -226,7 +229,7 @@ export default function DramaDetailPage({ params, goBack }) {
           </div>
         )}
 
-        <button onClick={() => setShowPlayer(true)}
+        <button onClick={requireWatch}
           style={{ width: '100%', background: 'var(--brand-color)', color: '#fff', border: 'none', padding: '14px', borderRadius: 10, fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', marginBottom: 16 }}>
           ▶ {mediaType === 'movie' ? 'Watch Now' : 'Watch'}
         </button>
@@ -254,7 +257,7 @@ export default function DramaDetailPage({ params, goBack }) {
                 <div className="section-header"><span className="section-title">Episodes</span></div>
                 <div className="grid-scroll" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
                   {episodes.map(ep => (
-                    <button key={ep.episode_number} onClick={() => { setSelectedEpisode(ep.episode_number); setShowPlayer(true); }}
+                    <button key={ep.episode_number} onClick={() => { setSelectedEpisode(ep.episode_number); requireWatch(); }}
                       style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#cbd5e1', padding: '10px 0', borderRadius: 8, fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}>
                       {ep.episode_number}
                     </button>

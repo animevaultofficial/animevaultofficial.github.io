@@ -8162,3 +8162,61 @@ select {
     gap: 1.5rem;
   }
 }
+
+/* Desktop player sizing hardening: keep all embedded/direct players true 16:9
+   without legacy min-height rules causing over-tall or clipped iframes. */
+@media (min-width: 769px) {
+  .player-section-v2 {
+    max-width: min(100%, 1280px);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .av-player-shell {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    max-height: calc(100vh - 160px);
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .av-player-shell > .player-wrap.embed-container,
+  .av-player-shell > .video-player-wrapper-v2 {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .player-wrap.embed-container,
+  .video-player-wrapper-v2,
+  .av-custom-player {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+  }
+
+  .embed-container {
+    height: auto;
+    min-height: 0;
+  }
+}
+
+@media (min-width: 1200px) {
+  .av-player-shell {
+    min-height: 520px;
+  }
+}
+
+.av-player-shell.av-fullscreen {
+  aspect-ratio: auto;
+  max-height: none;
+  min-height: 100dvh;
+}
+
+.av-player-shell.av-fullscreen .player-wrap.embed-container,
+.av-player-shell.av-fullscreen .video-player-wrapper-v2,
+.av-player-shell.av-fullscreen .av-custom-player {
+  height: 100dvh;
+  aspect-ratio: auto;
+}
