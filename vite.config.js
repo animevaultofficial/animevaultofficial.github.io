@@ -9,6 +9,8 @@ export default defineConfig(({ command, mode }) => {
   //   1. process.env.ELECTRON === '1' (set by the electron:build scripts)
   //   2. the build mode is 'production' AND the active vite mode is electron
   //   3. we are building (not serving) for an electron-builder target
+  const isWebOSBuild = !!process.env.WEBOS || mode === 'webos' || process.env.npm_lifecycle_event === 'webos:package';
+
   const isElectronBuild =
     !!process.env.ELECTRON ||
     process.env.npm_lifecycle_event?.startsWith('electron') ||
@@ -26,12 +28,12 @@ export default defineConfig(({ command, mode }) => {
   // RELATIVE paths ("../" for any future sub-path hosting) for Electron.
   const base = command === 'serve'
     ? '/' // dev server
-    : isElectronBuild
-      ? './' // Electron (asar / file://) build uses relative paths
+    : (isElectronBuild || isWebOSBuild)
+      ? './' // packaged apps load local files and need relative assets
       : ghPagesBase; // GitHub Pages absolute base
 
   if (command === 'build') {
-    console.log(`[Vite] Build base path: "${base}" (electron: ${isElectronBuild})`);
+    console.log(`[Vite] Build base path: "${base}" (electron: ${isElectronBuild}, webos: ${isWebOSBuild})`);
   }
 
   return {
@@ -54,6 +56,7 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     build: {
+        outDir: isWebOSBuild ? 'dist-webos' : 'dist',
         rollupOptions: {
             // Only externalize bcryptjs for Electron builds (since it's Node-only there)
             external: isElectronBuild ? ['bcryptjs'] : [],

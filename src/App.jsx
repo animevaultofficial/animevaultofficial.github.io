@@ -11,6 +11,7 @@ import { fetchSiteSettings, initDatabase, getSettings } from './api/db';
 import { initializeDatabase } from './api/database';
 import { applyTheme, applyAccentColor } from './utils/appearance';
 import { storage } from './utils/storage';
+import { applyTvModeClass } from './utils/tvMode';
 
 import { FocusableNavLink, FocusableLink, FocusableButton } from './components/FocusableWrapper';
 import RequireAuth from './components/RequireAuth';
@@ -53,10 +54,15 @@ function App() {
   const [topbarQuery, setTopbarQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isTvMode, setIsTvMode] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   const [isReady, setIsReady] = useState(true); // Skip loading screen
+
+  useEffect(() => {
+    setIsTvMode(applyTvModeClass());
+  }, []);
 
   useEffect(() => {
     async function loadSettings() {
@@ -159,7 +165,7 @@ function App() {
 
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isTvMode ? 'tv-app-shell' : ''}`}>
       {announcement && (
         <div style={{
           background: 'linear-gradient(90deg, #ff1a75, #ffaa00)',
@@ -171,6 +177,13 @@ function App() {
           <Sparkles size={14} style={{ animation: 'bannerPulse 1.5s infinite alternate' }} />
           <span>{announcement}</span>
           <style>{`@keyframes bannerPulse { from { transform: scale(1); } to { transform: scale(1.2); } }`}</style>
+        </div>
+      )}
+
+      {isTvMode && (
+        <div className="tv-welcome-strip">
+          <span>LG webOS TV mode</span>
+          <strong>Use the Magic Remote pointer or arrow keys to browse. Press OK/Enter to select.</strong>
         </div>
       )}
 
@@ -282,15 +295,15 @@ function App() {
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--glass-border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
           >
             <SearchIcon size={18} aria-hidden="true" />
-            <span style={{ fontSize: '0.9rem' }}>Search anime...</span>
-            <kbd style={{
+            <span style={{ fontSize: '0.9rem' }}>{isTvMode ? 'Search AnimeVault' : 'Search anime...'}</span>
+            {!isTvMode && <kbd style={{
               background: 'rgba(255,255,255,0.05)',
               border: '1px solid rgba(255,255,255,0.1)',
               padding: '2px 6px',
               borderRadius: '4px',
               fontSize: '0.75rem',
               marginLeft: 'auto'
-            }}>⌘K</kbd>
+            }}>⌘K</kbd>}
           </button>
           {user ? (
             <FocusableLink to={`/profile/${user.id}`} style={{

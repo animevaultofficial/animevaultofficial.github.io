@@ -5,11 +5,14 @@ import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { probeMirrors } from './api/streaming';
 import { log, warn } from './utils/logger.js';
+import { isTvRuntime } from './utils/tvMode.js';
 import { init } from '@noriginmedia/norigin-spatial-navigation';
 
 init({
   debug: false,
-  visualDebug: false
+  visualDebug: false,
+  nativeMode: isTvRuntime(),
+  throttle: 70,
 });
 import './styles.css';
 

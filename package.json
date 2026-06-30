@@ -28,7 +28,9 @@
     "generate-android-icons": "node scripts/generate-android-icons.js",
     "android:sync": "npm run generate-android-icons && vite build --config vite.mobile.config.js && npx cap sync android",
     "android:ensure": "npx cap add android || echo 'Android already added'",
-    "android:mobile": "npm run generate-android-icons && vite build --config vite.mobile.config.js && npx cap sync android && cd android && chmod +x gradlew && ./gradlew assembleRelease"
+    "android:mobile": "npm run generate-android-icons && vite build --config vite.mobile.config.js && npx cap sync android && cd android && chmod +x gradlew && ./gradlew assembleRelease",
+    "webos:build": "vite build --mode webos",
+    "webos:package": "node scripts/build-webos.cjs"
   },
   "build": {
     "appId": "com.animevault.app",
