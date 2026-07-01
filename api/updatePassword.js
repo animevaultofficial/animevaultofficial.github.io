@@ -1,5 +1,6 @@
 // api/updatePassword.js
 // Vercel serverless function – updates a user's password after reset
+import 'dotenv/config';
 import { neon } from '@neondatabase/serverless';
 import jwt from 'jsonwebtoken';
 

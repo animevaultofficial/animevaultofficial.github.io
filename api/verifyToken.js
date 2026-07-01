@@ -1,5 +1,6 @@
 // api/verifyToken.js
 // Vercel serverless function – verifies a password reset JWT
+import 'dotenv/config';
 import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {

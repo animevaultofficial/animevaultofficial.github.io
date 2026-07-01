@@ -1,5 +1,6 @@
 // src/api/resetPassword.js
 // Vercel serverless function – handles password‑reset request
+import 'dotenv/config';
 import { neon } from '@neondatabase/serverless';
 import sgMail from '@sendgrid/mail';
 import jwt from 'jsonwebtoken';
