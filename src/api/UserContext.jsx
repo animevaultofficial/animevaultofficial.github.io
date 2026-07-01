@@ -8,11 +8,11 @@ const authClient = createAuthClient(import.meta.env.VITE_NEON_AUTH_URL, {
     const newOptions = { ...options };
     newOptions.headers = { ...newOptions.headers };
     // Fix for Capacitor WebView: Origin may be null/missing, provide a fallback
-    if (!newOptions.headers['Origin'] && !newOptions.headers['origin']) {
-      newOptions.headers['Origin'] = (window.location.origin && window.location.origin !== 'null')
-        ? window.location.origin
-        : 'https://animevaultofficial.github.io';
-    }
+    const origin = window.location.origin;
+    const isNativeShell = !origin || origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('file://');
+    newOptions.headers['Origin'] = newOptions.headers['Origin'] || newOptions.headers['origin'] ||
+      (!isNativeShell ? origin : 'https://localhost');
+    newOptions.credentials = newOptions.credentials || 'include';
     return fetch(url, newOptions);
   }
 });
@@ -51,10 +51,10 @@ function getAuthCallbackURL() {
   const webFallback = 'https://animevaultofficial.github.io/';
   const mobileFallback = 'https://localhost/';
   try {
-    const { origin } = window.location;
-    const isNativeShell = origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('file://');
-    if (isNativeShell) return fallback;
-    return `${origin}/`;
+    const origin = window.location.origin;
+    const isNativeShell = !origin || origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('file://');
+    if (isNativeShell) return mobileFallback;
+    return origin.endsWith('/') ? origin : `${origin}/`;
   } catch {
     return webFallback;
   }
@@ -359,13 +359,17 @@ export function UserProvider({ children }) {
       // Trigger Google OAuth flow via Neon Auth.
       // Keep the callback on the site root so it matches the Neon allowed domain
       // entry and the app can restore the session on load.
-      const callbackURL = getAuthCallbackURL();
-      await authClient.signIn.social({
+      const res = await authClient.signIn.social({
         provider: 'google',
         callbackURL,
         redirectTo: callbackURL,
       });
-      return { success: true };
+      const oauthUrl = res?.url || res?.data?.url || res?.redirectTo || res?.data?.redirectTo;
+      if (oauthUrl) {
+        window.location.href = oauthUrl;
+        return { success: true };
+      }
+      return { success: false, message: 'Unable to initiate Google sign-in. Please try again.' };
     } catch (e) {
       console.error('Google login failed:', e);
       const detail = e?.message ? ` (${e.message})` : '';

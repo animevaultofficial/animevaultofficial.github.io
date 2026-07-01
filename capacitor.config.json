@@ -4,6 +4,7 @@
     "webDir": "dist-mobile",
   "bundledWebRuntime": false,
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "hostname": "localhost"
   }
 }
