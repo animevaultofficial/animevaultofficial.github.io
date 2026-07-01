@@ -85,6 +85,31 @@ function clearLocalSessionUser() {
   } catch {}
 }
 
+function getAuthUserFromResponse(res) {
+  return res?.user || res?.data?.user || res?.data?.session?.user || res?.session?.user || null;
+}
+
+function getAuthEmail(authUser, fallbackEmail = '') {
+  return authUser?.email || authUser?.user_metadata?.email || fallbackEmail;
+}
+
+function getAuthName(authUser, fallbackEmail = '') {
+  return authUser?.name || authUser?.user_metadata?.name || getAuthEmail(authUser, fallbackEmail).split('@')[0] || 'User';
+}
+
+function getAuthAvatar(authUser) {
+  return authUser?.image || authUser?.avatar_url || authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture || null;
+}
+
+async function tryCreateUserSession(userId) {
+  try {
+    return await createUserSession(userId);
+  } catch (err) {
+    warn('[AnimeVault Auth] Persistent DB session creation failed; using local session only:', err?.message || err);
+    return null;
+  }
+}
+
 export function UserProvider({ children }) {
   const [user, setUser] = useState(null);
 
@@ -189,7 +214,7 @@ export function UserProvider({ children }) {
       if (verificationCode) {
         try {
           const res = await authClient.signIn.emailOtp({ email, otp: verificationCode });
-          const loggedInUser = res?.user || res?.data?.user;
+          const loggedInUser = getAuthUserFromResponse(res);
           if (loggedInUser || (!res?.error && res?.data)) {
             const sessionUser = await syncAuthSessionUser();
             if (!sessionUser) {
@@ -207,7 +232,7 @@ export function UserProvider({ children }) {
       // Try Neon Auth email/password login
       try {
         const res = await authClient.signIn.email({ email, password });
-        const loggedInUser = res?.user || res?.data?.user;
+        const loggedInUser = getAuthUserFromResponse(res);
         if (loggedInUser || (!res?.error && res?.data)) {
           const sessionUser = await syncAuthSessionUser();
           if (!sessionUser) {
@@ -225,7 +250,7 @@ export function UserProvider({ children }) {
       // Fallback: try local DB login (works with users stored in Neon DB or localStorage)
       const dbRes = await dbUserLogin(email, password);
       if (dbRes.success) {
-        await createUserSession(dbRes.user.id);
+        await tryCreateUserSession(dbRes.user.id);
         persistLocalSessionUser(dbRes.user);
         setUser(dbRes.user);
         setShowAuthModal(false);
@@ -246,7 +271,7 @@ export function UserProvider({ children }) {
       } catch (neonErr) {
         warn('[AnimeVault Auth] Neon Auth signup threw, falling back to DB signup:', neonErr.message);
       }
-      const signedUpUser = res?.user || res?.data?.user;
+      const signedUpUser = getAuthUserFromResponse(res);
       if (signedUpUser || (!res?.error && res?.data)) {
         const sessionUser = await syncAuthSessionUser();
         if (!sessionUser) {
@@ -262,7 +287,7 @@ export function UserProvider({ children }) {
 
       const dbRes = await dbUserSignup(email, password);
       if (dbRes.success) {
-        await createUserSession(dbRes.user.id);
+        await tryCreateUserSession(dbRes.user.id);
         persistLocalSessionUser(dbRes.user);
         setUser(dbRes.user);
         setShowAuthModal(false);
