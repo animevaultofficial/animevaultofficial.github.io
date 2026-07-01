@@ -244,9 +244,13 @@ jobs:
 
   android:
     name: Android APK
-    runs-on: ubuntu-latest
     needs: [version-bump]
     if: always()
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -289,14 +293,22 @@ jobs:
       - name: Ensure Android project exists
         run: npm run android:ensure
 
-
       - name: Build Android release APK
-        run: npm run android:build
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run android:sync
+          cd android
+          if [[ "${{ matrix.os }}" == 'windows-latest' ]]; then
+            ./gradlew.bat assembleRelease
+          else
+            chmod +x gradlew
+            ./gradlew assembleRelease
+          fi
 
       - name: Normalize APK asset name
         shell: bash
         run: |
-          #!/bin/bash
           set -euo pipefail
           mkdir -p release
           apks=()
@@ -307,9 +319,14 @@ jobs:
             echo "No Android release APK was produced." >&2
             exit 1
           fi
-          cp "${apks[0]}" "release/AnimeVault-Android.apk"
+          cp "${apks[0]}" "release/AnimeVault-Android-${{ matrix.os }}.apk"
 
-      #dosent wait for other builds to finish lol
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AnimeVault-Android-${{ matrix.os }}
+          path: release/AnimeVault-Android-${{ matrix.os }}.apk
+
       - name: Resolve version tag
         id: release
         shell: bash
@@ -321,40 +338,38 @@ jobs:
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
 
       - name: Publish Android APK to GitHub Release
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           #!/bin/bash
           set -euo pipefail
           RELEASE_TAG="${{ steps.release.outputs.tag }}"
-          
+
           echo "Publishing Android APK to release ${RELEASE_TAG}"
-          
-          # Create or update release
+
           if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
             echo "Release ${RELEASE_TAG} exists, uploading APK..."
           else
             echo "Creating new release ${RELEASE_TAG}..."
             cat > release-notes.md <<NOTES
           Automated AnimeVault installer release for ${RELEASE_TAG}.
-          
+
           Download page links use the stable latest-release URLs, for example:
           - https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/AnimeVault-Windows-x64.exe
-          - https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/AnimeVault-Android.apk
-          
+          - https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/AnimeVault-Android-ubuntu-latest.apk
+
           Built from commit ${GITHUB_SHA}.
           NOTES
-            
+
             gh release create "${RELEASE_TAG}" \
               --target "${GITHUB_SHA}" \
               --title "AnimeVault ${RELEASE_TAG}" \
               --notes-file release-notes.md \
               --latest
           fi
-          
-          # Upload APK (--clobber replaces if exists)
-          gh release upload "${RELEASE_TAG}" "release/AnimeVault-Android.apk" --clobber
-          
+
+          gh release upload "${RELEASE_TAG}" "release/AnimeVault-Android-ubuntu-latest.apk" --clobber
+
           echo "✅ Successfully published Android APK to ${RELEASE_TAG}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
