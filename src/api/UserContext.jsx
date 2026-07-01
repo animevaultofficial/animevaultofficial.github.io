@@ -40,15 +40,33 @@ const UserContext = createContext(null);
 const LOCAL_SESSION_USER_KEY = 'animevault_session_user';
 
 function getAuthCallbackURL() {
-  const fallback = 'https://animevaultofficial.github.io/';
+  const webFallback = 'https://animevaultofficial.github.io/';
+  const mobileFallback = 'https://localhost/';
   try {
-    const { origin, pathname } = window.location;
-    const isNativeShell = origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('file://');
-    if (isNativeShell) return fallback;
-    return `${origin}${pathname || '/'}`;
+    const { origin, protocol, hostname } = window.location;
+    const isCapacitorRuntime = Boolean(window.Capacitor?.isNativePlatform?.() || window.Capacitor);
+    const isNativeShell = origin === 'null' || protocol === 'capacitor:' || protocol === 'file:';
+
+    if (isNativeShell) return isCapacitorRuntime ? mobileFallback : webFallback;
+
+    // Android/iOS Capacitor serves bundled assets from https://localhost by default.
+    // That exact origin must be present in Neon Auth's Allowed Domains for mobile OAuth.
+    if (isCapacitorRuntime || hostname === 'localhost') return `${origin}/`;
+
+    return `${origin}/`;
   } catch {
-    return fallback;
+    return webFallback;
   }
+}
+
+function getAuthAllowedDomainHint(callbackURL) {
+  try {
+    const url = new URL(callbackURL);
+    if (url.hostname === 'localhost') {
+      return 'Mobile sign-in needs https://localhost/ in Neon Auth Allowed Domains and Google OAuth authorized redirect URLs.';
+    }
+  } catch {}
+  return `Make sure ${callbackURL} is added to Neon Auth Allowed Domains and Google OAuth authorized redirect URLs.`;
 }
 
 function readLocalSessionUser() {
@@ -100,23 +118,7 @@ export function UserProvider({ children }) {
       const { data } = await authClient.getSession();
 
       if (data?.session && data?.user) {
-        const { user: currentUser } = data;
-        const syncRes = await syncGoogleUserToDb(
-          currentUser.email,
-          currentUser.name || currentUser.email,
-          currentUser.image,
-          currentUser.emailVerified || currentUser.email_verified || false
-        );
-        if (syncRes.success) {
-          // Create a persistent DB session so future refreshes work
-          await createUserSession(syncRes.user.id);
-          persistLocalSessionUser(syncRes.user);
-          setUser(syncRes.user);
-        } else {
-          const fallbackUser = { id: currentUser.id, username: currentUser.email || currentUser.name || 'User', avatar: currentUser.image || null, banner: null, is_admin: false };
-          persistLocalSessionUser(fallbackUser);
-          setUser(fallbackUser);
-        }
+        await syncAuthSessionUser();
       } else {
         setUser(readLocalSessionUser());
       }
@@ -131,6 +133,33 @@ export function UserProvider({ children }) {
     // Initialize trending defaults on app load
     initializeTrendingDefaults().catch(err => console.warn('Failed to init trending defaults:', err));
   }, []);
+
+  const syncAuthSessionUser = async () => {
+    const { data } = await authClient.getSession();
+    const currentUser = data?.user || data?.session?.user;
+    if (!currentUser?.email) return null;
+
+    const syncRes = await syncGoogleUserToDb(
+      currentUser.email,
+      currentUser.image || currentUser.avatar_url || null,
+      currentUser.emailVerified || currentUser.email_verified || false
+    );
+
+    const sessionUser = syncRes.success
+      ? syncRes.user
+      : {
+          id: currentUser.id,
+          username: currentUser.email || currentUser.name || 'User',
+          avatar: currentUser.image || currentUser.avatar_url || null,
+          banner: null,
+          is_admin: false
+        };
+
+    await createUserSession(sessionUser.id);
+    persistLocalSessionUser(sessionUser);
+    setUser(sessionUser);
+    return sessionUser;
+  };
 
   const syncUserData = async () => {
     if (!user) return;
@@ -169,23 +198,9 @@ export function UserProvider({ children }) {
           const res = await authClient.signIn.emailOtp({ email, otp: verificationCode });
           const loggedInUser = res?.user || res?.data?.user;
           if (loggedInUser || (!res?.error && res?.data)) {
-            const { data } = await authClient.getSession();
-            if (data?.user) {
-              const syncRes = await syncGoogleUserToDb(
-                data.user.email,
-                data.user.name || data.user.email,
-                data.user.image,
-                data.user.emailVerified || data.user.email_verified || false
-              );
-              if (syncRes.success) {
-                await createUserSession(syncRes.user.id);
-                persistLocalSessionUser(syncRes.user);
-                setUser(syncRes.user);
-              } else {
-                const fallbackUser = { id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false };
-                persistLocalSessionUser(fallbackUser);
-                setUser(fallbackUser);
-              }
+            const sessionUser = await syncAuthSessionUser();
+            if (!sessionUser) {
+              return { success: false, message: 'Verification succeeded, but AnimeVault could not create a local session. Please refresh and try again.' };
             }
             setShowAuthModal(false);
             return { success: true };
@@ -201,23 +216,9 @@ export function UserProvider({ children }) {
         const res = await authClient.signIn.email({ email, password });
         const loggedInUser = res?.user || res?.data?.user;
         if (loggedInUser || (!res?.error && res?.data)) {
-          const { data } = await authClient.getSession();
-          if (data?.user) {
-            const syncRes = await syncGoogleUserToDb(
-              data.user.email,
-              data.user.name || data.user.email,
-              data.user.image,
-              data.user.emailVerified || data.user.email_verified || false
-            );
-            if (syncRes.success) {
-              await createUserSession(syncRes.user.id);
-              persistLocalSessionUser(syncRes.user);
-              setUser(syncRes.user);
-            } else {
-              const fallbackUser = { id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false };
-              persistLocalSessionUser(fallbackUser);
-              setUser(fallbackUser);
-            }
+          const sessionUser = await syncAuthSessionUser();
+          if (!sessionUser) {
+            return { success: false, message: 'Sign-in succeeded, but AnimeVault could not create a local session. Please refresh and try again.' };
           }
           setShowAuthModal(false);
           return { success: true };
@@ -254,23 +255,9 @@ export function UserProvider({ children }) {
       }
       const signedUpUser = res?.user || res?.data?.user;
       if (signedUpUser || (!res?.error && res?.data)) {
-        const { data } = await authClient.getSession();
-        if (data?.user) {
-          const syncRes = await syncGoogleUserToDb(
-            data.user.email,
-            data.user.name || data.user.email,
-            data.user.image,
-            data.user.emailVerified || data.user.email_verified || false
-          );
-          if (syncRes.success) {
-            await createUserSession(syncRes.user.id);
-            persistLocalSessionUser(syncRes.user);
-            setUser(syncRes.user);
-          } else {
-            const fallbackUser = { id: data.user.id, username: data.user.email || 'User', avatar: data.user.image || null, banner: null, is_admin: false };
-            persistLocalSessionUser(fallbackUser);
-            setUser(fallbackUser);
-          }
+        const sessionUser = await syncAuthSessionUser();
+        if (!sessionUser) {
+          return { success: false, message: 'Account created, but AnimeVault could not create a local session. Please sign in again.' };
         }
         setShowAuthModal(false);
         return { success: true };
@@ -305,19 +292,24 @@ export function UserProvider({ children }) {
   };
 
   const loginWithGoogle = async () => {
+    const callbackURL = getAuthCallbackURL();
     try {
-      // Trigger Google OAuth flow via Neon Auth
-      // The callback URL is the current location (root) where the app will resume after sign-in
-      const callbackURL = getAuthCallbackURL();
+      // Trigger Google OAuth flow via Neon Auth.
+      // Use the current mobile/web origin root so the callback matches the
+      // configured Neon/Google allowed domain and the app can restore session.
       await authClient.signIn.social({
         provider: 'google',
-        // Use an absolute, allow-listed URL. Relative callbacks fail in Electron
-        // and Android WebView because OAuth providers reject file/capacitor origins.
         callbackURL,
         redirectTo: callbackURL,
       });
+      return { success: true };
     } catch (e) {
       console.error('Google login failed:', e);
+      const detail = e?.message ? ` (${e.message})` : '';
+      return {
+        success: false,
+        message: `${getAuthAllowedDomainHint(callbackURL)}${detail}`
+      };
     }
   };
 
