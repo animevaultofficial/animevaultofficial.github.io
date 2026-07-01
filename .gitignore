@@ -7,3 +7,5 @@ yarn-error.log*
 release/
 certs/*.pfx
 *.pfx
+key
+key.pub
