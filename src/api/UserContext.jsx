@@ -43,16 +43,9 @@ function getAuthCallbackURL() {
   const webFallback = 'https://animevaultofficial.github.io/';
   const mobileFallback = 'https://localhost/';
   try {
-    const { origin, protocol, hostname } = window.location;
-    const isCapacitorRuntime = Boolean(window.Capacitor?.isNativePlatform?.() || window.Capacitor);
-    const isNativeShell = origin === 'null' || protocol === 'capacitor:' || protocol === 'file:';
-
-    if (isNativeShell) return isCapacitorRuntime ? mobileFallback : webFallback;
-
-    // Android/iOS Capacitor serves bundled assets from https://localhost by default.
-    // That exact origin must be present in Neon Auth's Allowed Domains for mobile OAuth.
-    if (isCapacitorRuntime || hostname === 'localhost') return `${origin}/`;
-
+    const { origin } = window.location;
+    const isNativeShell = origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('file://');
+    if (isNativeShell) return fallback;
     return `${origin}/`;
   } catch {
     return webFallback;
@@ -159,37 +152,28 @@ export function UserProvider({ children }) {
     initializeTrendingDefaults().catch(err => console.warn('Failed to init trending defaults:', err));
   }, []);
 
-  const syncAuthSessionUser = async (authUserOverride = null, fallbackEmail = '') => {
-    let currentUser = authUserOverride;
-
-    if (!currentUser) {
-      const { data } = await authClient.getSession();
-      currentUser = data?.user || data?.session?.user;
-    }
-
-    const currentEmail = getAuthEmail(currentUser, fallbackEmail);
-    if (!currentEmail) return null;
+  const syncAuthSessionUser = async () => {
+    const { data } = await authClient.getSession();
+    const currentUser = data?.user || data?.session?.user;
+    if (!currentUser?.email) return null;
 
     const syncRes = await syncGoogleUserToDb(
-      currentEmail,
-      getAuthAvatar(currentUser),
-      currentUser?.emailVerified || currentUser?.email_verified || false
+      currentUser.email,
+      currentUser.image || currentUser.avatar_url || null,
+      currentUser.emailVerified || currentUser.email_verified || false
     );
 
     const sessionUser = syncRes.success
       ? syncRes.user
       : {
-          id: currentUser?.id || currentEmail,
-          username: getAuthName(currentUser, currentEmail),
-          avatar: getAuthAvatar(currentUser),
+          id: currentUser.id,
+          username: currentUser.email || currentUser.name || 'User',
+          avatar: currentUser.image || currentUser.avatar_url || null,
           banner: null,
           is_admin: false
         };
 
-    // Do not block login on the persistent DB session table. Mobile can fail here
-    // because Neon serverless requests are Origin-restricted, but localStorage is
-    // enough for the app to become signed in immediately.
-    await tryCreateUserSession(sessionUser.id);
+    await createUserSession(sessionUser.id);
     persistLocalSessionUser(sessionUser);
     setUser(sessionUser);
     return sessionUser;
@@ -232,9 +216,9 @@ export function UserProvider({ children }) {
           const res = await authClient.signIn.emailOtp({ email, otp: verificationCode });
           const loggedInUser = getAuthUserFromResponse(res);
           if (loggedInUser || (!res?.error && res?.data)) {
-            const sessionUser = await syncAuthSessionUser(loggedInUser, email);
+            const sessionUser = await syncAuthSessionUser();
             if (!sessionUser) {
-              return { success: false, message: 'Verification succeeded, but AnimeVault could not read your account email. Please refresh and try again.' };
+              return { success: false, message: 'Verification succeeded, but AnimeVault could not create a local session. Please refresh and try again.' };
             }
             setShowAuthModal(false);
             return { success: true };
@@ -250,9 +234,9 @@ export function UserProvider({ children }) {
         const res = await authClient.signIn.email({ email, password });
         const loggedInUser = getAuthUserFromResponse(res);
         if (loggedInUser || (!res?.error && res?.data)) {
-          const sessionUser = await syncAuthSessionUser(loggedInUser, email);
+          const sessionUser = await syncAuthSessionUser();
           if (!sessionUser) {
-            return { success: false, message: 'Sign-in succeeded, but AnimeVault could not read your account email. Please refresh and try again.' };
+            return { success: false, message: 'Sign-in succeeded, but AnimeVault could not create a local session. Please refresh and try again.' };
           }
           setShowAuthModal(false);
           return { success: true };
@@ -289,9 +273,9 @@ export function UserProvider({ children }) {
       }
       const signedUpUser = getAuthUserFromResponse(res);
       if (signedUpUser || (!res?.error && res?.data)) {
-        const sessionUser = await syncAuthSessionUser(signedUpUser, email);
+        const sessionUser = await syncAuthSessionUser();
         if (!sessionUser) {
-          return { success: false, message: 'Account created, but AnimeVault could not read your account email. Please sign in again.' };
+          return { success: false, message: 'Account created, but AnimeVault could not create a local session. Please sign in again.' };
         }
         setShowAuthModal(false);
         return { success: true };
@@ -329,8 +313,9 @@ export function UserProvider({ children }) {
     const callbackURL = getAuthCallbackURL();
     try {
       // Trigger Google OAuth flow via Neon Auth.
-      // Use the current mobile/web origin root so the callback matches the
-      // configured Neon/Google allowed domain and the app can restore session.
+      // Keep the callback on the site root so it matches the Neon allowed domain
+      // entry and the app can restore the session on load.
+      const callbackURL = getAuthCallbackURL();
       await authClient.signIn.social({
         provider: 'google',
         callbackURL,
