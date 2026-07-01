@@ -1,9 +1,7 @@
 const PROXY_TOKEN_KEY = 'animevault_proxy_session_token';
 
-const DEFAULT_RENDER_AUTH_PROXY_URL = 'https://animevaultofficial-github-io.onrender.com';
-
 function getProxyBaseUrl() {
-  const raw = import.meta.env.VITE_AUTH_PROXY_URL || import.meta.env.VITE_RENDER_AUTH_PROXY_URL || DEFAULT_RENDER_AUTH_PROXY_URL;
+  const raw = import.meta.env.VITE_AUTH_PROXY_URL || import.meta.env.VITE_RENDER_AUTH_PROXY_URL || '';
   return raw.replace(/\/+$/, '');
 }
 
