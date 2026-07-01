@@ -40,15 +40,26 @@ const UserContext = createContext(null);
 const LOCAL_SESSION_USER_KEY = 'animevault_session_user';
 
 function getAuthCallbackURL() {
-  const fallback = 'https://animevaultofficial.github.io/';
+  const webFallback = 'https://animevaultofficial.github.io/';
+  const mobileFallback = 'https://localhost/';
   try {
     const { origin } = window.location;
     const isNativeShell = origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('file://');
     if (isNativeShell) return fallback;
     return `${origin}/`;
   } catch {
-    return fallback;
+    return webFallback;
   }
+}
+
+function getAuthAllowedDomainHint(callbackURL) {
+  try {
+    const url = new URL(callbackURL);
+    if (url.hostname === 'localhost') {
+      return 'Mobile sign-in needs https://localhost/ in Neon Auth Allowed Domains and Google OAuth authorized redirect URLs.';
+    }
+  } catch {}
+  return `Make sure ${callbackURL} is added to Neon Auth Allowed Domains and Google OAuth authorized redirect URLs.`;
 }
 
 function readLocalSessionUser() {
@@ -274,6 +285,7 @@ export function UserProvider({ children }) {
   };
 
   const loginWithGoogle = async () => {
+    const callbackURL = getAuthCallbackURL();
     try {
       // Trigger Google OAuth flow via Neon Auth.
       // Keep the callback on the site root so it matches the Neon allowed domain
@@ -281,13 +293,17 @@ export function UserProvider({ children }) {
       const callbackURL = getAuthCallbackURL();
       await authClient.signIn.social({
         provider: 'google',
-        // Use an absolute, allow-listed URL. Relative callbacks fail in Electron
-        // and Android WebView because OAuth providers reject file/capacitor origins.
         callbackURL,
         redirectTo: callbackURL,
       });
+      return { success: true };
     } catch (e) {
       console.error('Google login failed:', e);
+      const detail = e?.message ? ` (${e.message})` : '';
+      return {
+        success: false,
+        message: `${getAuthAllowedDomainHint(callbackURL)}${detail}`
+      };
     }
   };
 
