@@ -35,6 +35,14 @@ import {
   getWatchHistory as dbGetWatchHistory, addWatchHistory as dbAddWatchHistory,
   getLevel, addXP, addActivity
 } from './database';
+import {
+  proxyLogin,
+  proxySignup,
+  proxySyncAuthUser,
+  proxyRestoreSession,
+  proxyLogout,
+  clearStoredProxyToken
+} from './authProxy';
 
 const UserContext = createContext(null);
 const LOCAL_SESSION_USER_KEY = 'animevault_session_user';
@@ -132,7 +140,17 @@ export function UserProvider({ children }) {
         return;
       }
 
-      // 2. Fall back to Neon Auth session (only works if not refreshed)
+      // 2. Try the optional Render auth proxy. This avoids mobile WebView
+      // Origin issues because Render talks to Neon server-side.
+      const proxySession = await proxyRestoreSession();
+      if (proxySession.success && proxySession.user) {
+        const proxyUser = normalizeProxyUser(proxySession.user);
+        persistLocalSessionUser(proxyUser);
+        setUser(proxyUser);
+        return;
+      }
+
+      // 3. Fall back to Neon Auth session (only works if not refreshed)
       const { data } = await authClient.getSession();
 
       if (data?.session && data?.user) {
@@ -229,6 +247,20 @@ export function UserProvider({ children }) {
         }
       }
 
+      // Prefer the optional Render auth proxy on mobile/static hosting. It can
+      // connect to Neon server-side from an allowed Render domain.
+      const proxyRes = await proxyLogin(email, password);
+      if (proxyRes.success && proxyRes.user) {
+        const proxyUser = normalizeProxyUser(proxyRes.user);
+        persistLocalSessionUser(proxyUser);
+        setUser(proxyUser);
+        setShowAuthModal(false);
+        return { success: true };
+      }
+      if (proxyRes.configured) {
+        warn('[AnimeVault Auth] Render proxy login failed, falling back to Neon Auth:', proxyRes.message);
+      }
+
       // Try Neon Auth email/password login
       try {
         const res = await authClient.signIn.email({ email, password });
@@ -265,6 +297,18 @@ export function UserProvider({ children }) {
   const signup = async (email, password) => {
     try {
       const name = email.split('@')[0];
+      const proxyRes = await proxySignup(email, password);
+      if (proxyRes.success && proxyRes.user) {
+        const proxyUser = normalizeProxyUser(proxyRes.user);
+        persistLocalSessionUser(proxyUser);
+        setUser(proxyUser);
+        setShowAuthModal(false);
+        return { success: true };
+      }
+      if (proxyRes.configured) {
+        warn('[AnimeVault Auth] Render proxy signup failed, falling back to Neon Auth:', proxyRes.message);
+      }
+
       let res = null;
       try {
         res = await authClient.signUp.email({ email, password, name });
@@ -333,8 +377,10 @@ export function UserProvider({ children }) {
   };
 
   const logout = async () => {
-    // Delete DB session first
+    // Delete DB/proxy sessions first
     await deleteUserSession();
+    await proxyLogout();
+    clearStoredProxyToken();
     clearLocalSessionUser();
     // Then sign out of Neon Auth
     try { await authClient.signOut(); } catch (e) { /* ignore */ }
