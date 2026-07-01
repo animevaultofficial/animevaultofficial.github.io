@@ -43,16 +43,9 @@ function getAuthCallbackURL() {
   const webFallback = 'https://animevaultofficial.github.io/';
   const mobileFallback = 'https://localhost/';
   try {
-    const { origin, protocol, hostname } = window.location;
-    const isCapacitorRuntime = Boolean(window.Capacitor?.isNativePlatform?.() || window.Capacitor);
-    const isNativeShell = origin === 'null' || protocol === 'capacitor:' || protocol === 'file:';
-
-    if (isNativeShell) return isCapacitorRuntime ? mobileFallback : webFallback;
-
-    // Android/iOS Capacitor serves bundled assets from https://localhost by default.
-    // That exact origin must be present in Neon Auth's Allowed Domains for mobile OAuth.
-    if (isCapacitorRuntime || hostname === 'localhost') return `${origin}/`;
-
+    const { origin } = window.location;
+    const isNativeShell = origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('file://');
+    if (isNativeShell) return fallback;
     return `${origin}/`;
   } catch {
     return webFallback;
@@ -295,8 +288,9 @@ export function UserProvider({ children }) {
     const callbackURL = getAuthCallbackURL();
     try {
       // Trigger Google OAuth flow via Neon Auth.
-      // Use the current mobile/web origin root so the callback matches the
-      // configured Neon/Google allowed domain and the app can restore session.
+      // Keep the callback on the site root so it matches the Neon allowed domain
+      // entry and the app can restore the session on load.
+      const callbackURL = getAuthCallbackURL();
       await authClient.signIn.social({
         provider: 'google',
         callbackURL,
