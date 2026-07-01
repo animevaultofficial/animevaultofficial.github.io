@@ -34,8 +34,9 @@ const CONSUMET_MIRRORS = [
 const CORS_PROXIES = [
   'https://api.allorigins.win/raw?url=',
   'https://api.codetabs.com/v1/proxy?quest=',
-  'https://thingproxy.freeboard.io/fetch/',
 ];
+
+const USE_CORS_PROXY_FIRST = typeof window !== 'undefined' && typeof document !== 'undefined';
 
 async function fetchThroughCorsProxy(targetUrl) {
   for (const proxy of CORS_PROXIES) {
@@ -118,6 +119,15 @@ async function fetchFromMirrors(path) {
 
   for (const mirror of mirrors) {
     const targetUrl = `${mirror}${path}`;
+
+    if (USE_CORS_PROXY_FIRST) {
+      const data = await fetchThroughCorsProxy(targetUrl);
+      if (data) {
+        markMirrorHealth(mirror, true);
+        return data;
+      }
+    }
+
     try {
       const directRes = await fetchWithTimeout(targetUrl, TIMEOUT_MS);
       if (directRes.ok) {
@@ -128,10 +138,12 @@ async function fetchFromMirrors(path) {
         }
       }
 
-      const data = await fetchThroughCorsProxy(targetUrl);
-      if (data) {
-        markMirrorHealth(mirror, true);
-        return data;
+      if (!USE_CORS_PROXY_FIRST) {
+        const data = await fetchThroughCorsProxy(targetUrl);
+        if (data) {
+          markMirrorHealth(mirror, true);
+          return data;
+        }
       }
 
       if (directRes.status === 404 || directRes.status === 451 || directRes.status >= 500) {
@@ -249,7 +261,13 @@ export async function fetchStreamingSources(episodeId, provider = 'gogoanime') {
  */
 export async function probeMirrors() {
   const probes = CONSUMET_MIRRORS.map(async mirror => {
-    const targetUrl = `${mirror}/anime/gogoanime/search/test`;
+    const targetUrl = `${mirror}/anime/gogoanime/search/naruto`;
+    if (USE_CORS_PROXY_FIRST) {
+      const data = await fetchThroughCorsProxy(targetUrl);
+      markMirrorHealth(mirror, !!data);
+      return;
+    }
+
     try {
       const res = await fetchWithTimeout(targetUrl, 4000);
       markMirrorHealth(mirror, res.ok || res.status === 404); // 404 = alive but no results

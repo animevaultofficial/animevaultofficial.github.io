@@ -10,7 +10,6 @@
 const CORS_PROXIES = [
   'https://api.allorigins.win/raw?url=',
   'https://api.codetabs.com/v1/proxy?quest=',
-  'https://thingproxy.freeboard.io/fetch/',
 ];
 
 // Known ad patterns to strip from URLs
