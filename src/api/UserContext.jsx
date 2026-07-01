@@ -70,6 +70,15 @@ function getAuthAllowedDomainHint(callbackURL) {
   return `Make sure ${callbackURL} is added to Neon Auth Allowed Domains and Google OAuth authorized redirect URLs.`;
 }
 
+function isNativeMobileShell() {
+  if (typeof window === 'undefined') return false;
+  const origin = window.location.origin;
+  const ua = window.navigator.userAgent || '';
+  const isCapacitorShell = !origin || origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('file://');
+  const isLocalhostMobile = origin.includes('localhost') && /android|iphone|ipad|capacitor/i.test(ua);
+  return isCapacitorShell || isLocalhostMobile;
+}
+
 function readLocalSessionUser() {
   try {
     const raw = localStorage.getItem(LOCAL_SESSION_USER_KEY);
@@ -127,6 +136,49 @@ export function UserProvider({ children }) {
   const [reminders, setReminders] = useState([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState('login');
+
+  const loginWithDbCredentials = async (email, password) => {
+    const dbRes = await dbUserLogin(email, password);
+    if (!dbRes.success) {
+      return { success: false, message: dbRes.message || 'Login failed. Please check your credentials.' };
+    }
+    await tryCreateUserSession(dbRes.user.id);
+    persistLocalSessionUser(dbRes.user);
+    setUser(dbRes.user);
+    setShowAuthModal(false);
+    return { success: true };
+  };
+
+  const signupWithDbCredentials = async (email, password) => {
+    const dbRes = await dbUserSignup(email, password);
+    if (!dbRes.success) {
+      return { success: false, message: dbRes.message || 'Signup failed. Please try again.' };
+    }
+    await tryCreateUserSession(dbRes.user.id);
+    persistLocalSessionUser(dbRes.user);
+    setUser(dbRes.user);
+    setShowAuthModal(false);
+    return { success: true };
+  };
+
+  const loginWithGoogleDb = async () => {
+    const email = window.prompt('Enter your Google email to sign in on mobile:');
+    if (!email || !email.trim()) {
+      return { success: false, message: 'Google sign-in cancelled.' };
+    }
+
+    const syncRes = await syncGoogleUserToDb(email.trim(), null, true);
+    if (!syncRes.success) {
+      return { success: false, message: syncRes.message || 'Google DB login failed.' };
+    }
+
+    const dbUser = syncRes.user;
+    await tryCreateUserSession(dbUser.id);
+    persistLocalSessionUser(dbUser);
+    setUser(dbUser);
+    setShowAuthModal(false);
+    return { success: true };
+  };
 
   // Try to restore session from DB on mount (survives refresh)
   const initSession = async () => {
@@ -228,6 +280,9 @@ export function UserProvider({ children }) {
 
   const login = async (email, password, verificationCode) => {
     try {
+      if (isNativeMobileShell()) {
+        return await loginWithDbCredentials(email, password);
+      }
       // If we have a verification code, try Neon Auth OTP first
       if (verificationCode) {
         try {
@@ -296,6 +351,9 @@ export function UserProvider({ children }) {
 
   const signup = async (email, password) => {
     try {
+      if (isNativeMobileShell()) {
+        return await signupWithDbCredentials(email, password);
+      }
       const name = email.split('@')[0];
       const proxyRes = await proxySignup(email, password);
       if (proxyRes.success && proxyRes.user) {
@@ -354,6 +412,9 @@ export function UserProvider({ children }) {
   };
 
   const loginWithGoogle = async () => {
+    if (isNativeMobileShell()) {
+      return await loginWithGoogleDb();
+    }
     const callbackURL = getAuthCallbackURL();
     try {
       // Trigger Google OAuth flow via Neon Auth.
