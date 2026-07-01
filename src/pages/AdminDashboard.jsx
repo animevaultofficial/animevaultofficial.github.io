@@ -335,7 +335,7 @@ export default function AdminDashboard() {
       <div style={{ display: 'flex', gap: '4px', marginBottom: '1.5rem', overflowX: 'auto', flexWrap: 'wrap' }}>
         {TABS.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-            padding: '10px 18px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+            padding: '10px 18px', borderRadius: '10px', cursor: 'pointer',
             background: activeTab === tab.id ? 'rgba(255,26,117,0.2)' : 'rgba(255,255,255,0.03)',
             color: activeTab === tab.id ? '#ff1a75' : '#94a3b8', fontWeight: '700', fontSize: '0.85rem',
             display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s',

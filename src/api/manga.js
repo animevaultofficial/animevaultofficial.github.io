@@ -1,4 +1,9 @@
-const MANGADEX_API = 'https://corsproxy.io/?https://api.mangadex.org';
+const MANGADEX_PROXY = 'https://api.allorigins.win/raw?url=';
+const MANGADEX_BASE = 'https://api.mangadex.org';
+
+function buildMangaDexUrl(path) {
+  return `${MANGADEX_PROXY}${encodeURIComponent(`${MANGADEX_BASE}${path}`)}`;
+}
 
 function cleanString(str) {
   return str ? str.toLowerCase().replace(/[^a-z0-9]/g, '').trim() : '';
@@ -14,7 +19,7 @@ export async function searchMangaDex(titles) {
   for (const t of titleList) {
     if (!t) continue;
     try {
-      const res = await fetch(`${MANGADEX_API}/manga?title=${encodeURIComponent(t)}&limit=10&includes[]=cover_art`);
+      const res = await fetch(buildMangaDexUrl(`/manga?title=${encodeURIComponent(t)}&limit=10&includes[]=cover_art`));
       const data = await res.json();
       if (data.data && data.data.length > 0) {
         const cleanedQuery = cleanString(t);
@@ -58,7 +63,7 @@ export async function searchMangaDex(titles) {
 export async function fetchMangaChapters(mangaId, offset = 0, limit = 100) {
   try {
     const res = await fetch(
-      `${MANGADEX_API}/manga/${mangaId}/feed?translatedLanguage[]=en&limit=${limit}&offset=${offset}&order[chapter]=asc&includes[]=scanlation_group`
+      buildMangaDexUrl(`/manga/${mangaId}/feed?translatedLanguage[]=en&limit=${limit}&offset=${offset}&order[chapter]=asc&includes[]=scanlation_group`)
     );
     const data = await res.json();
     if (data.data) {
@@ -86,7 +91,7 @@ export async function fetchMangaChapters(mangaId, offset = 0, limit = 100) {
  */
 export async function fetchChapterPages(chapterId) {
   try {
-    const res = await fetch(`${MANGADEX_API}/at-home/server/${chapterId}`);
+    const res = await fetch(buildMangaDexUrl(`/at-home/server/${chapterId}`));
     const data = await res.json();
     
     if (data.baseUrl) {

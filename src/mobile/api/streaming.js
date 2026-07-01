@@ -6,6 +6,7 @@ const HEALTH_CACHE_KEY = 'animevault_api_health';
 const HEALTH_CACHE_TTL = 1000 * 60 * 30;
 
 const CONSUMET_MIRRORS = [
+  'https://api.consumet.org',
   'https://c.delusionz.xyz',
   'https://consumet-api-nu-one.vercel.app',
   'https://consumet-api-clone.vercel.app',
@@ -15,6 +16,32 @@ const CONSUMET_MIRRORS = [
   'https://anime-api-phi.vercel.app',
   'https://consumet-instance.onrender.com',
 ];
+
+const CORS_PROXIES = [
+  'https://api.allorigins.win/raw?url=',
+  'https://api.codetabs.com/v1/proxy?quest=',
+  'https://thingproxy.freeboard.io/fetch/',
+];
+
+async function fetchThroughCorsProxy(targetUrl) {
+  for (const proxy of CORS_PROXIES) {
+    const proxyUrl = `${proxy}${encodeURIComponent(targetUrl)}`;
+    try {
+      const res = await fetchWithTimeout(proxyUrl, TIMEOUT_MS);
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (!text) continue;
+      try {
+        return JSON.parse(text);
+      } catch {
+        continue;
+      }
+    } catch (_) {
+      continue;
+    }
+  }
+  return null;
+}
 
 function loadHealthCache() {
   try {
@@ -70,20 +97,18 @@ async function fetchFromMirrors(path) {
       if (directRes.ok) {
         const data = await directRes.json();
         if (data) { markMirrorHealth(mirror, true); return data; }
-      } else if (directRes.status === 404 || directRes.status === 451 || directRes.status >= 500) {
+      }
+
+      const data = await fetchThroughCorsProxy(targetUrl);
+      if (data) { markMirrorHealth(mirror, true); return data; }
+
+      if (directRes.status === 404 || directRes.status === 451 || directRes.status >= 500) {
         markMirrorHealth(mirror, false);
       }
     } catch (_) {
-      const corsUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-      try {
-        const res = await fetchWithTimeout(corsUrl, TIMEOUT_MS);
-        if (!res.ok) {
-          if (res.status === 404 || res.status === 451 || res.status >= 500) markMirrorHealth(mirror, false);
-          continue;
-        }
-        const data = await res.json();
-        if (data) { markMirrorHealth(mirror, true); return data; }
-      } catch (_) { markMirrorHealth(mirror, false); }
+      const data = await fetchThroughCorsProxy(targetUrl);
+      if (data) { markMirrorHealth(mirror, true); return data; }
+      markMirrorHealth(mirror, false);
     }
   }
   return null;
@@ -148,11 +173,8 @@ export async function probeMirrors() {
       const res = await fetchWithTimeout(targetUrl, 4000);
       markMirrorHealth(mirror, res.ok || res.status === 404);
     } catch {
-      try {
-        const corsUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-        const res = await fetchWithTimeout(corsUrl, 4000);
-        markMirrorHealth(mirror, res.ok || res.status === 404);
-      } catch { markMirrorHealth(mirror, false); }
+      const data = await fetchThroughCorsProxy(targetUrl);
+      markMirrorHealth(mirror, !!data);
     }
   });
   await Promise.allSettled(probes);

@@ -14,9 +14,9 @@
  */
 
 const CORS_PROXIES = [
-  'https://corsproxy.io/?url=',
   'https://api.allorigins.win/raw?url=',
   'https://api.codetabs.com/v1/proxy?quest=',
+  'https://thingproxy.freeboard.io/fetch/',
 ];
 
 // Streambert's complete blocked hosts list (ported from Electron session)

@@ -20,6 +20,7 @@
     "deploy": "gh-pages -d dist",
     "bump-version": "npm version patch -m \"chore: bump version to %s\"",
     "android:build": "npm run android:sync && cd android && chmod +x gradlew && ./gradlew assembleRelease",
+    "android:build:bundle": "npm run android:sync && cd android && chmod +x gradlew && ./gradlew bundleRelease",
     "android:build:win": "npm run android:sync && cd android && set \"JAVA_HOME=D:\\jdk-21\\jdk-21.0.11\" && set \"PATH=%JAVA_HOME%\\bin;%PATH%\" && gradlew assembleRelease",
     "electron:release": "npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --publish always",
     "electron:build:win": "npm run prebuild && npm run clean && npm run generate-icons && cross-env ELECTRON=1 && vite build && electron-builder --win --publish never",

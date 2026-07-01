@@ -14,6 +14,7 @@ export default defineConfig({
   },
   build: {
     outDir: path.resolve(__dirname, 'dist-mobile'), // separate output for mobile build
+    emptyOutDir: true,
     rollupOptions: {
       // Exclude node built‑ins that cause issues in the mobile webview
       external: [],
