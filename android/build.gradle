@@ -2,7 +2,7 @@
 
 apply from: "variables.gradle"
 
-def kotlinVersionFallback = project.hasProperty('kotlinVersion') ? project.property('kotlinVersion') : '1.9.0'
+def kotlinVersionFallback = project.hasProperty('kotlinVersion') ? project.property('kotlinVersion') : project.ext.kotlinVersion ?: '1.9.0'
 
 buildscript {
     
@@ -13,7 +13,7 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.2.1'
         classpath 'com.google.gms:google-services:4.4.0'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersionFallback}"
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:' + kotlinVersionFallback
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
