@@ -1,1 +1,0 @@
-const r="av_mobile_user";function e(t){try{localStorage.setItem(r,JSON.stringify(t))}catch{}}function n(t,o){const s={id:Date.now(),username:t,avatar:"/logo.png",isLoggedIn:!0};return e(s),{success:!0,user:s}}function u(t,o){const s={id:Date.now(),username:t,avatar:"/logo.png",isLoggedIn:!0};return e(s),{success:!0,user:s}}export{n as login,u as signup,e as storeUser};

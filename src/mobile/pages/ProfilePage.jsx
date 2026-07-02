@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, Clock, User, LogOut, Calendar, Camera, Edit2, Image, Sparkles, Award, Settings as SettingsIcon, UploadCloud, Loader, BadgeCheck, Tv, Save, Check, Trash2, BarChart3, Bell } from 'lucide-react';
 import { useUser } from '../../api/UserContext';
-import { getUserStats as dbGetUserStats, fetchReminders } from '../../api/db';
+import { getUserStats as dbGetUserStats, fetchReminders, checkUser2FA } from '../../api/db';
 import { getContinueWatching, getFavorites } from '../api/storage';
 import StoryAvatar from '../../components/StoryAvatar';
 import StoryUploadModal from '../../components/StoryUploadModal';
@@ -55,7 +55,6 @@ function AuthScreen() {
       if (tab === 'login') {
         // Check if 2FA is needed (like web version)
         try {
-          const { checkUser2FA } = await import('../../api/db');
           const needs2FA = await checkUser2FA(email.trim());
           if (needs2FA) {
             const res = await sendVerificationCode(email.trim());
@@ -68,7 +67,9 @@ function AuthScreen() {
             setBusy(false);
             return;
           }
-        } catch {}
+        } catch (error) {
+          console.warn('ProfilePage: checkUser2FA failed', error);
+        }
         // No 2FA, login directly
         const result = await login(email, password, null);
         if (result.success) {

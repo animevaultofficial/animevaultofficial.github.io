@@ -18,9 +18,13 @@ const CONSUMET_MIRRORS = [
 ];
 
 const CORS_PROXIES = [
+  import.meta.env.VITE_API_CORS_PROXY || 'https://corsproxy.io/?',
   'https://api.allorigins.win/raw?url=',
   'https://api.codetabs.com/v1/proxy?quest=',
+  'https://thingproxy.freeboard.io/fetch/',
 ];
+
+const USE_CORS_PROXY_FIRST = typeof window !== 'undefined' && typeof document !== 'undefined';
 
 async function fetchThroughCorsProxy(targetUrl) {
   for (const proxy of CORS_PROXIES) {
@@ -91,6 +95,15 @@ async function fetchFromMirrors(path) {
   const mirrors = getHealthyMirrors();
   for (const mirror of mirrors) {
     const targetUrl = `${mirror}${path}`;
+
+    if (USE_CORS_PROXY_FIRST) {
+      const data = await fetchThroughCorsProxy(targetUrl);
+      if (data) {
+        markMirrorHealth(mirror, true);
+        return data;
+      }
+    }
+
     try {
       const directRes = await fetchWithTimeout(targetUrl, TIMEOUT_MS);
       if (directRes.ok) {
@@ -98,8 +111,10 @@ async function fetchFromMirrors(path) {
         if (data) { markMirrorHealth(mirror, true); return data; }
       }
 
-      const data = await fetchThroughCorsProxy(targetUrl);
-      if (data) { markMirrorHealth(mirror, true); return data; }
+      if (!USE_CORS_PROXY_FIRST) {
+        const data = await fetchThroughCorsProxy(targetUrl);
+        if (data) { markMirrorHealth(mirror, true); return data; }
+      }
 
       if (directRes.status === 404 || directRes.status === 451 || directRes.status >= 500) {
         markMirrorHealth(mirror, false);
