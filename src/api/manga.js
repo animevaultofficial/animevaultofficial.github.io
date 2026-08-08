@@ -5,9 +5,17 @@ const MANGA_API_BASE = (typeof import.meta !== 'undefined' && import.meta.env &&
   ? import.meta.env.VITE_MANGA_API_URL 
   : '/api/manga';
 
-// MangaDex API supports CORS natively — no proxy needed
+const MANGADEX_CORS_PROXY = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_MANGADEX_CORS_PROXY)
+  ? import.meta.env.VITE_MANGADEX_CORS_PROXY
+  : 'https://api.allorigins.win/raw?url=';
+
 function buildMangaDexUrl(path) {
   return `${MANGADEX_BASE}${path}`;
+}
+
+function buildMangaDexProxyUrl(path) {
+  const url = buildMangaDexUrl(path);
+  return `${MANGADEX_CORS_PROXY}${encodeURIComponent(url)}`;
 }
 
 function cleanString(str) {
@@ -33,12 +41,26 @@ async function fetchMangaApi(endpoint) {
 
 async function fetchMangaDexApi(endpoint) {
   try {
-    const url = `${MANGADEX_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-    const res = await fetch(url);
+    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${MANGADEX_BASE}${path}`;
+
+    let res = await fetch(url);
+    if (!res.ok) {
+      // If direct MangaDex call fails due to CORS or other errors, retry through a public proxy.
+      const proxyUrl = buildMangaDexProxyUrl(path);
+      res = await fetch(proxyUrl);
+    }
+
     if (!res.ok) {
       throw new Error(`MangaDex API error ${res.status}`);
     }
-    return await res.json();
+
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { data: [] };
+    }
   } catch (err) {
     console.warn(`MangaDex API endpoint (${endpoint}) unavailable:`, err.message);
     return null;
