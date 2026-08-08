@@ -13,7 +13,7 @@ const GENRES = [
   'Psychological', 'Historical', 'Music', 'Military'
 ];
 
-const TYPES = ['ANIME', 'MANGA', 'MOVIES/SERIES'];
+const TYPES = ['ALL', 'ANIME', 'MANGA', 'MOVIES/SERIES'];
 const SORT_OPTIONS = [
   { value: 'TRENDING', label: 'Trending' },
   { value: 'POPULARITY', label: 'Popularity' },
@@ -41,7 +41,7 @@ function Search() {
   const [error, setError] = useState('');
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [selectedGenre, setSelectedGenre] = useState(searchParams.get('genre') || '');
-  const [selectedType, setSelectedType] = useState(searchParams.get('type') || 'ANIME');
+  const [selectedType, setSelectedType] = useState(searchParams.get('type') || 'ALL');
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'TRENDING');
   const [status, setStatus] = useState(searchParams.get('status') || 'All');
   const [year, setYear] = useState(searchParams.get('year') || 'All');
@@ -87,7 +87,7 @@ function Search() {
 
     setQuery(q || '');
     setSelectedGenre(genre || '');
-    setSelectedType(type);
+    setSelectedType(type || 'ALL');
     setSortBy(sort);
     setStatus(st);
     setYear(yr);
@@ -104,14 +104,28 @@ function Search() {
       setLoading(true);
       setError('');
       let data;
-      if (typeToLoad === 'MOVIES/SERIES') {
+      if (typeToLoad === 'ALL') {
+        const [anime, manga, movies, tv] = await Promise.all([
+          fetchTrendingMedia('ANIME').catch(() => []),
+          fetchTrendingMedia('MANGA').catch(() => []),
+          fetchLatestMovies(1).catch(() => []),
+          fetchLatestTVShows(1).catch(() => []),
+        ]);
+        data = [
+          ...(anime || []).slice(0, 12).map(i => ({ ...i, _resultType: 'ANIME' })),
+          ...(manga || []).slice(0, 8).map(i => ({ ...i, _resultType: 'MANGA' })),
+          ...(movies || []).slice(0, 6).map(i => ({ ...i, _resultType: 'MOVIE' })),
+          ...(tv || []).slice(0, 6).map(i => ({ ...i, _resultType: 'SERIES' })),
+        ];
+      } else if (typeToLoad === 'MOVIES/SERIES') {
         const [movies, tv] = await Promise.all([
           fetchLatestMovies(1),
           fetchLatestTVShows(1),
         ]);
-        data = [...(movies || []), ...(tv || [])];
+        data = [...(movies || []).map(i => ({ ...i, _resultType: 'MOVIE' })), ...(tv || []).map(i => ({ ...i, _resultType: 'SERIES' }))];
       } else {
         data = await fetchTrendingMedia(typeToLoad);
+        data = (data || []).map(i => ({ ...i, _resultType: typeToLoad }));
       }
       setResults(data || []);
     } catch (err) {
@@ -137,7 +151,29 @@ function Search() {
       }
 
       let data;
-      if (typeFilter === 'MOVIES/SERIES') {
+      if (typeFilter === 'ALL') {
+        // Fetch from ALL categories in parallel
+        const [anime, manga, moviesData] = await Promise.all([
+          searchAnime(
+            trimmedSearch || null, 'ANIME', genreFilter || null, 1, 20,
+            sortFilter, statusFilter === 'All' ? null : statusFilter,
+            yearFilter === 'All' ? null : parseInt(yearFilter)
+          ).catch(() => []),
+          searchAnime(
+            trimmedSearch || null, 'MANGA', genreFilter || null, 1, 15,
+            sortFilter, statusFilter === 'All' ? null : statusFilter,
+            yearFilter === 'All' ? null : parseInt(yearFilter)
+          ).catch(() => []),
+          trimmedSearch
+            ? searchMoviesAndSeries(trimmedSearch).catch(() => [])
+            : Promise.all([fetchLatestMovies(1).catch(() => []), fetchLatestTVShows(1).catch(() => [])]).then(([m, t]) => [...(m || []), ...(t || [])])
+        ]);
+        data = [
+          ...(anime || []).map(i => ({ ...i, _resultType: 'ANIME' })),
+          ...(manga || []).map(i => ({ ...i, _resultType: 'MANGA' })),
+          ...(moviesData || []).map(i => ({ ...i, _resultType: i.mediaType === 'series' ? 'SERIES' : 'MOVIE' })),
+        ];
+      } else if (typeFilter === 'MOVIES/SERIES') {
         if (trimmedSearch) {
           data = await searchMoviesAndSeries(trimmedSearch);
         } else {
@@ -147,6 +183,7 @@ function Search() {
           ]);
           data = [...(movies || []), ...(tv || [])];
         }
+        data = (data || []).map(i => ({ ...i, _resultType: i.mediaType === 'series' ? 'SERIES' : 'MOVIE' }));
       } else {
         data = await searchAnime(
           trimmedSearch || null,
@@ -158,6 +195,7 @@ function Search() {
           statusFilter === 'All' ? null : statusFilter,
           yearFilter === 'All' ? null : parseInt(yearFilter)
         );
+        data = (data || []).map(i => ({ ...i, _resultType: typeFilter }));
       }
       setResults(data || []);
     } catch (err) {
@@ -281,11 +319,11 @@ function Search() {
               onClick={() => {
                 setQuery('');
                 setSelectedGenre('');
-                setSelectedType('ANIME');
+                setSelectedType('ALL');
                 setSortBy('TRENDING');
                 setStatus('All');
                 setYear('All');
-                setSearchParams({ type: 'ANIME', sort: 'TRENDING' });
+                setSearchParams({ type: 'ALL', sort: 'TRENDING' });
               }}
             >
               Reset
@@ -409,8 +447,8 @@ function Search() {
           {/* Hero Search */}
           <section className="premium-hero">
             <div className="hero-content">
-              <h1>{selectedType === 'MOVIES/SERIES' ? 'Discover Movies & Series' : 'Discover Your Next Favorite Anime'}</h1>
-              <p>{selectedType === 'MOVIES/SERIES' ? 'Explore movies and TV series from TMDB, updated daily' : 'Explore over 100,000+ anime and manga titles, updated daily'}</p>
+              <h1>{'Discover Anime, Manga & Movies'}</h1>
+              <p>{'Explore over 100,000+ anime, manga, movies & series — all in one place'}</p>
               <form className="hero-search-form" onSubmit={handleSearchSubmit}>
                 <SearchIcon className="hero-search-icon" size={24} />
                 <input
@@ -569,35 +607,60 @@ function Search() {
               )}
               {!loading && !error && results.length > 0 && (
                 <div className="premium-results-grid">
-                  {results.map((media) => (
-                    selectedType === 'MOVIES/SERIES' ? (
-                      <Link
-                        key={`movie-${media.tmdbId || media.id}`}
-                        to={`/watch/${media.mediaType === 'series' ? 'series' : 'movie'}/${media.tmdbId}`}
-                        className="premium-anime-card"
-                      >
-                        <div className="premium-card-thumbnail">
-                          <img src={getImage(media)} alt={getTitle(media)} className="premium-card-image" />
-                          <div className="premium-card-score">HD</div>
-                        </div>
-                        <div className="premium-card-details">
-                          <h3 className="premium-card-title">{getTitle(media)}</h3>
-                          <div className="premium-card-genres">
-                            <span className="premium-genre-tag">{media.mediaType === 'series' ? 'Series' : 'Movie'}</span>
-                            {media.year && <span className="premium-genre-tag">{media.year}</span>}
+                  {results.map((media) => {
+                    const rType = media._resultType || selectedType;
+                    const isMovieSeries = rType === 'MOVIE' || rType === 'SERIES';
+                    const isManga = rType === 'MANGA';
+                    const linkTo = isMovieSeries
+                      ? `/watch/${rType === 'SERIES' ? 'series' : 'movie'}/${media.tmdbId || media.id}`
+                      : isManga
+                      ? `/manga/${media.id}`
+                      : `/anime/${media.id}`;
+                    const typeBadge = selectedType === 'ALL' ? rType : null;
+
+                    if (isMovieSeries) {
+                      return (
+                        <Link
+                          key={`${rType}-${media.tmdbId || media.id}`}
+                          to={linkTo}
+                          className="premium-anime-card"
+                        >
+                          <div className="premium-card-thumbnail">
+                            <img src={getImage(media)} alt={getTitle(media)} className="premium-card-image" />
+                            {typeBadge && <div className="premium-card-type-badge">{typeBadge}</div>}
+                            <div className="premium-card-score">HD</div>
                           </div>
-                        </div>
-                      </Link>
-                    ) : (
-                      <PremiumAnimeCard
-                        key={media.id}
-                        anime={media}
-                        isFavorite={favoritesData.animes.some(item => item.id === media.id)}
-                        onToggleFavorite={toggleFavorite}
-                        linkPrefix={selectedType === 'MANGA' ? '/manga/' : '/anime/'}
-                      />
-                    )
-                  ))}
+                          <div className="premium-card-details">
+                            <h3 className="premium-card-title">{getTitle(media)}</h3>
+                            <div className="premium-card-genres">
+                              <span className="premium-genre-tag">{rType === 'SERIES' ? 'Series' : 'Movie'}</span>
+                              {media.year && <span className="premium-genre-tag">{media.year}</span>}
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    }
+
+                    return (
+                      <div key={`${rType}-${media.id}`} style={{ position: 'relative' }}>
+                        {typeBadge && (
+                          <div style={{
+                            position: 'absolute', top: 8, left: 8, zIndex: 5,
+                            background: isManga ? 'linear-gradient(135deg, #e91e63, #9c27b0)' : 'linear-gradient(135deg, #2196f3, #00bcd4)',
+                            color: '#fff', fontSize: '0.65rem', fontWeight: 700,
+                            padding: '2px 8px', borderRadius: '4px', letterSpacing: '0.5px',
+                            textTransform: 'uppercase'
+                          }}>{typeBadge}</div>
+                        )}
+                        <PremiumAnimeCard
+                          anime={media}
+                          isFavorite={favoritesData.animes.some(item => item.id === media.id)}
+                          onToggleFavorite={toggleFavorite}
+                          linkPrefix={isManga ? '/manga/' : '/anime/'}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

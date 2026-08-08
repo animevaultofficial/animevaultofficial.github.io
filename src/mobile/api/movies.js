@@ -65,6 +65,11 @@ export const EMBED_SERVERS = [
     movie: (id) => `https://www.vidking.net/embed/movie/${id}`,
     tv: (id, s, e) => `https://www.vidking.net/embed/tv/${id}/${s}/${e}`,
   },
+  {
+    name: 'Vidnest',
+    movie: (id) => `https://vidnest.fun/movie/${id}`,
+    tv: (id, s, e) => `https://vidnest.fun/tv/${id}/${s}/${e}`,
+  },
 ];
 
 export function getPlayerUrl(mediaType, tmdbId, season, episode, serverIndex = 0, accentColor = null) {

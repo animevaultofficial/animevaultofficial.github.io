@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { X, Heart, Clock, User, LogOut, Trash2, Calendar, Film } from 'lucide-react';
 import { useUser } from '../api/UserContext';
 import { Link } from 'react-router-dom';
+import { getSettings } from '../api/settings';
 
 export default function ProfileModal({ isOpen, onClose }) {
-  const { user, history, likes, logout, clearHistory } = useUser();
-  const [activeTab, setActiveTab] = useState('likes'); // 'likes' | 'history'
+  const { user, history: userHistory, likes, logout, clearHistory } = useUser();
+  const settings = getSettings();
+  const showHistoryTab = !settings.hideHistory;
+  const [activeTab, setActiveTab] = useState(showHistoryTab ? 'likes' : 'likes'); // history tab available only when allowed
 
   if (!isOpen || !user) return null;
 
@@ -93,17 +96,19 @@ export default function ProfileModal({ isOpen, onClose }) {
             <Heart size={14} /> My Liked Items ({likes.length})
           </button>
           
-          <button onClick={() => setActiveTab('history')} style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            padding: '8px 16px', fontSize: '0.85rem', fontWeight: '800', borderRadius: '8px',
-            border: 'none', cursor: 'pointer', transition: 'all 0.2s ease',
-            background: activeTab === 'history' ? 'var(--brand-color)' : 'rgba(255,255,255,0.03)',
-            color: activeTab === 'history' ? '#000' : 'var(--text-secondary)'
-          }}>
-            <Clock size={14} /> Watch History ({history.length})
-          </button>
+          {showHistoryTab && (
+            <button onClick={() => setActiveTab('history')} style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              padding: '8px 16px', fontSize: '0.85rem', fontWeight: '800', borderRadius: '8px',
+              border: 'none', cursor: 'pointer', transition: 'all 0.2s ease',
+              background: activeTab === 'history' ? 'var(--brand-color)' : 'rgba(255,255,255,0.03)',
+              color: activeTab === 'history' ? '#000' : 'var(--text-secondary)'
+            }}>
+              <Clock size={14} /> Watch History ({userHistory.length})
+            </button>
+          )}
 
-          {activeTab === 'history' && history.length > 0 && (
+          {showHistoryTab && activeTab === 'history' && userHistory.length > 0 && (
             <button onClick={clearHistory} style={{
               marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px',
               padding: '8px 12px', fontSize: '0.8rem', fontWeight: '800', borderRadius: '8px',

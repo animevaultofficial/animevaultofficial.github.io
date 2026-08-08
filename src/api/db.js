@@ -41,8 +41,9 @@ async function getSql() {
   try {
     const mod = await import('@neondatabase/serverless');
 
-    // Fix for Capacitor 'Missing or null Origin' error
+    // Fix for Capacitor 'Missing or null Origin' error and suppress browser warning
     if (mod.neonConfig) {
+      mod.neonConfig.disableWarningInBrowsers = true;
       mod.neonConfig.fetchFunction = (url, options) => {
         const newOptions = { ...options };
         newOptions.headers = { ...newOptions.headers };
@@ -56,7 +57,7 @@ async function getSql() {
       };
     }
 
-    sql = mod.neon(DATABASE_URL);
+    sql = mod.neon(DATABASE_URL, { disableWarningInBrowsers: true });
     // Test the connection immediately
     await sql`SELECT 1`;
     log('[AnimeVault DB] Connected to Neon DB successfully');

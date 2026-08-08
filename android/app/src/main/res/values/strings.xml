@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">AnimeVault</string>
-    <string name="title_activity_main">AnimeVault</string>
-    <string name="package_name">com.animevault.app</string>
-    <string name="custom_url_scheme">com.animevault.app</string>
-</resources>

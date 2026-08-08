@@ -3,7 +3,8 @@ import { ArrowLeft, CalendarClock, Check, Heart, Info, ListVideo, Play, Star, Sk
 import { useUser } from '../../api/UserContext';
 import { fetchAnimeDetail, getImage, getTitle, stripHtml } from '../api/anilist';
 import { addContinueWatching, isFavorite, toggleFavorite } from '../api/storage';
-import { fetchStreamingEpisodes, fetchStreamingSources, findBestStreamingMatch, EMBED_SERVERS, extractNumericId, probeMirrors } from '../api/streaming';
+import { fetchShowId, getDecodedEpisodeSources } from '../api/allanime';
+import VideoPlayer from '../../components/VideoPlayer';
 import { stripAdParams, getProxiedEmbedUrl, isAdHeavyServer, isCleanServer, isUrlBlocked, getFallbackUrls } from '../api/adProxy';
 
 const LANGUAGES = [
@@ -32,12 +33,31 @@ function formatAiring(nextAiringEpisode) {
   return `Episode ${nextAiringEpisode.episode} airs in ${days}d ${hours}h`;
 }
 
+function buildVidnestSources(anilistId, episodeNumber, language) {
+  if (!anilistId || !episodeNumber) return [];
+  const langKey = language === 'dub' ? 'dub' : 'sub';
+
+  return [
+    {
+      url: `https://vidnest.fun/anime/${anilistId}/${episodeNumber}/${langKey}`,
+      type: 'iframe',
+      serverName: 'Server 2 (Vidnest Anime)',
+      priority: 1001,
+    },
+    {
+      url: `https://vidnest.fun/animepahe/${anilistId}/${episodeNumber}/${langKey}`,
+      type: 'iframe',
+      serverName: 'Server 3 (Vidnest AnimePahe)',
+      priority: 1002,
+    },
+  ];
+}
+
 export default function AnimeDetailsPage({ params, goBack, navigate }) {
   const { user, updateContinueWatching, addToHistory, toggleLike, isLiked, setAuthTab } = useUser();
   const [media, setMedia] = useState(null);
   const [episodes, setEpisodes] = useState([]);
   const [currentEpisode, setCurrentEpisode] = useState(null);
-  const [streamingInfo, setStreamingInfo] = useState({ id: null, provider: 'gogoanime' });
   const [language, setLanguage] = useState('sub');
   const [activeTab, setActiveTab] = useState('episodes');
   const [showPlayer, setShowPlayer] = useState(false);
@@ -54,15 +74,50 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
   const [iframeError, setIframeError] = useState(false);
   const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
   const playerWrapperRef = useRef(null);
-  const enrichedRef = useRef(false);
-  const streamingInfoRef = useRef(streamingInfo);
+
+  const [allAnimeShowId, setAllAnimeShowId] = useState(null);
+  const [allAnimeSources, setAllAnimeSources] = useState([]);
 
   // Keep ref in sync with state
-  useEffect(() => { streamingInfoRef.current = streamingInfo; }, [streamingInfo]);
-
   const id = params?.id;
 
-  useEffect(() => { probeMirrors().catch(() => { }); }, []);
+  useEffect(() => {
+    if (!media) return;
+    let isMounted = true;
+    async function loadShowId() {
+      try {
+        const sId = await fetchShowId(getTitle(media), media.title?.english);
+        if (isMounted) setAllAnimeShowId(sId);
+      } catch (_) {}
+    }
+    loadShowId();
+    return () => { isMounted = false; };
+  }, [media]);
+
+  useEffect(() => {
+    if (!allAnimeShowId || !currentEpisode || !showPlayer) return;
+    let isMounted = true;
+    async function loadSources() {
+      setPlayerLoading(true);
+      setPlayerStatus('Fetching AllAnime stream sources...');
+      try {
+        const sources = await getDecodedEpisodeSources(allAnimeShowId, language, String(currentEpisode.number));
+        if (isMounted) {
+          setAllAnimeSources(sources);
+          setPlayerStatus(sources.length > 0 ? `Loaded ${sources.length} source(s)` : 'No streams found');
+        }
+      } catch (err) {
+        if (isMounted) {
+          setPlayerStatus(`Error fetching AllAnime streams: ${err?.message || 'Unknown error'}`);
+          setAllAnimeSources([]);
+        }
+      } finally {
+        if (isMounted) setPlayerLoading(false);
+      }
+    }
+    loadSources();
+    return () => { isMounted = false; };
+  }, [allAnimeShowId, currentEpisode, language, showPlayer]);
 
   const toggleFs = () => {
     if (!playerWrapperRef.current) return;
@@ -98,7 +153,6 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
         setCurrentEpisode(fallbackEpisodes[0] || null);
         setFavorite(isLiked(nextMedia.id, 'anime') || isFavorite(nextMedia.id));
         setLoading(false);
-        enrichEpisodes(nextMedia).catch(() => { });
       } catch (err) {
         setError(err.message || 'Failed to load anime.');
         setLoading(false);
@@ -108,23 +162,6 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
     load();
   }, [id, isLiked]);
 
-  async function enrichEpisodes(nextMedia) {
-    if (enrichedRef.current) return;
-    enrichedRef.current = true;
-    const match = await findBestStreamingMatch(getTitle(nextMedia), nextMedia.seasonYear, nextMedia.title?.english);
-    if (!match) return;
-    setStreamingInfo(match);
-    const richEpisodes = await fetchStreamingEpisodes(match.id, match.provider);
-    if (!richEpisodes?.length) return;
-    setEpisodes(richEpisodes.map((episode, index) => ({
-      id: episode.id || `ep-${nextMedia.id}-${index + 1}`,
-      number: episode.number || index + 1,
-      title: episode.title || `Episode ${index + 1}`,
-      image: episode.image || null,
-      isFiller: episode.isFiller || false,
-    })));
-  }
-
   const handleWatch = useCallback((episode) => {
     if (!episode || !media) return;
     if (!user) {
@@ -133,7 +170,6 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
       return;
     }
     const currentMedia = media;
-    const currentStreamingInfo = streamingInfoRef.current;
     setCurrentEpisode(episode);
     setShowPlayer(true);
     setPlayerLoading(true);
@@ -143,18 +179,10 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
     updateContinueWatching(currentMedia.id, 'anime', getTitle(currentMedia), getImage(currentMedia), 1, episode.number, 0, currentMedia.duration || 0);
     addToHistory(currentMedia.id, 'anime', getTitle(currentMedia), getImage(currentMedia));
 
-    if (!currentStreamingInfo.id) {
-      setTimeout(() => {
-        setPlayerLoading(false);
-        setPlayerStatus('');
-      }, 800);
-      return;
-    }
-
-    fetchStreamingSources(episode.id, currentStreamingInfo.provider)
-      .then(sources => setPlayerStatus(sources?.length ? 'Stream ready' : 'Using embedded player'))
-      .catch(() => setPlayerStatus('Using embedded player'))
-      .finally(() => setPlayerLoading(false));
+    setTimeout(() => {
+      setPlayerLoading(false);
+      setPlayerStatus('');
+    }, 800);
   }, [addToHistory, media, navigate, setAuthTab, updateContinueWatching, user]);
 
   const handleFavorite = useCallback(async () => {
@@ -196,28 +224,6 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
   const currentNumber = currentEpisode?.number || 1;
 
   if (showPlayer && currentEpisode) {
-    // Build embed URL using AniList ID (same as web version) from params or media
-    const embedAnimeId = extractNumericId(id) || extractNumericId(media?.id);
-    const activeServer = EMBED_SERVERS[serverIndex % EMBED_SERVERS.length];
-    const rawUrl = activeServer.buildUrl({ animeId: embedAnimeId, episode: currentEpisode.number, lang: language });
-    // Full streambert ad blocking:
-    // - Strip ad tracking params
-    // - Auto-route ad-heavy servers through CORS proxy
-    // - Block known ad/tracker domains
-    let embedUrl;
-    if (zenMode) {
-      embedUrl = getProxiedEmbedUrl(rawUrl, isAdHeavyServer(rawUrl));
-    } else {
-      embedUrl = rawUrl;
-    }
-
-    const switchServer = () => {
-      setServerIndex(prev => prev + 1);
-      setIframeError(false);
-      setPlayerLoading(true);
-      setPlayerStatus('Switching server...');
-    };
-
     const goPrev = () => {
       const idx = episodes.findIndex(e => e.number === currentEpisode.number);
       if (idx > 0) handleWatch(episodes[idx - 1]);
@@ -227,59 +233,15 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
       if (idx < episodes.length - 1) handleWatch(episodes[idx + 1]);
     };
 
-    const onTouchStart = (e) => {
-      const t = e.touches[0];
-      touchStartRef.current = { x: t.clientX, y: t.clientY, time: Date.now() };
-      setSwipeProgress(0);
-      setSwipeHint(null);
-    };
-    const onTouchMove = (e) => {
-      const t = e.touches[0];
-      const dx = t.clientX - touchStartRef.current.x;
-      const dy = t.clientY - touchStartRef.current.y;
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 20) {
-        e.preventDefault();
-        const p = Math.min(Math.abs(dx) / SWIPE_THRESHOLD, 1);
-        setSwipeProgress(p);
-        if (dx > 30) setSwipeHint('prev');
-        else if (dx < -30) setSwipeHint('next');
-        else setSwipeHint(null);
-      }
-    };
-    const onTouchEnd = (e) => {
-      const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
-      const dt = Date.now() - touchStartRef.current.time;
-      if (Math.abs(dx) > SWIPE_THRESHOLD || (Math.abs(dx) > 40 && dt < 300)) {
-        if (dx > 0) goPrev();
-        else goNext();
-      }
-      setSwipeHint(null);
-      setSwipeProgress(0);
-    };
+    const vidnestSources = currentEpisode ? buildVidnestSources(media.id, currentEpisode.number, language) : [];
+    const playbackSources = [...allAnimeSources, ...vidnestSources];
 
     return (
       <div
         ref={playerWrapperRef}
         className="player-screen player-screen-v2"
         style={isFs ? { padding: 0 } : {}}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
       >
-        {/* Swipe Hints */}
-        {swipeHint === 'prev' && (
-          <div className="ply-swipe-hint ply-swipe-left" style={{ opacity: swipeProgress }}>
-            <SkipBack size={28} />
-            <span>Previous</span>
-          </div>
-        )}
-        {swipeHint === 'next' && (
-          <div className="ply-swipe-hint ply-swipe-right" style={{ opacity: swipeProgress }}>
-            <SkipForward size={28} />
-            <span>Next</span>
-          </div>
-        )}
-
         {/* Top Bar */}
         <div className="player-topbar player-topbar-v2">
           <button className="player-icon-btn" onClick={() => setShowPlayer(false)} aria-label="Back">
@@ -303,58 +265,16 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
           </div>
         </div>
 
-        {/* Player Frame */}
-        <div className="player-frame-wrap player-frame-wrap-v2">
-          {playerLoading && (
-            <div className="player-loading">
-              <div className="spinner" />
-              <span>{playerStatus || 'Loading stream...'}</span>
-            </div>
-          )}
-          {zenMode && (
-            <div className="ply-zen-badge" title="Ad blocking active">
-              <Shield size={14} /> Zen
-            </div>
-          )}
-          <iframe
-            key={`${currentEpisode.number}-${language}-${serverIndex}`}
-            src={embedUrl}
-            className="player-frame"
-            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-            allowFullScreen
-            title={`${title} Episode ${currentEpisode.number}`}
-            onLoad={() => {
-              setPlayerLoading(false);
-              setPlayerStatus('');
-            }}
-            onError={() => {
-              setIframeError(true);
-              setPlayerStatus('Server failed to load. Try switching servers.');
-            }}
+        {/* Player Container */}
+        <div style={{ flex: 1, position: 'relative', background: '#000', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <VideoPlayer
+            sources={playbackSources}
+            poster={poster}
+            title={`${title} · Ep ${currentEpisode.number}`}
+            isZen={zenMode}
+            onNextEpisode={goNext}
+            onPrevEpisode={goPrev}
           />
-
-          {/* Server switch button */}
-          <div className="ply-server-switch">
-            <button
-              onClick={switchServer}
-              title="Switch to another embed server"
-            >
-              <RefreshCw size={14} /> Server {serverIndex + 1}
-            </button>
-          </div>
-
-          {/* Center navigation overlay buttons (desktop-style) */}
-          <div className="ply-center-nav">
-            <button className="ply-nav-overlay" onClick={goPrev} aria-label="Previous episode">
-              <SkipBack size={36} />
-            </button>
-            <button className="ply-nav-overlay" onClick={goNext} aria-label="Next episode">
-              <SkipForward size={36} />
-            </button>
-            <button className="ply-fs-overlay" onClick={toggleFs} aria-label="Fullscreen">
-              {isFs ? <Minimize size={22} /> : <Maximize size={22} />}
-            </button>
-          </div>
         </div>
 
         {/* Episode Rail with navigation arrows (horizontal) */}

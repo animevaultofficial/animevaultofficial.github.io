@@ -44,6 +44,18 @@ export const PLAYER_SOURCES = [
     tvUrl: (id, season, ep) =>
       `https://www.vidking.net/embed/tv/${id}/${season}/${ep}`,
   },
+  {
+    id: "vidnest",
+    label: "Vidnest",
+    tag: null,
+    note: null,
+    supportsProgress: true,
+    colorParam: null,
+    langParam: null,
+    params: {},
+    movieUrl: (id) => `https://vidnest.fun/movie/${id}`,
+    tvUrl: (id, season, ep) => `https://vidnest.fun/tv/${id}/${season}/${ep}`,
+  },
   // We'll add AllManga later if needed
 ];
 

@@ -1,11 +1,12 @@
 // EXACT copy of web version's streaming.js for mobile
 // Consumet API with multiple mirrors + CORS proxy fallback
 
-const TIMEOUT_MS = 6000;
+const TIMEOUT_MS = 4000;
 const HEALTH_CACHE_KEY = 'animevault_api_health';
 const HEALTH_CACHE_TTL = 1000 * 60 * 30;
 
 const CONSUMET_MIRRORS = [
+  import.meta.env.VITE_CONSUMET_API_URL,
   'https://api.consumet.org',
   'https://c.delusionz.xyz',
   'https://consumet-api-nu-one.vercel.app',
@@ -15,18 +16,16 @@ const CONSUMET_MIRRORS = [
   'https://consumet.netlify.app',
   'https://anime-api-phi.vercel.app',
   'https://consumet-instance.onrender.com',
-];
+].filter(Boolean);
 
 const CORS_PROXIES = [
-  import.meta.env.VITE_API_CORS_PROXY || 'https://corsproxy.io/?',
-  'https://api.allorigins.win/raw?url=',
-  'https://api.codetabs.com/v1/proxy?quest=',
-  'https://thingproxy.freeboard.io/fetch/',
-];
+  import.meta.env.VITE_API_CORS_PROXY,
+].filter(Boolean);
 
-const USE_CORS_PROXY_FIRST = typeof window !== 'undefined' && typeof document !== 'undefined';
+const USE_CORS_PROXY_FIRST = CORS_PROXIES.length > 0 && typeof window !== 'undefined';
 
 async function fetchThroughCorsProxy(targetUrl) {
+  if (CORS_PROXIES.length === 0) return null;
   for (const proxy of CORS_PROXIES) {
     const proxyUrl = `${proxy}${encodeURIComponent(targetUrl)}`;
     try {
@@ -70,12 +69,17 @@ function markMirrorHealth(mirror, healthy) {
 
 function getHealthyMirrors() {
   const cache = loadHealthCache();
-  const healthy = CONSUMET_MIRRORS.filter(m => {
-    const entry = cache[m];
-    if (!entry) return true;
-    return entry.healthy;
-  });
-  return healthy.length > 0 ? healthy : CONSUMET_MIRRORS;
+  const now = Date.now();
+  const healthy = [];
+  for (const mirror of CONSUMET_MIRRORS) {
+    const entry = cache[mirror];
+    if (!entry || (now - entry.ts >= HEALTH_CACHE_TTL)) {
+      healthy.push(mirror);
+    } else if (entry.healthy) {
+      healthy.push(mirror);
+    }
+  }
+  return healthy;
 }
 
 async function fetchWithTimeout(url, timeoutMs = TIMEOUT_MS) {
@@ -93,6 +97,8 @@ async function fetchWithTimeout(url, timeoutMs = TIMEOUT_MS) {
 
 async function fetchFromMirrors(path) {
   const mirrors = getHealthyMirrors();
+  if (!mirrors || mirrors.length === 0) return null;
+
   for (const mirror of mirrors) {
     const targetUrl = `${mirror}${path}`;
 
@@ -111,17 +117,13 @@ async function fetchFromMirrors(path) {
         if (data) { markMirrorHealth(mirror, true); return data; }
       }
 
-      if (!USE_CORS_PROXY_FIRST) {
+      if (!USE_CORS_PROXY_FIRST && CORS_PROXIES.length > 0) {
         const data = await fetchThroughCorsProxy(targetUrl);
         if (data) { markMirrorHealth(mirror, true); return data; }
       }
 
-      if (directRes.status === 404 || directRes.status === 451 || directRes.status >= 500) {
-        markMirrorHealth(mirror, false);
-      }
+      markMirrorHealth(mirror, false);
     } catch (_) {
-      const data = await fetchThroughCorsProxy(targetUrl);
-      if (data) { markMirrorHealth(mirror, true); return data; }
       markMirrorHealth(mirror, false);
     }
   }
@@ -180,18 +182,40 @@ export async function fetchStreamingSources(episodeId, provider = 'gogoanime') {
   return data?.sources || [];
 }
 
+let isProbing = false;
+
 export async function probeMirrors() {
-  const probes = CONSUMET_MIRRORS.map(async mirror => {
-    const targetUrl = `${mirror}/anime/gogoanime/search/test`;
-    try {
-      const res = await fetchWithTimeout(targetUrl, 4000);
-      markMirrorHealth(mirror, res.ok || res.status === 404);
-    } catch {
-      const data = await fetchThroughCorsProxy(targetUrl);
-      markMirrorHealth(mirror, !!data);
-    }
+  if (isProbing) return;
+  const cache = loadHealthCache();
+  const now = Date.now();
+  const unprobed = CONSUMET_MIRRORS.filter(mirror => {
+    const entry = cache[mirror];
+    return !entry || (now - entry.ts >= HEALTH_CACHE_TTL);
   });
-  await Promise.allSettled(probes);
+  if (unprobed.length === 0) return;
+
+  isProbing = true;
+  try {
+    for (const mirror of unprobed) {
+      const targetUrl = `${mirror}/anime/gogoanime/search/test`;
+      let healthy = false;
+      try {
+        if (USE_CORS_PROXY_FIRST && CORS_PROXIES.length > 0) {
+          const data = await fetchThroughCorsProxy(targetUrl);
+          healthy = !!data;
+        } else {
+          const res = await fetchWithTimeout(targetUrl, 3000);
+          healthy = res.ok;
+        }
+      } catch {
+        healthy = false;
+      }
+      markMirrorHealth(mirror, healthy);
+      if (healthy) break;
+    }
+  } finally {
+    isProbing = false;
+  }
 }
 
 export async function fetchRecentEpisodes(page = 1) {

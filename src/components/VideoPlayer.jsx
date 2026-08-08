@@ -14,39 +14,34 @@ import {
 } from '@vidstack/react';
 import { 
   Settings, Play, Pause, Volume2, VolumeX, Maximize, Minimize, 
-  SkipForward, SkipBack, ChevronLeft, ChevronRight, Expand
+  SkipForward, SkipBack, ChevronLeft, ChevronRight, AlertTriangle, RefreshCw
 } from 'lucide-react';
 
 import '@vidstack/react/player/styles/default/theme.css';
 import electronBridge from '../utils/electronBridge';
-import { getProxiedEmbedUrl, stripAdParams, isCleanServer } from '../utils/adProxy';
+import { stripAdParams } from '../utils/adProxy';
 
 const isElectron = typeof window !== 'undefined' && window.electronAPI !== undefined;
 
 let lastUpdateTime = 0;
 
-function VideoPlayer({ sources, poster, title, embedUrl, isZen, onNextEpisode, onPrevEpisode }) {
-  const [videoUrl, setVideoUrl] = useState('');
-  const [qualities, setQualities] = useState([]);
+function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpisode, onPrevEpisode }) {
+  const [activeSourceIndex, setActiveSourceIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(null); // 'next' | 'prev' | null
   const [swipeProgress, setSwipeProgress] = useState(0);
+  const [failoverMsg, setFailoverMsg] = useState('');
+
   const playerRef = useRef(null);
   const iframeRef = useRef(null);
   const wrapperRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
   const swipeThreshold = 80;
 
+  // Reset active source when sources prop changes
   useEffect(() => {
-    if (!sources || sources.length === 0) return;
-    const sortedSources = [...sources].sort((a, b) => {
-      const aQ = parseInt(a.quality) || 0;
-      const bQ = parseInt(b.quality) || 0;
-      return bQ - aQ;
-    });
-    setQualities(sortedSources);
-    const preferred = sortedSources.find(s => s.quality === '1080p' || s.quality === '720p') || sortedSources[0];
-    if (preferred) setVideoUrl(preferred.url);
+    setActiveSourceIndex(0);
+    setFailoverMsg('');
   }, [sources]);
 
   useEffect(() => {
@@ -84,7 +79,27 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen, onNextEpisode, o
     }
   }, []);
 
-  // ── Touch / Swipe Gesture Handling ──
+  // Automatic failover logic to next working source
+  const handleFailover = useCallback(() => {
+    if (!sources || sources.length <= 1) {
+      setFailoverMsg('All available stream sources exhausted.');
+      return;
+    }
+
+    const nextIdx = (activeSourceIndex + 1) % sources.length;
+    const failedServer = sources[activeSourceIndex]?.serverName || `Server ${activeSourceIndex + 1}`;
+    const nextServer = sources[nextIdx]?.serverName || `Server ${nextIdx + 1}`;
+
+    console.warn(`[AllAnime Player] ${failedServer} failed. Failing over to ${nextServer}...`);
+    setFailoverMsg(`Stream error on ${failedServer}. Auto-switching to ${nextServer}...`);
+    setActiveSourceIndex(nextIdx);
+
+    setTimeout(() => {
+      setFailoverMsg('');
+    }, 4000);
+  }, [activeSourceIndex, sources]);
+
+  // Touch / Swipe Gesture Handling
   const handleTouchStart = useCallback((e) => {
     const touch = e.touches[0];
     touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
@@ -97,7 +112,6 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen, onNextEpisode, o
     const deltaX = touch.clientX - touchStartRef.current.x;
     const deltaY = touch.clientY - touchStartRef.current.y;
 
-    // Only register horizontal swipes (not vertical scrolls)
     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
       e.preventDefault();
       const progress = Math.min(Math.abs(deltaX) / swipeThreshold, 1);
@@ -117,7 +131,6 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen, onNextEpisode, o
     const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
     const deltaTime = Date.now() - touchStartRef.current.time;
     
-    // Quick swipe or threshold crossed
     if (Math.abs(deltaX) > swipeThreshold || (Math.abs(deltaX) > 40 && deltaTime < 300)) {
       if (deltaX > 0 && onPrevEpisode) {
         onPrevEpisode();
@@ -141,14 +154,25 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen, onNextEpisode, o
     }
   };
 
-  // ── EMBED PLAYER (MegaPlay etc.) ──
-  if (embedUrl) {
-    const isMiruro = embedUrl.includes('miruro.ro');
-    let zenEmbedUrl = embedUrl;
-    if (isZen) {
-      zenEmbedUrl = stripAdParams(embedUrl);
-    }
+  // Determine active source object or fallback
+  const activeSource = sources[activeSourceIndex] || (embedUrl ? { url: embedUrl, type: 'iframe', serverName: 'AllAnime Direct' } : null);
 
+  // ── LOADING STATE ──
+  if (!activeSource && (!sources || sources.length === 0)) {
+    return (
+      <div className="video-player-error">
+        <Settings size={48} className="spin" />
+        <p>Fetching AllAnime video streams...</p>
+      </div>
+    );
+  }
+
+  const isIframeSource = activeSource?.type === 'iframe' || (!activeSource?.url.includes('.m3u8') && activeSource?.type !== 'hls');
+  const targetUrl = activeSource?.url || embedUrl;
+  const cleanUrl = isZen ? stripAdParams(targetUrl) : targetUrl;
+
+  // ── IFRAME EMBED PLAYER (Fallback/Mirror) ──
+  if (isIframeSource) {
     return (
       <div 
         ref={wrapperRef}
@@ -175,6 +199,11 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen, onNextEpisode, o
         <div className="av-embed-topbar">
           <span className="av-embed-title">{title}</span>
           <div className="av-embed-actions">
+            {sources.length > 1 && (
+              <button className="av-embed-btn" onClick={handleFailover} title="Switch/Failover Server">
+                <RefreshCw size={18} /> Switch Server
+              </button>
+            )}
             {onPrevEpisode && (
               <button className="av-embed-btn" onClick={onPrevEpisode} title="Previous Episode">
                 <SkipBack size={18} />
@@ -191,20 +220,19 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen, onNextEpisode, o
           </div>
         </div>
 
+        {failoverMsg && (
+          <div style={{ background: '#e53e3e', color: '#fff', padding: '6px 12px', fontSize: '0.85rem', textAlign: 'center' }}>
+            {failoverMsg}
+          </div>
+        )}
+
         {/* Embed iframe */}
-        <div 
-          className={`player-wrap embed-container ${isZen ? 'zen-active' : ''}`}
-          style={isMiruro ? { overflow: 'hidden', position: 'relative' } : {}}
-        >
+        <div className={`player-wrap embed-container ${isZen ? 'zen-active' : ''}`}>
           {isElectron ? (
             <webview
-              src={zenEmbedUrl}
+              src={cleanUrl}
               className="embed-iframe"
-              style={isMiruro ? { marginTop: '-100px', height: 'calc(100% + 100px)' } : {
-                width: '100%',
-                height: '100%',
-                border: 'none'
-              }}
+              style={{ width: '100%', height: '100%', border: 'none' }}
               partition="persist:player"
               allowpopups="false"
               allowfullscreen
@@ -213,12 +241,11 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen, onNextEpisode, o
           ) : (
             <iframe
               ref={iframeRef}
-              src={zenEmbedUrl}
+              src={cleanUrl}
               className="embed-iframe"
-              style={isMiruro ? { marginTop: '-100px', height: 'calc(100% + 100px)' } : {}}
               allow={isZen ? "autoplay; fullscreen; picture-in-picture; encrypted-media" : "autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"}
               title={title}
-              referrerPolicy={isZen ? "no-referrer" : "no-referrer-when-downgrade"}
+              referrerPolicy="no-referrer"
               loading="lazy"
             />
           )}
@@ -227,7 +254,23 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen, onNextEpisode, o
           )}
         </div>
 
-        {/* Bottom Bar with episode navigation */}
+        {/* Server selector pill bar */}
+        {sources.length > 1 && (
+          <div style={{ display: 'flex', gap: '8px', padding: '8px 12px', background: 'rgba(0,0,0,0.8)', overflowX: 'auto' }}>
+            {sources.map((s, idx) => (
+              <button
+                key={idx}
+                className={`quality-badge ${idx === activeSourceIndex ? 'active' : ''}`}
+                onClick={() => setActiveSourceIndex(idx)}
+                style={{ whiteSpace: 'nowrap', cursor: 'pointer' }}
+              >
+                {s.serverName || `Server ${idx + 1}`}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Bottom Bar */}
         <div className="av-embed-bottombar">
           {onPrevEpisode && (
             <button className="av-embed-nav-btn" onClick={onPrevEpisode}>
@@ -247,17 +290,7 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen, onNextEpisode, o
     );
   }
 
-  // ── LOADING STATE ──
-  if (!sources || sources.length === 0) {
-    return (
-      <div className="video-player-error">
-        <Settings size={48} className="spin" />
-        <p>Initializing high-quality stream...</p>
-      </div>
-    );
-  }
-
-  // ── DIRECT SOURCE PLAYER (Vidstack) ──
+  // ── DIRECT HLS STREAM PLAYER (Vidstack / HLS.js) ──
   return (
     <div 
       ref={wrapperRef}
@@ -280,16 +313,23 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen, onNextEpisode, o
         </div>
       )}
 
+      {failoverMsg && (
+        <div style={{ background: 'var(--brand-color, #ff4757)', color: '#fff', padding: '6px 12px', fontSize: '0.85rem', textAlign: 'center' }}>
+          {failoverMsg}
+        </div>
+      )}
+
       <div className="video-player-wrapper-v2">
         <MediaPlayer
           ref={playerRef}
           title={title}
-          src={videoUrl}
+          src={activeSource.url}
           playsInline
           aspectRatio="16/9"
           crossOrigin
           autoPlay
           onTimeUpdate={handleTimeUpdate}
+          onError={handleFailover}
           className="av-custom-player"
         >
           <MediaProvider>
@@ -373,15 +413,16 @@ function VideoPlayer({ sources, poster, title, embedUrl, isZen, onNextEpisode, o
           </Controls.Root>
         </MediaPlayer>
         
-        {qualities.length > 1 && (
+        {/* Server & Quality selector overlay */}
+        {sources.length > 0 && (
           <div className="quality-overlay custom-quality">
-            {qualities.map((q, i) => (
+            {sources.map((s, i) => (
               <button
                 key={i}
-                className={`quality-badge ${videoUrl === q.url ? 'active' : ''}`}
-                onClick={() => setVideoUrl(q.url)}
+                className={`quality-badge ${i === activeSourceIndex ? 'active' : ''}`}
+                onClick={() => setActiveSourceIndex(i)}
               >
-                {q.quality}
+                {s.serverName || s.quality || `Server ${i + 1}`}
               </button>
             ))}
           </div>

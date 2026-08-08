@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Play, Zap } from 'lucide-react';
-import { fetchRecentEpisodes } from '../api/streaming';
-import { searchAnime } from '../api/anilist';
+import { fetchTrendingMedia, searchAnime } from '../api/anilist';
 
 export default function LatestSection() {
   const [items, setItems] = useState([]);
@@ -12,8 +11,17 @@ export default function LatestSection() {
   useEffect(() => {
     async function load() {
       try {
-        const data = await fetchRecentEpisodes(1);
-        setItems(data.slice(0, 10));
+        // Use AniList trending/recent releases instead of Consumet/GogoAnime
+        const fallback = await fetchTrendingMedia('ANIME');
+        if (fallback && fallback.length > 0) {
+          setItems(fallback.slice(0, 10).map(a => ({
+            id: a.id,
+            title: a.title?.english || a.title?.romaji || 'Anime',
+            image: a.coverImage?.extraLarge || a.coverImage?.large,
+            episodeNumber: a.episodes || 'NEW',
+            anilistId: a.id
+          })));
+        }
       } catch (err) {
         console.error('Failed to fetch latest anime:', err);
       } finally {
@@ -24,13 +32,16 @@ export default function LatestSection() {
   }, []);
 
   async function handlePlay(item) {
+    if (item.anilistId) {
+      navigate(`/anime/${item.anilistId}`);
+      return;
+    }
     // Try to find internal AniList ID for this title to keep user in-app
     try {
       const results = await searchAnime(item.title);
       if (results && results.length > 0) {
         navigate(`/anime/${results[0].id}`);
       } else {
-        // Fallback to external search if not found
         navigate(`/search?q=${encodeURIComponent(item.title)}`);
       }
     } catch {
@@ -66,7 +77,7 @@ export default function LatestSection() {
               <div className="card-meta-v2">
                 <span>Just Added</span>
                 <span className="dot">•</span>
-                <span>GogoAnime</span>
+                <span>AnimeVault</span>
               </div>
             </div>
           </div>

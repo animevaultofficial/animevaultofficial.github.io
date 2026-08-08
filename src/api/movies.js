@@ -94,6 +94,33 @@ export async function fetchMediaMeta(mediaType, tmdbId) {
   return null;
 }
 
+export async function fetchTMDBBanner(title, mediaType = 'movie') {
+  try {
+    const typePath = mediaType === 'tv' ? 'tv' : 'movie';
+    const searchUrl = new URL(`${TMDB_BASE_URL}/search/${typePath}`);
+    searchUrl.searchParams.set('api_key', TMDB_API_KEY);
+    searchUrl.searchParams.set('query', title);
+    searchUrl.searchParams.set('language', 'en-US');
+    searchUrl.searchParams.set('page', '1');
+
+    const res = await fetch(searchUrl.toString());
+    if (!res.ok) {
+      throw new Error(`TMDB search failed: ${res.status}`);
+    }
+
+    const data = await res.json();
+    const result = data.results?.[0];
+    if (!result) return null;
+
+    const backdrop = result.backdrop_path ? `https://image.tmdb.org/t/p/original${result.backdrop_path}` : null;
+    const poster = result.poster_path ? `https://image.tmdb.org/t/p/original${result.poster_path}` : null;
+    return backdrop || poster;
+  } catch (e) {
+    console.warn('Failed to fetch TMDB banner for', title, mediaType, e);
+    return null;
+  }
+}
+
 /** Progress tracking – stored as { [tmdbId]: { progress: number (0-100), lastSeen: timestamp } } */
 const PROGRESS_KEY = 'animevault_movie_progress';
 

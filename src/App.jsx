@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import {
   Search as SearchIcon, Info, Home as HomeIcon, Tv as TvIcon,
-  AlertTriangle, User, Sparkles, Menu, X, Bell, Download as DownloadIcon, Users, Award
+  AlertTriangle, User, Sparkles, Menu, X, Bell, Download as DownloadIcon, Users, Award, BookOpen
 } from 'lucide-react';
 import './styles/designTokens.css';
 import { useUser } from './api/UserContext';
@@ -16,8 +16,8 @@ import { applyTvModeClass } from './utils/tvMode';
 import { FocusableNavLink, FocusableLink, FocusableButton } from './components/FocusableWrapper';
 import RequireAuth from './components/RequireAuth';
 import Home from './pages/Home';
+import MixedHome from './pages/MixedHome';
 import Search from './pages/Search';
-import AnimeHome from './pages/AnimeHome';
 import AnimeDetails from './pages/AnimeDetails';
 import MangaHome from './pages/MangaHome';
 import MangaDetails from './pages/MangaDetails';
@@ -215,6 +215,12 @@ function App() {
             Anime
           </FocusableNavLink>
           <FocusableNavLink
+            to="/manga"
+            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          >
+            Manga
+          </FocusableNavLink>
+          <FocusableNavLink
             to="/dramas-movies"
             className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
           >
@@ -354,6 +360,14 @@ function App() {
               Anime
             </FocusableNavLink>
             <FocusableNavLink
+              to="/manga"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
+            >
+              <BookOpen size={18} />
+              <span>Manga</span>
+            </FocusableNavLink>
+            <FocusableNavLink
               to="/dramas-movies"
               onClick={() => setIsMobileMenuOpen(false)}
               className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
@@ -434,9 +448,9 @@ function App() {
 
       <main className="content">
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<MixedHome />} />
           <Route path="/search" element={<Search />} />
-          <Route path="/anime" element={<AnimeHome />} />
+          <Route path="/anime" element={<Home />} />
           <Route path="/anime/:id" element={<AnimeDetails />} />
           <Route path="/manga" element={<MangaHome />} />
           <Route path="/manga/:id" element={<MangaDetails />} />

@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchAnimeById, stripHtml } from '../api/anilist';
-import { searchMangaDex, fetchMangaChapters, fetchChapterPages } from '../api/manga';
+import {
+  searchMangaDex,
+  fetchMangaChapters,
+  fetchChapterPages,
+  fetchMangaKakalotDetails,
+  fetchMangaKakalotRead
+} from '../api/manga';
 import { BookOpen, Calendar, Star, Users, ArrowLeft, ArrowRight, X, Loader2, Heart, ExternalLink } from 'lucide-react';
 import CommentsSection from '../components/CommentsSection';
 import { useUser } from '../api/UserContext';
 
 function safeTitle(title) {
   if (!title) return 'Unknown Title';
+  if (typeof title === 'string') return title;
   return title.english || title.romaji || title.native || 'Unknown Title';
 }
 
@@ -15,38 +22,90 @@ function MangaDetails() {
   const { id } = useParams();
   const { user, addToHistory, toggleLike, isLiked, setShowAuthModal, setAuthTab } = useUser();
 
-  // Media state (from AniList)
+  // Media state
   const [manga, setManga] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isKakalot, setIsKakalot] = useState(false);
 
-  // Chapter state (from MangaDex)
+  // Chapter state
   const [chapters, setChapters] = useState([]);
   const [loadingChapters, setLoadingChapters] = useState(true);
-  
+
   // Reader state
   const [activeChapter, setActiveChapter] = useState(null);
   const [pages, setPages] = useState([]);
   const [loadingPages, setLoadingPages] = useState(false);
   const [isReaderOpen, setIsReaderOpen] = useState(false);
 
-  // Load AniList Data
+  // Load Manga Data
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
+        setError('');
+
+        const isMangaDexId = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id);
+        const isNumeric = /^\d+$/.test(id);
+
+        // 1. Prefer MangaDex details when the route ID is a MangaDex UUID.
+        if (isMangaDexId) {
+          const mdexData = await fetchMangaKakalotDetails(id);
+          if (mdexData && mdexData.title) {
+            setIsKakalot(false);
+            setManga(mdexData);
+            await loadChaptersForTitles([mdexData.title]);
+            return;
+          }
+        }
+
+        // 2. Try loading from MangaKakalot API when the ID is non-numeric.
+        if (!isNumeric) {
+          const kakalotData = await fetchMangaKakalotDetails(id);
+          if (kakalotData && kakalotData.title) {
+            setIsKakalot(true);
+            setManga({
+              id: kakalotData.id || id,
+              title: kakalotData.title,
+              description: kakalotData.description || kakalotData.altTitles || '',
+              coverImage: { large: kakalotData.image || kakalotData.poster },
+              bannerImage: kakalotData.banner || kakalotData.poster || kakalotData.image,
+              averageScore: 85,
+              status: kakalotData.status || 'Ongoing',
+              format: 'MANGA',
+              genres: kakalotData.genres || [],
+              author: kakalotData.author
+            });
+
+            if (kakalotData.chapters && kakalotData.chapters.length > 0) {
+              setChapters(kakalotData.chapters.map(c => ({
+                id: c.id,
+                chapter: c.name || c.chapter || c.id,
+                title: c.name || c.title || `Chapter ${c.id}`,
+                source: 'mangakakalot'
+              })));
+            } else {
+              await loadChaptersForTitles([kakalotData.title]);
+            }
+            setLoadingChapters(false);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // 3. Fallback to AniList metadata and MangaDex chapter search for numeric IDs or when no Kakalot details are found.
         const data = await fetchAnimeById(id);
-        if (!data) throw new Error('Manga not found');
+        if (!data) throw new Error('Manga details not found');
         setManga(data);
-        
-        // After loading AniList data, find the manga on MangaDex
+        setIsKakalot(false);
+
         const titlesToTry = [
           data.title?.english,
           data.title?.romaji,
           data.title?.native
         ].filter(Boolean);
-        
-        findMangaDex(titlesToTry);
+
+        await loadChaptersForTitles(titlesToTry);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -57,28 +116,35 @@ function MangaDetails() {
     window.scrollTo(0, 0);
   }, [id]);
 
-  // Sync reading history to Neon Postgres when user logs in or manga loads
+  // Sync reading history to Neon Postgres
   useEffect(() => {
     if (user && manga) {
       addToHistory(manga.id, 'manga', safeTitle(manga.title), manga.coverImage?.large);
     }
   }, [user, manga]);
 
-  async function findMangaDex(titles) {
+  async function loadChaptersForTitles(titles) {
     setLoadingChapters(true);
-    const mdexManga = await searchMangaDex(titles);
-    if (mdexManga) {
-      const chaps = await fetchMangaChapters(mdexManga.id);
-      // Remove duplicates based on chapter number
-      const unique = [];
-      const seen = new Set();
-      chaps.forEach(c => {
-        if (!seen.has(c.chapter)) {
-          seen.add(c.chapter);
-          unique.push(c);
-        }
-      });
-      setChapters(unique);
+    try {
+      // Search MangaDex directly (MangaKakalot is blocked by Cloudflare)
+      const mdexManga = await searchMangaDex(titles);
+      if (mdexManga) {
+        const chaps = await fetchMangaChapters(mdexManga.id);
+        const unique = [];
+        const seen = new Set();
+        chaps.forEach(c => {
+          if (!seen.has(c.chapter)) {
+            seen.add(c.chapter);
+            unique.push({ ...c, source: 'mangadex' });
+          }
+        });
+        setChapters(unique);
+      } else {
+        setChapters([]);
+      }
+    } catch (err) {
+      console.error('Failed to load chapters:', err);
+      setChapters([]);
     }
     setLoadingChapters(false);
   }
@@ -89,17 +155,29 @@ function MangaDetails() {
       setShowAuthModal(true);
       return;
     }
-    if (chapter.externalUrl) {
-      window.open(chapter.externalUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
     setActiveChapter(chapter);
     setIsReaderOpen(true);
     setLoadingPages(true);
     setPages([]);
-    
-    const imageUrls = await fetchChapterPages(chapter.id);
-    setPages(imageUrls);
+
+    // External URL chapters are displayed in an iframe webview
+    if (chapter.externalUrl) {
+      setLoadingPages(false);
+      return;
+    }
+
+    if (chapter.source === 'mangakakalot') {
+      const mangaIdParam = chapter.mangaId || manga.id;
+      const res = await fetchMangaKakalotRead(mangaIdParam, chapter.id);
+      if (res && res.images) {
+        setPages(res.images);
+      } else {
+        setPages([]);
+      }
+    } else {
+      const imageUrls = await fetchChapterPages(chapter.id);
+      setPages(imageUrls);
+    }
     setLoadingPages(false);
   }
 
@@ -127,19 +205,19 @@ function MangaDetails() {
 
   if (loading) {
     return (
-      <div className="status-container">
-        <Loader2 className="spin" size={48} />
+      <div className="status-container" style={{ textAlign: 'center', padding: '60px' }}>
+        <Loader2 className="spin" size={48} style={{ color: 'var(--red, #e50914)' }} />
         <p>Loading manga details...</p>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !manga) {
     return (
-      <div className="status-container">
+      <div className="status-container" style={{ textAlign: 'center', padding: '60px' }}>
         <h2>Oops!</h2>
-        <p>{error}</p>
-        <Link to="/" className="btn-play-v2">Return Home</Link>
+        <p>{error || 'Manga not found'}</p>
+        <Link to="/manga" className="btn-play-v2">Return to Manga Home</Link>
       </div>
     );
   }
@@ -157,7 +235,7 @@ function MangaDetails() {
                 <X size={24} /> Close
               </button>
               <span className="reader-title">
-                {mangaTitle} - Chapter {activeChapter?.chapter}
+                {mangaTitle} - {activeChapter?.title || `Chapter ${activeChapter?.chapter}`}
               </span>
             </div>
             <div className="toolbar-right">
@@ -172,8 +250,8 @@ function MangaDetails() {
 
           <div className="reader-content">
             {loadingPages ? (
-              <div className="status-container">
-                <Loader2 className="spin" size={48} />
+              <div className="status-container" style={{ textAlign: 'center', padding: '60px' }}>
+                <Loader2 className="spin" size={48} style={{ color: 'var(--red, #e50914)' }} />
                 <p>Loading pages...</p>
               </div>
             ) : pages.length > 0 ? (
@@ -183,15 +261,15 @@ function MangaDetails() {
                 ))}
                 
                 {/* End of chapter actions */}
-                <div className="end-of-chapter">
-                  <h3>End of Chapter {activeChapter?.chapter}</h3>
+                <div className="end-of-chapter" style={{ textAlign: 'center', padding: '2rem' }}>
+                  <h3>End of {activeChapter?.title || `Chapter ${activeChapter?.chapter}`}</h3>
                   <button className="btn-play-v2" onClick={nextChapter}>
                     Read Next Chapter <ArrowRight size={20} style={{ marginLeft: 8 }} />
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="status-container">
+              <div className="status-container" style={{ textAlign: 'center', padding: '60px' }}>
                 <p>No pages found for this chapter.</p>
               </div>
             )}
@@ -203,7 +281,7 @@ function MangaDetails() {
       <div className="detail-hero-v2">
         <img
           className="detail-banner-v2"
-          src={manga.bannerImage || manga.coverImage?.extraLarge}
+          src={manga.bannerImage || manga.coverImage?.extraLarge || manga.coverImage?.large}
           alt=""
         />
         <div className="detail-hero-overlay-v2" />
@@ -269,13 +347,13 @@ function MangaDetails() {
               <h2 style={{ margin: 0 }}>
                 Chapters
                 <span style={{ fontSize: '0.85rem', fontWeight: 400, color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
-                  ({chapters.length}) - Source: MangaDex
+                  ({chapters.length}) - Source: {isKakalot ? 'MangaKakalot' : 'MangaDex'}
                 </span>
               </h2>
             </div>
 
             {loadingChapters ? (
-              <p>Searching MangaDex for chapters...</p>
+              <p>Searching for chapters...</p>
             ) : chapters.length > 0 ? (
               <div className="episodes-grid-v2">
                 {chapters.map(chap => (
@@ -283,40 +361,27 @@ function MangaDetails() {
                     key={chap.id}
                     className={`episode-btn-v2 ${activeChapter?.id === chap.id ? 'active' : ''} ${chap.externalUrl ? 'external' : ''}`}
                     onClick={() => openChapter(chap)}
-                    title={chap.externalUrl ? 'Official External Link' : `Read Chapter ${chap.chapter}`}
+                    title={chap.externalUrl ? 'Read Official Chapter (In-App)' : `Read ${chap.title || `Chapter ${chap.chapter}`}`}
                   >
                     <span className="episode-label">{chap.externalUrl ? 'OFFICIAL' : 'CH'}</span>
-                    <span className="episode-number">{chap.chapter || '?'}</span>
+                    <span className="episode-number">{chap.chapter || chap.id}</span>
                   </button>
                 ))}
               </div>
             ) : (
               <div className="official-links-container">
                 <p style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
-                  This manga is officially licensed. Community chapters are unavailable due to DMCA, but you can read it on the official platforms below:
+                  No chapters found for this title.
                 </p>
-                {manga.externalLinks && manga.externalLinks.length > 0 ? (
+                {manga.externalLinks && manga.externalLinks.length > 0 && (
                   <div className="streaming-links-sidebar" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-                    {manga.externalLinks
-                      .filter(link => ['MANGA Plus', 'VIZ', 'Shonen Jump Plus', 'Mangas.io', 'Official Site'].includes(link.site))
-                      .map((link, i) => (
-                        <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="streaming-sidebar-item">
-                          <span style={{ fontWeight: 600, color: '#fff' }}>{link.site}</span>
-                          <ExternalLink size={16} />
-                        </a>
-                      ))}
-                    {/* Fallback if none of the specific sites match but there are external links */}
-                    {manga.externalLinks.filter(link => ['MANGA Plus', 'VIZ', 'Shonen Jump Plus', 'Mangas.io', 'Official Site'].includes(link.site)).length === 0 && 
-                      manga.externalLinks.map((link, i) => (
-                        <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="streaming-sidebar-item">
-                          <span style={{ fontWeight: 600, color: '#fff' }}>{link.site}</span>
-                          <ExternalLink size={16} />
-                        </a>
-                      ))
-                    }
+                    {manga.externalLinks.map((link, i) => (
+                      <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="streaming-sidebar-item">
+                        <span style={{ fontWeight: 600, color: '#fff' }}>{link.site}</span>
+                        <ExternalLink size={16} />
+                      </a>
+                    ))}
                   </div>
-                ) : (
-                  <p>No English chapters or official links found for this title.</p>
                 )}
               </div>
             )}
@@ -329,27 +394,21 @@ function MangaDetails() {
           <div className="sidebar-block-v2">
             <h3>Details</h3>
             <div className="info-list-v2">
+              {manga.author && (
+                <div className="info-row-v2">
+                  <span className="info-label-v2">Author</span>
+                  <span className="info-value-v2">{manga.author}</span>
+                </div>
+              )}
               <div className="info-row-v2">
-                <span className="info-label-v2">Native Title</span>
-                <span className="info-value-v2">{manga.title?.native}</span>
-              </div>
-              <div className="info-row-v2">
-                <span className="info-label-v2">Chapters</span>
-                <span className="info-value-v2">{manga.chapters || 'Unknown'}</span>
-              </div>
-              <div className="info-row-v2">
-                <span className="info-label-v2">Volumes</span>
-                <span className="info-value-v2">{manga.volumes || 'Unknown'}</span>
-              </div>
-              <div className="info-row-v2">
-                <span className="info-label-v2">Source</span>
-                <span className="info-value-v2">{manga.source}</span>
+                <span className="info-label-v2">Status</span>
+                <span className="info-value-v2">{manga.status}</span>
               </div>
               <div className="info-row-v2">
                 <span className="info-label-v2">Genres</span>
                 <div className="genre-tags-v2">
                   {manga.genres?.map(g => (
-                    <Link key={g} to={`/search?genre=${g}`} className="genre-tag-v2">{g}</Link>
+                    <Link key={g} to={`/manga?genre=${g}`} className="genre-tag-v2">{g}</Link>
                   ))}
                 </div>
               </div>

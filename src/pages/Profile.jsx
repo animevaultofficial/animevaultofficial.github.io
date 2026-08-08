@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fetchTrendingMedia } from '../api/anilist';
 import { getRecommended } from '../api/movies';
 import { fetchPublicUserProfile, getUserSocialStats, followUser, unfollowUser, blockUser, unblockUser, getConnections } from '../api/db';
+import { getSettings } from '../api/settings';
 import StoryAvatar from '../components/StoryAvatar';
 import StoryUploadModal from '../components/StoryUploadModal';
 
@@ -35,6 +36,8 @@ export default function Profile() {
   const navigate = useNavigate();
 
   const isOwnProfile = currentUser && String(currentUser.id) === String(userid);
+  const settings = getSettings();
+  const showHistoryTab = isOwnProfile && !settings.hideHistory;
 
   const [activeTab, setActiveTab] = useState('likes');
   const [recommendations, setRecommendations] = useState([]);
@@ -47,7 +50,7 @@ export default function Profile() {
 
   // Determine displayed data
   const user = isOwnProfile ? currentUser : publicUser;
-  const history = isOwnProfile ? ownHistory : [];
+  const history = showHistoryTab ? (isOwnProfile ? ownHistory : []) : [];
   const continueWatching = isOwnProfile ? ownContinueWatching : [];
   const likes = isOwnProfile ? ownLikes : [];
 
@@ -682,29 +685,29 @@ export default function Profile() {
             {activeTab === 'likes' && <div style={{ position: 'absolute', bottom: '-16px', left: 0, width: '100%', height: '2px', background: 'var(--brand-color)' }} />}
           </button>
 
-          {isOwnProfile && (
-            <>
-              <button onClick={() => setActiveTab('history')} style={{
-                background: 'none', border: 'none', color: activeTab === 'history' ? 'var(--brand-color)' : 'var(--text-secondary)',
-                fontSize: '1rem', fontWeight: '800', cursor: 'pointer', paddingBottom: '10px',
-                position: 'relative', display: 'flex', alignItems: 'center', gap: '6px'
-              }}>
-                <Clock size={16} /> Stream History ({history.length})
-                {activeTab === 'history' && <div style={{ position: 'absolute', bottom: '-16px', left: 0, width: '100%', height: '2px', background: 'var(--brand-color)' }} />}
-              </button>
-
-              <button onClick={() => setActiveTab('recommendations')} style={{
-                background: 'none', border: 'none', color: activeTab === 'recommendations' ? 'var(--brand-color)' : 'var(--text-secondary)',
-                fontSize: '1rem', fontWeight: '800', cursor: 'pointer', paddingBottom: '10px',
-                position: 'relative', display: 'flex', alignItems: 'center', gap: '6px'
-              }}>
-                <Sparkles size={16} /> Recommended For You
-                {activeTab === 'recommendations' && <div style={{ position: 'absolute', bottom: '-16px', left: 0, width: '100%', height: '2px', background: 'var(--brand-color)' }} />}
-              </button>
-            </>
+          {showHistoryTab && (
+            <button onClick={() => setActiveTab('history')} style={{
+              background: 'none', border: 'none', color: activeTab === 'history' ? 'var(--brand-color)' : 'var(--text-secondary)',
+              fontSize: '1rem', fontWeight: '800', cursor: 'pointer', paddingBottom: '10px',
+              position: 'relative', display: 'flex', alignItems: 'center', gap: '6px'
+            }}>
+              <Clock size={16} /> Stream History ({history.length})
+              {activeTab === 'history' && <div style={{ position: 'absolute', bottom: '-16px', left: 0, width: '100%', height: '2px', background: 'var(--brand-color)' }} />}
+            </button>
           )}
 
-          {isOwnProfile && activeTab === 'history' && history.length > 0 && (
+          {isOwnProfile && (
+            <button onClick={() => setActiveTab('recommendations')} style={{
+              background: 'none', border: 'none', color: activeTab === 'recommendations' ? 'var(--brand-color)' : 'var(--text-secondary)',
+              fontSize: '1rem', fontWeight: '800', cursor: 'pointer', paddingBottom: '10px',
+              position: 'relative', display: 'flex', alignItems: 'center', gap: '6px'
+            }}>
+              <Sparkles size={16} /> Recommended For You
+              {activeTab === 'recommendations' && <div style={{ position: 'absolute', bottom: '-16px', left: 0, width: '100%', height: '2px', background: 'var(--brand-color)' }} />}
+            </button>
+          )}
+
+          {showHistoryTab && isOwnProfile && activeTab === 'history' && history.length > 0 && (
             <button onClick={clearHistory} style={{
               marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px',
               padding: '6px 12px', fontSize: '0.75rem', fontWeight: '800', borderRadius: '8px',
