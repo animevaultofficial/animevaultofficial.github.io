@@ -40,30 +40,37 @@ async function fetchMangaApi(endpoint) {
 }
 
 async function fetchMangaDexApi(endpoint) {
-  try {
-    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    const url = `${MANGADEX_BASE}${path}`;
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${MANGADEX_BASE}${path}`;
 
-    let res = await fetch(url);
-    if (!res.ok) {
-      // If direct MangaDex call fails due to CORS or other errors, retry through a public proxy.
+  let res = null;
+  try {
+    res = await fetch(url);
+  } catch (err) {
+    console.warn(`MangaDex direct fetch failed, falling back to CORS proxy:`, err.message);
+  }
+
+  if (!res || !res.ok) {
+    try {
       const proxyUrl = buildMangaDexProxyUrl(path);
       res = await fetch(proxyUrl);
+    } catch (err) {
+      console.warn(`MangaDex proxy fetch failed for endpoint (${endpoint}):`, err.message);
+      return null;
     }
+  }
 
-    if (!res.ok) {
-      throw new Error(`MangaDex API error ${res.status}`);
-    }
-
-    const text = await res.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      return { data: [] };
-    }
-  } catch (err) {
-    console.warn(`MangaDex API endpoint (${endpoint}) unavailable:`, err.message);
+  if (!res || !res.ok) {
+    console.warn(`MangaDex API endpoint (${endpoint}) returned HTTP ${res ? res.status : 'no response'}`);
     return null;
+  }
+
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.warn(`Failed to parse MangaDex response for endpoint (${endpoint}):`, err.message);
+    return { data: [] };
   }
 }
 
@@ -359,10 +366,9 @@ export async function searchMangaDex(titles) {
   for (const t of titleList) {
     if (!t) continue;
     try {
-      const res = await fetch(buildMangaDexUrl(`/manga?title=${encodeURIComponent(t)}&limit=10&includes[]=cover_art&${ratings}`));
-      const data = await res.json();
-      if (data.data && data.data.length > 0) {
-        const cleanedQuery = cleanString(t);
+      const data = await fetchMangaDexApi(`/manga?title=${encodeURIComponent(t)}&limit=10&includes[]=cover_art&${ratings}`);
+      if (!data || !data.data || data.data.length === 0) continue;
+      const cleanedQuery = cleanString(t);
         
         for (const manga of data.data) {
           const primaryTitles = Object.values(manga.attributes.title || {});
@@ -401,20 +407,14 @@ export async function fetchMangaChapters(mangaId, offset = 0, limit = 500) {
   
   try {
     // 1. Fetch English chapters across offsets (limit 500)
-    let res = await fetch(
-      buildMangaDexUrl(`/manga/${mangaId}/feed?translatedLanguage[]=en&translatedLanguage[]=en-us&limit=250&offset=0&order[chapter]=asc&includes[]=scanlation_group&${ratings}`)
-    );
-    let data = await res.json();
-    let rawChapters = data.data || [];
+    const initialData = await fetchMangaDexApi(`/manga/${mangaId}/feed?translatedLanguage[]=en&translatedLanguage[]=en-us&limit=250&offset=0&order[chapter]=asc&includes[]=scanlation_group&${ratings}`);
+    let rawChapters = initialData?.data || [];
 
     // If more than 250 chapters exist, fetch next offset
-    if (data.total > 250) {
+    if (initialData?.total > 250) {
       try {
-        const nextRes = await fetch(
-          buildMangaDexUrl(`/manga/${mangaId}/feed?translatedLanguage[]=en&translatedLanguage[]=en-us&limit=250&offset=250&order[chapter]=asc&includes[]=scanlation_group&${ratings}`)
-        );
-        const nextData = await nextRes.json();
-        if (nextData.data) {
+        const nextData = await fetchMangaDexApi(`/manga/${mangaId}/feed?translatedLanguage[]=en&translatedLanguage[]=en-us&limit=250&offset=250&order[chapter]=asc&includes[]=scanlation_group&${ratings}`);
+        if (nextData?.data) {
           rawChapters = [...rawChapters, ...nextData.data];
         }
       } catch (e) {
@@ -466,10 +466,9 @@ export async function fetchMangaChapters(mangaId, offset = 0, limit = 500) {
  */
 export async function fetchChapterPages(chapterId) {
   try {
-    const res = await fetch(buildMangaDexUrl(`/at-home/server/${chapterId}`));
-    const data = await res.json();
+    const data = await fetchMangaDexApi(`/at-home/server/${chapterId}`);
     
-    if (data.baseUrl) {
+    if (data?.baseUrl) {
       if (data.chapter.data && data.chapter.data.length > 0) {
         return data.chapter.data.map(filename => 
           `${data.baseUrl}/data/${data.chapter.hash}/${filename}`
