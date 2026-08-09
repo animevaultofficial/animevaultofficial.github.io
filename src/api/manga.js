@@ -5,17 +5,27 @@ const MANGA_API_BASE = (typeof import.meta !== 'undefined' && import.meta.env &&
   ? import.meta.env.VITE_MANGA_API_URL 
   : '/api/manga';
 
-const MANGADEX_CORS_PROXY = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_MANGADEX_CORS_PROXY)
-  ? import.meta.env.VITE_MANGADEX_CORS_PROXY
-  : 'https://api.allorigins.win/raw?url=';
+const MANGADEX_CORS_PROXIES = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_MANGADEX_CORS_PROXY)
+  ? [import.meta.env.VITE_MANGADEX_CORS_PROXY]
+  : [
+      'https://api.allorigins.win/raw?url=',
+      'https://corsproxy.io/?url=',
+      'https://api.codetabs.com/v1/proxy?quest=',
+    ];
 
 function buildMangaDexUrl(path) {
   return `${MANGADEX_BASE}${path}`;
 }
 
-function buildMangaDexProxyUrl(path) {
+function buildMangaDexProxyUrls(path) {
   const url = buildMangaDexUrl(path);
-  return `${MANGADEX_CORS_PROXY}${encodeURIComponent(url)}`;
+  return MANGADEX_CORS_PROXIES.map((proxy) => `${proxy}${encodeURIComponent(url)}`);
+}
+
+function shouldTryMangaDexDirectFetch() {
+  if (typeof window === 'undefined') return true;
+  const hostname = window.location?.hostname || '';
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '';
 }
 
 function cleanString(str) {
@@ -41,37 +51,35 @@ async function fetchMangaApi(endpoint) {
 
 async function fetchMangaDexApi(endpoint) {
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const url = `${MANGADEX_BASE}${path}`;
+  const requestUrls = shouldTryMangaDexDirectFetch()
+    ? [buildMangaDexUrl(path), ...buildMangaDexProxyUrls(path)]
+    : buildMangaDexProxyUrls(path);
 
-  let res = null;
-  try {
-    res = await fetch(url);
-  } catch (err) {
-    console.warn(`MangaDex direct fetch failed, falling back to CORS proxy:`, err.message);
-  }
-
-  if (!res || !res.ok) {
+  for (const requestUrl of requestUrls) {
     try {
-      const proxyUrl = buildMangaDexProxyUrl(path);
-      res = await fetch(proxyUrl);
+      const res = await fetch(requestUrl, {
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        console.warn(`MangaDex API request for endpoint (${endpoint}) returned HTTP ${res.status}`);
+        continue;
+      }
+
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch (err) {
+        console.warn(`Failed to parse MangaDex response for endpoint (${endpoint}):`, err.message);
+      }
     } catch (err) {
-      console.warn(`MangaDex proxy fetch failed for endpoint (${endpoint}):`, err.message);
-      return null;
+      console.warn(`MangaDex API request failed for endpoint (${endpoint}):`, err.message);
     }
   }
 
-  if (!res || !res.ok) {
-    console.warn(`MangaDex API endpoint (${endpoint}) returned HTTP ${res ? res.status : 'no response'}`);
-    return null;
-  }
-
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch (err) {
-    console.warn(`Failed to parse MangaDex response for endpoint (${endpoint}):`, err.message);
-    return { data: [] };
-  }
+  return null;
 }
 
 function getPrimaryTitle(titleObj, altTitles = []) {
