@@ -78,20 +78,6 @@ async function fetchMangaDexApi(endpoint) {
     ? [buildMangaDexUrl(path), ...buildMangaDexProxyUrls(path)]
     : buildMangaDexProxyUrls(path);
 
-  const attempts = requestUrls.map(async (requestUrl) => {
-    try {
-      const result = await fetchJsonWithTimeout(requestUrl);
-      if (result && (result.data !== undefined || result.result === 'ok')) return result;
-      throw new Error('Unexpected MangaDex response');
-    } catch (err) {
-      console.warn(`MangaDex API request failed for endpoint (${endpoint}):`, err.message);
-      throw err;
-async function fetchMangaDexApi(endpoint) {
-  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const requestUrls = shouldTryMangaDexDirectFetch()
-    ? [buildMangaDexUrl(path), ...buildMangaDexProxyUrls(path)]
-    : buildMangaDexProxyUrls(path);
-
   for (const requestUrl of requestUrls) {
     try {
       const res = await fetch(requestUrl, {
@@ -114,13 +100,8 @@ async function fetchMangaDexApi(endpoint) {
     } catch (err) {
       console.warn(`MangaDex API request failed for endpoint (${endpoint}):`, err.message);
     }
-  });
-
-  try {
-    return await Promise.any(attempts);
-  } catch {
-    return null;
   }
+
   return null;
 }
 
@@ -170,7 +151,7 @@ function normalizeMangaDexManga(manga) {
   };
 }
 
-async function fetchMangaDexList({ query = '', page = 1, limit = 24, orderBy = 'followedCount', status = [], contentRatings = ['safe', 'suggestive', 'erotica'], includes = ['cover_art', 'author', 'artist', 'tag'] } = {}) {
+async function fetchMangaDexList({ query = '', page = 1, limit = 24, orderBy = 'followedCount', status = [], contentRatings = ['safe', 'suggestive', 'erotica'], includes = ['cover_art', 'author'] } = {}) {
   const offset = (page - 1) * limit;
   const params = new URLSearchParams();
   params.set('limit', limit);
