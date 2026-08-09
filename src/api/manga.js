@@ -5,19 +5,13 @@ const MANGA_API_BASE = (typeof import.meta !== 'undefined' && import.meta.env &&
   ? import.meta.env.VITE_MANGA_API_URL 
   : '/api/manga';
 
-const DEFAULT_MANGADEX_CORS_PROXIES = [
-  'https://corsproxy.io/?url=',
-  'https://api.codetabs.com/v1/proxy?quest=',
-];
-
-const configuredMangaDexCorsProxy = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_MANGADEX_CORS_PROXY)
-  ? import.meta.env.VITE_MANGADEX_CORS_PROXY
-  : '';
-
-const MANGADEX_CORS_PROXIES = [configuredMangaDexCorsProxy, ...DEFAULT_MANGADEX_CORS_PROXIES]
-  .filter(Boolean)
-  .filter((proxy) => !proxy.includes('api.allorigins.win'))
-  .filter((proxy, index, proxies) => proxies.indexOf(proxy) === index);
+const MANGADEX_CORS_PROXIES = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_MANGADEX_CORS_PROXY)
+  ? [import.meta.env.VITE_MANGADEX_CORS_PROXY]
+  : [
+      'https://api.allorigins.win/raw?url=',
+      'https://corsproxy.io/?url=',
+      'https://api.codetabs.com/v1/proxy?quest=',
+    ];
 
 function buildMangaDexUrl(path) {
   return `${MANGADEX_BASE}${path}`;
@@ -55,7 +49,7 @@ async function fetchMangaApi(endpoint) {
   }
 }
 
-async function fetchJsonWithTimeout(url, timeoutMs = 1200) {
+async function fetchJsonWithTimeout(url, timeoutMs = 2500) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -84,22 +78,31 @@ async function fetchMangaDexApi(endpoint) {
     ? [buildMangaDexUrl(path), ...buildMangaDexProxyUrls(path)]
     : buildMangaDexProxyUrls(path);
 
-  const attempts = requestUrls.map(async (requestUrl) => {
+  for (const requestUrl of requestUrls) {
     try {
-      const result = await fetchJsonWithTimeout(requestUrl);
-      if (result && (result.data !== undefined || result.result === 'ok')) return result;
-      throw new Error('Unexpected MangaDex response');
-    } catch (err) {
-      console.debug(`MangaDex API request failed for endpoint (${endpoint}):`, err.message);
-      throw err;
-    }
-  });
+      const res = await fetch(requestUrl, {
+        headers: {
+          Accept: 'application/json',
+        },
+      });
 
-  try {
-    return await Promise.any(attempts);
-  } catch {
-    return null;
+      if (!res.ok) {
+        console.warn(`MangaDex API request for endpoint (${endpoint}) returned HTTP ${res.status}`);
+        continue;
+      }
+
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch (err) {
+        console.warn(`Failed to parse MangaDex response for endpoint (${endpoint}):`, err.message);
+      }
+    } catch (err) {
+      console.warn(`MangaDex API request failed for endpoint (${endpoint}):`, err.message);
+    }
   }
+
+  return null;
 }
 
 function getPrimaryTitle(titleObj, altTitles = []) {
@@ -148,7 +151,7 @@ function normalizeMangaDexManga(manga) {
   };
 }
 
-async function fetchMangaDexList({ query = '', page = 1, limit = 24, orderBy = 'followedCount', status = [], contentRatings = ['safe', 'suggestive', 'erotica'], includes = ['cover_art', 'author', 'artist', 'tag'] } = {}) {
+async function fetchMangaDexList({ query = '', page = 1, limit = 24, orderBy = 'followedCount', status = [], contentRatings = ['safe', 'suggestive', 'erotica'], includes = ['cover_art', 'author'] } = {}) {
   const offset = (page - 1) * limit;
   const params = new URLSearchParams();
   params.set('limit', limit);
