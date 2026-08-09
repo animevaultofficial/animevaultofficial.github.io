@@ -1,0 +1,8 @@
+{
+  "appId": "com.animevault.app",
+  "appName": "AnimeVault",
+  "webDir": "dist-mobile",
+  "server": {
+    "androidScheme": "https"
+  }
+}
