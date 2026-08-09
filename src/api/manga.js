@@ -143,7 +143,7 @@ function getPrimaryTitle(titleObj, altTitles = []) {
 
 function getMangaDexCoverUrl(manga) {
   const coverRel = (manga.relationships || []).find((r) => r.type === 'cover_art');
-  const filename = coverRel?.attributes?.fileName;
+  const filename = coverRel && coverRel.attributes ? coverRel.attributes.fileName : '';
   return filename ? `https://uploads.mangadex.org/covers/${manga.id}/${filename}` : '';
 }
 
