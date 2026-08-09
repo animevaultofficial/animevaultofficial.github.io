@@ -120,7 +120,7 @@ function normalizeMangaDexManga(manga) {
   };
 }
 
-async function fetchMangaDexList({ query = '', page = 1, limit = 24, orderBy = 'followedCount', status = [], contentRatings = ['safe', 'suggestive', 'erotica'], includes = ['cover_art', 'author', 'artist', 'tag'] }) {
+async function fetchMangaDexList({ query = '', page = 1, limit = 24, orderBy = 'followedCount', status = [], contentRatings = ['safe', 'suggestive', 'erotica'], includes = ['cover_art', 'author', 'artist', 'tag'] } = {}) {
   const offset = (page - 1) * limit;
   const params = new URLSearchParams();
   params.set('limit', limit);
