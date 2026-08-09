@@ -8,6 +8,7 @@ const MANGA_API_BASE = (typeof import.meta !== 'undefined' && import.meta.env &&
 const MANGADEX_CORS_PROXIES = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_MANGADEX_CORS_PROXY)
   ? [import.meta.env.VITE_MANGADEX_CORS_PROXY]
   : [
+      'https://api.allorigins.win/raw?url=',
       'https://corsproxy.io/?url=',
       'https://api.codetabs.com/v1/proxy?quest=',
     ];
@@ -85,6 +86,33 @@ async function fetchMangaDexApi(endpoint) {
     } catch (err) {
       console.warn(`MangaDex API request failed for endpoint (${endpoint}):`, err.message);
       throw err;
+async function fetchMangaDexApi(endpoint) {
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const requestUrls = shouldTryMangaDexDirectFetch()
+    ? [buildMangaDexUrl(path), ...buildMangaDexProxyUrls(path)]
+    : buildMangaDexProxyUrls(path);
+
+  for (const requestUrl of requestUrls) {
+    try {
+      const res = await fetch(requestUrl, {
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        console.warn(`MangaDex API request for endpoint (${endpoint}) returned HTTP ${res.status}`);
+        continue;
+      }
+
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch (err) {
+        console.warn(`Failed to parse MangaDex response for endpoint (${endpoint}):`, err.message);
+      }
+    } catch (err) {
+      console.warn(`MangaDex API request failed for endpoint (${endpoint}):`, err.message);
     }
   });
 
@@ -93,6 +121,7 @@ async function fetchMangaDexApi(endpoint) {
   } catch {
     return null;
   }
+  return null;
 }
 
 function getPrimaryTitle(titleObj, altTitles = []) {
