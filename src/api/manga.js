@@ -345,7 +345,7 @@ export async function fetchMangaKakalotDetails(id) {
   }
 
   const res = await fetchMangaApi(`/details/${encodeURIComponent(id)}`);
-  if (res and !res.error and res.title) return res;
+  if (res && !res.error && res.title) return res;
   return null;
 }
 
