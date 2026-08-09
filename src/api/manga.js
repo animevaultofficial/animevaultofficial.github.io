@@ -496,16 +496,16 @@ export async function fetchMangaChapters(mangaId, offset = 0, limit = 500) {
  */
 export async function fetchChapterPages(chapterId) {
   try {
-    const data = await fetchMangaDexApi(`/at-home/server/${chapterId}`);
+    const data = await fetchMangaDexApi(`/at-home/server/${chapterId}?forcePort443=true`);
     
     if (data?.baseUrl) {
-      if (data.chapter.data && data.chapter.data.length > 0) {
-        return data.chapter.data.map(filename => 
-          `${data.baseUrl}/data/${data.chapter.hash}/${filename}`
-        );
-      } else if (data.chapter.dataSaver && data.chapter.dataSaver.length > 0) {
+      if (data.chapter.dataSaver && data.chapter.dataSaver.length > 0) {
         return data.chapter.dataSaver.map(filename => 
           `${data.baseUrl}/data-saver/${data.chapter.hash}/${filename}`
+        );
+      } else if (data.chapter.data && data.chapter.data.length > 0) {
+        return data.chapter.data.map(filename => 
+          `${data.baseUrl}/data/${data.chapter.hash}/${filename}`
         );
       }
     }
