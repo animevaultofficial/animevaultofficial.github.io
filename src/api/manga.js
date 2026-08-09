@@ -49,6 +49,43 @@ async function fetchMangaApi(endpoint) {
   }
 }
 
+async function fetchJsonWithTimeout(url, timeoutMs = 2500) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const text = await res.text();
+    return JSON.parse(text);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function fetchMangaDexApi(endpoint) {
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const requestUrls = shouldTryMangaDexDirectFetch()
+    ? [buildMangaDexUrl(path), ...buildMangaDexProxyUrls(path)]
+    : buildMangaDexProxyUrls(path);
+
+  const attempts = requestUrls.map(async (requestUrl) => {
+    try {
+      const result = await fetchJsonWithTimeout(requestUrl);
+      if (result && (result.data !== undefined || result.result === 'ok')) return result;
+      throw new Error('Unexpected MangaDex response');
+    } catch (err) {
+      console.warn(`MangaDex API request failed for endpoint (${endpoint}):`, err.message);
+      throw err;
 async function fetchMangaDexApi(endpoint) {
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const requestUrls = shouldTryMangaDexDirectFetch()
@@ -77,8 +114,13 @@ async function fetchMangaDexApi(endpoint) {
     } catch (err) {
       console.warn(`MangaDex API request failed for endpoint (${endpoint}):`, err.message);
     }
-  }
+  });
 
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    return null;
+  }
   return null;
 }
 
