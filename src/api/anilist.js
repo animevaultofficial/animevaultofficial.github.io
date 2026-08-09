@@ -1,7 +1,8 @@
 const API_URL = "https://graphql.anilist.co";
 const KITSU_BASE = "https://kitsu.io/api/edge";
 const JIKAN_BASE = "https://api.jikan.moe/v4";
-const API_TIMEOUT_MS = 4500;
+// Increased timeout from 4.5s to 15s to reduce spurious timeouts on slow APIs
+const API_TIMEOUT_MS = 15000;
 const CACHE_TTL = 1000 * 60 * 30; // 30 minutes cache
 
 let globalFallbackActive = false;
@@ -118,18 +119,28 @@ function setCache(key, data) {
   } catch (_) {}
 }
 
+// Improved fetch with timeout + retry/backoff to reduce 504s and transient network failures
 async function fetchJsonWithTimeout(url, timeoutMs = API_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, {
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    });
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-    return await response.json();
-  } finally {
-    clearTimeout(timeoutId);
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    // Increase timeout slightly on retries
+    const effectiveTimeout = timeoutMs * (attempt === 1 ? 1 : 1.5 * attempt);
+    const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      return await response.json();
+    } catch (err) {
+      if (attempt === maxAttempts) throw err;
+      // brief exponential backoff before retrying
+      await new Promise((r) => setTimeout(r, 500 * attempt));
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
@@ -307,11 +318,11 @@ function mapKitsuToAniList(item, type = "ANIME") {
       averageRating: "82",
       posterImage: {
         large:
-          "https://m.media-amazon.com/images/M/MV5BMDg3MGVhNWUtYTQ2NS00ZDdiLTg5MTMtZmM5MjUzN2IxN2I4XkEyXkFqcGc@._V1_.jpg",
+          "https://media.kitsu.io/anime/poster_images/46853/large.jpg",
       },
       coverImage: {
         large:
-          "https://occ-0-8407-2218.1.nflxso.net/dnm/api/v6/6AYY37jfdO6hpXcMjf9Yu5cnmO0/AAAABVsYZUxoW6EqHCyHECMe2UKD_flr8J8YbE0OPZ8gc3tXEuq4RZQumrmxSHiF9SGErHCz3brEgIdZV4UJJ3oqDrzVLOQiDE7DRQ6Y.jpg?r=6ae",
+          "https://occ-0-8407-2218.1.nflxso.net/dnm/api/v6/6AYY37jfdO6hpXcMjf9Yu5cnmO0/AAAABVsYZUxoW6EqHCyHECMe2UKD_flr8J8YbE0OPZ8gc3tXEuq4RZQumrmxSHiF9SGErHCz3brEgIdZV4UJJ3oqDrzVLOQiDE7DRQ6Y.jpg",
       },
     };
   }
