@@ -391,7 +391,6 @@ export async function searchMangaDex(titles) {
         }
         
         return data.data[0];
-      }
     } catch (err) {
       console.error('MangaDex search failed for title:', t, err);
     }
