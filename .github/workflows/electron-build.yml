@@ -36,6 +36,22 @@ concurrency:
   group: installer-build-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  # API Configuration - Update these with your actual endpoints
+  VITE_ANFIRE_API_URL: ${{ secrets.VITE_ANFIRE_API_URL || 'http://localhost:3000/api.php' }}
+  VITE_ANFIRE_API_KEY: ${{ secrets.VITE_ANFIRE_API_KEY || 'default-key' }}
+  
+  # Database Configuration
+  VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
+  VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
+  
+  # Auth Proxy (for mobile/static app)
+  VITE_AUTH_PROXY_URL: ${{ secrets.VITE_AUTH_PROXY_URL || 'https://animevaultofficial-github-io.onrender.com' }}
+  
+  # Cloudinary (optional, for image uploads)
+  VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+  VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
+
 jobs:
   version-bump:
     name: Auto-bump version
@@ -155,8 +171,6 @@ jobs:
           WIN_CSC_LINK: ${{ github.workspace }}/animevault-code-signing.pfx
           WIN_CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: npm run electron:build -- ${{ matrix.args }}
-
-
 
 
 
@@ -288,7 +302,12 @@ jobs:
         run: npm install
 
       - name: Ensure Android project exists
-        run: npm run android:ensure
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          else
+            echo "Android directory already exists"
+          fi
 
       - name: Build Android release APK and AAB
         shell: bash
@@ -296,6 +315,22 @@ jobs:
           set -euo pipefail
           npm run android:sync
           cd android
+          
+          # Ensure gradlew exists and is executable
+          if [ ! -f gradlew ]; then
+            echo "gradlew not found! Regenerating Android project..."
+            cd ..
+            rm -rf android
+            npx cap add android
+            npm run android:sync
+            cd android
+          fi
+          
+          if [ ! -f gradlew ]; then
+            echo "ERROR: gradlew still missing after regeneration. This indicates an issue with Capacitor setup." >&2
+            exit 1
+          fi
+          
           chmod +x gradlew
           ./gradlew assembleRelease bundleRelease
 
