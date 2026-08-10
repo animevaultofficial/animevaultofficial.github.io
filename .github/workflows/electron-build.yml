@@ -36,6 +36,23 @@ concurrency:
   group: installer-build-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  # API Configuration - Update these with your actual endpoints
+  VITE_ANFIRE_API_URL: ${{ secrets.VITE_ANFIRE_API_URL || 'http://localhost:3000/api.php' }}
+  VITE_ANFIRE_API_KEY: ${{ secrets.VITE_ANFIRE_API_KEY || 'default-key' }}
+  VITE_ANFIRE_EPISODE_API_URL: ${{ secrets.VITE_ANFIRE_EPISODE_API_URL || 'http://localhost:3000/api.php' }}
+  
+  # Database Configuration
+  VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
+  VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
+  
+  # Auth Proxy (for mobile/static app)
+  VITE_AUTH_PROXY_URL: ${{ secrets.VITE_AUTH_PROXY_URL || 'https://animevaultofficial-github-io.onrender.com' }}
+  
+  # Cloudinary (optional, for image uploads)
+  VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+  VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
+
 jobs:
   version-bump:
     name: Auto-bump version
@@ -155,11 +172,6 @@ jobs:
           WIN_CSC_LINK: ${{ github.workspace }}/animevault-code-signing.pfx
           WIN_CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: npm run electron:build -- ${{ matrix.args }}
-
-
-
-
-
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
@@ -287,35 +299,140 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Ensure Android project exists
-        run: npm run android:ensure
+      - name: Clean and ensure fresh Android project
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Cleaning old Android build artifacts..."
+          rm -rf android/.gradle android/build android/app/build 2>/dev/null || true
+          
+          # Only add android if it doesn't exist
+          if [ ! -d android ]; then
+            echo "Android project doesn't exist. Creating fresh Capacitor Android project..."
+            npx cap add android
+          else
+            echo "Android project exists, cleaning build files..."
+          fi
+
+      - name: Sync Capacitor and verify Gradle setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Syncing Capacitor and building web assets..."
+          npm run android:sync
+          
+          # Verify critical files exist
+          cd android
+          
+          if [ ! -f gradlew ]; then
+            echo "ERROR: gradlew not found after sync! Checking directory structure..."
+            ls -la
+            echo "Attempting emergency regeneration..."
+            cd ..
+            rm -rf android
+            npx cap add android
+            npm run android:sync
+            cd android
+          fi
+          
+          if [ ! -f gradlew ]; then
+            echo "CRITICAL ERROR: Cannot generate gradlew. Capacitor setup may be corrupted." >&2
+            echo "Try deleting node_modules and running: npm install && npx cap add android" >&2
+            exit 1
+          fi
+          
+          # Final checks
+          echo "Verifying Android build files..."
+          [ -f gradlew ] || (echo "gradlew missing"; exit 1)
+          [ -f gradle/wrapper/gradle-wrapper.jar ] || (echo "gradle-wrapper.jar missing"; exit 1)
+          [ -f build.gradle ] || (echo "build.gradle missing"; exit 1)
+          [ -f settings.gradle ] || (echo "settings.gradle missing"; exit 1)
+          echo "✓ All required Gradle files present"
 
       - name: Build Android release APK and AAB
         shell: bash
         run: |
           set -euo pipefail
-          npm run android:sync
           cd android
+          
+          # Make gradlew executable
           chmod +x gradlew
-          ./gradlew assembleRelease bundleRelease
+          
+          # Verify it exists before running
+          if [ ! -f gradlew ]; then
+            echo "gradlew not found before build!" >&2
+            exit 1
+          fi
+          
+          echo "Building Android APK and AAB..."
+          ./gradlew assembleRelease bundleRelease --stacktrace
+          
+          echo "✓ Android build completed successfully"
 
       - name: Normalize Android artifact names
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p release
+          
+          # Find APK
           apk=$(find android/app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit || true)
           aab=$(find android/app/build/outputs/bundle/release -maxdepth 1 -name '*.aab' -print -quit || true)
+          
           if [ -z "$apk" ]; then
-            echo "No Android release APK was produced." >&2
+            echo "ERROR: No Android release APK was produced." >&2
+            echo "Build output directory contents:"
+            find android/app/build/outputs -type f 2>/dev/null || echo "No outputs found"
             exit 1
           fi
+          
+          echo "Found APK: $apk"
           cp "$apk" "release/AnimeVault-Android.apk"
+          
           if [ -n "$aab" ]; then
+            echo "Found AAB: $aab"
             cp "$aab" "release/AnimeVault-Android.aab"
           else
-            echo "Warning: no Android AAB found; only APK will be uploaded."
+            echo "⚠ Warning: no Android AAB found; only APK will be uploaded."
           fi
+          
+          # Verify output
+          echo "Release artifacts:"
+          ls -lh release/
+
+      - name: Verify Android APK validity
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk_file="release/AnimeVault-Android.apk"
+          
+          if [ ! -f "$apk_file" ]; then
+            echo "APK file not found: $apk_file" >&2
+            exit 1
+          fi
+          
+          echo "Checking APK validity..."
+          file_type=$(file "$apk_file")
+          echo "File type: $file_type"
+          
+          # APK is a ZIP file
+          if ! unzip -t "$apk_file" > /dev/null 2>&1; then
+            echo "ERROR: APK file is corrupted or invalid (not a valid ZIP archive)" >&2
+            exit 1
+          fi
+          
+          # Check for critical APK files
+          if ! unzip -l "$apk_file" | grep -q "AndroidManifest.xml"; then
+            echo "ERROR: AndroidManifest.xml not found in APK" >&2
+            exit 1
+          fi
+          
+          if ! unzip -l "$apk_file" | grep -q "classes.dex"; then
+            echo "ERROR: classes.dex not found in APK" >&2
+            exit 1
+          fi
+          
+          echo "✓ APK structure is valid"
 
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
@@ -434,7 +551,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="$(node -p \"require('./package.json').version\")"
+          version="$(node -p "require('./package.json').version")"
           tag="v${version}"
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
