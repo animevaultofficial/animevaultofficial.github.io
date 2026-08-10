@@ -69,7 +69,7 @@
       "artifactName": "AnimeVault-Windows-${arch}.${ext}",
       "publisherName": "AnimeVault",
       "certificateFile": "animevault-code-signing.pfx",
-      "certificatePassword": "Adiyan123@!",
+      "certificatePassword": "${env.CERT_PASSWORD}",
       "forceCodeSigning": true,
       "signAndEditExecutable": true
     },

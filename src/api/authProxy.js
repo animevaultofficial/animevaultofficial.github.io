@@ -10,24 +10,33 @@ function getProxyUrl(path) {
   return base ? `${base}${path.startsWith('/') ? path : `/${path}`}` : '';
 }
 
+function getCookie(name) {
+  if (typeof document === 'undefined') return '';
+  const cookie = document.cookie.split('; ').find(row => row.startsWith(`${name}=`));
+  return cookie ? cookie.split('=')[1] : '';
+}
+
+function setCookie(name, value, days = 30) {
+  if (typeof document === 'undefined') return;
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${value}; expires=${expires}; path=/; samesite=lax`;
+}
+
+function deleteCookie(name) {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${name}=; max-age=0; path=/; samesite=lax`;
+}
+
 export function getStoredProxyToken() {
-  try {
-    return localStorage.getItem(PROXY_TOKEN_KEY) || '';
-  } catch {
-    return '';
-  }
+  return getCookie(PROXY_TOKEN_KEY);
 }
 
 function storeProxyToken(token) {
-  try {
-    if (token) localStorage.setItem(PROXY_TOKEN_KEY, token);
-  } catch {}
+  if (token) setCookie(PROXY_TOKEN_KEY, token, 30);
 }
 
 export function clearStoredProxyToken() {
-  try {
-    localStorage.removeItem(PROXY_TOKEN_KEY);
-  } catch {}
+  deleteCookie(PROXY_TOKEN_KEY);
 }
 
 async function requestProxy(path, body = {}, { includeToken = false } = {}) {

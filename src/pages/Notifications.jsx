@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Bell, Clock, Trophy, ChevronLeft, ChevronRight, Play, X } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getNotifications, getSettings, updateSetting, dismissNotification } from '../api/database';
+import { getNotifications, getSettings, updateSetting, dismissNotification } from '../api/db';
 import { useUser } from '../api/UserContext';
 
 export default function Notifications() {

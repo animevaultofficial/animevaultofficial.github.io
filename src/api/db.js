@@ -64,29 +64,8 @@ async function getSql() {
     return sql;
   } catch (e) {
     error('[AnimeVault DB] Failed to connect to Neon DB:', e);
-    log('[AnimeVault DB] Neon not available, using localStorage fallback');
     sql = null;
     return null;
-  }
-}
-
-// LocalStorage users storage
-const USERS_KEY = 'animevault_users';
-
-function getUsers() {
-  try {
-    const data = localStorage.getItem(USERS_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveUsers(users) {
-  try {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  } catch (e) {
-    error('Failed to save users:', e);
   }
 }
 
@@ -97,48 +76,25 @@ export async function userSignup(username, password) {
   if (password.length < 6) return { success: false, message: 'Password must be at least 6 characters.' };
   if (trimmedUser.length < 3) return { success: false, message: 'Username must be at least 3 characters.' };
 
-  // Ensure DB connection
   const db = await getSql();
-  if (db) {
-    try {
-      const hashedPassword = simpleHash(password);
-      const result = await db`
-        INSERT INTO users (username, password, is_admin)
-        VALUES (${trimmedUser}, ${hashedPassword}, false)
-        RETURNING id, username, avatar, banner, is_admin
-      `;
-      const user = result[0];
-      // Sync to localStorage fallback for future offline use
-      const users = getUsers();
-      users.push({ ...user, password: hashedPassword, created_at: new Date().toISOString() });
-      saveUsers(users);
-      const { password: _, ...safeUser } = user;
-      return { success: true, user: safeUser };
-    } catch (e) {
-      console.warn('[AnimeVault DB] Neon signup failed, falling back:', e?.message);
-    }
+  if (!db) {
+    return { success: false, message: 'Database connection unavailable. Please try again later.' };
   }
 
-  // LocalStorage fallback (no DB)
-  const users = getUsers();
-  if (users.find(u => u.username.toLowerCase() === trimmedUser.toLowerCase())) {
-    return { success: false, message: 'Username already taken.' };
+  try {
+    const hashedPassword = simpleHash(password);
+    const result = await db`
+      INSERT INTO users (username, password, is_admin)
+      VALUES (${trimmedUser}, ${hashedPassword}, false)
+      RETURNING id, username, avatar, banner, is_admin
+    `;
+    const user = result[0];
+    const { password: _, ...safeUser } = user;
+    return { success: true, user: safeUser };
+  } catch (e) {
+    error('[AnimeVault DB] signup error:', e);
+    return { success: false, message: 'Unable to create account. Please try again later.' };
   }
-
-  const newUser = {
-    id: Date.now(),
-    username: trimmedUser,
-    password: simpleHash(password),
-    avatar: null,
-    banner: null,
-    is_admin: false,
-    created_at: new Date().toISOString()
-  };
-  users.push(newUser);
-  saveUsers(users);
-
-  const { password: _, ...safeUser } = newUser;
-  return { success: true, user: safeUser };
 }
 
 export async function userLogin(username, password) {
@@ -146,54 +102,39 @@ export async function userLogin(username, password) {
   if (!trimmedUser || !password) return { success: false, message: 'All fields are required.' };
 
   const inputHash = simpleHash(password);
-  let dbUser = null;
-  let passwordValid = false;
 
-  // Ensure DB connection
   const db = await getSql();
-  if (db) {
-    try {
-      const result = await db`
-        SELECT id, username, password, avatar, banner, is_admin, is_verified, two_factor_enabled FROM users
-        WHERE LOWER(username) = LOWER(${trimmedUser})
-      `;
-      if (result.length) {
-        dbUser = result[0];
-        const storedHash = result[0].password;
-        if (storedHash === inputHash) {
-          const { password: _, ...user } = result[0];
-          // Sync to localStorage for offline fallback
-          const users = getUsers();
-          const existing = users.find(u => u.id === user.id);
-          if (!existing) {
-            users.push({ ...user, password: storedHash, created_at: new Date().toISOString() });
-            saveUsers(users);
-          }
-          return { success: true, user };
-        }
-        passwordValid = false;
-      }
-    } catch (e) {
-      warn('[AnimeVault DB] Neon login failed, falling back:', e?.message);
-    }
+  if (!db) {
+    return { success: false, message: 'Database connection unavailable. Please try again later.' };
   }
 
-  // LocalStorage fallback (check local cache if DB didn't work or if DB user exists but password didn't match in DB)
-  const users = getUsers();
-  const localUser = users.find(u => u.username.toLowerCase() === trimmedUser.toLowerCase());
-
-  if (localUser) {
-    // Check if local user matches the password
-    if (localUser.password === inputHash) {
-      const { password: _, ...safeUser } = localUser;
-      return { success: true, user: safeUser };
+  try {
+    const result = await db`
+      SELECT id, username, password, avatar, banner, is_admin, is_verified, two_factor_enabled FROM users
+      WHERE LOWER(username) = LOWER(${trimmedUser})
+    `;
+    if (!result.length) {
+      return { success: false, message: 'Invalid username or password' };
     }
-    // Password doesn't match in localStorage either
-    return { success: false, message: 'Invalid password. Please try again.' };
-  }
 
-  // User not found in either DB or localStorage
-  return { success: false, message: 'Account does not exist. Please sign up first.' };
+    const userRow = result[0];
+    const stored = userRow.password || '';
+    let valid = false;
+    if (stored.startsWith('hash_')) {
+      valid = (simpleHash(password) === stored);
+    } else {
+      valid = await bcrypt.compare(password, stored);
+    }
+    if (!valid) {
+      return { success: false, message: 'Invalid username or password' };
+    }
+
+    const { password: _, ...safeUser } = userRow;
+    return { success: true, user: safeUser };
+  } catch (e) {
+    error('[AnimeVault DB] login error:', e);
+    return { success: false, message: 'Invalid username or password' };
+  }
 }
 
 
@@ -223,24 +164,20 @@ export async function getProfile(userIdOrUsername) {
 export async function updateUserPassword(username, newPassword) {
   if (!username || !newPassword) return { success: false, message: 'Username and new password required.' };
   const hashed = simpleHash(newPassword);
-  // Neon DB update if available
   const db = await getSql();
-  if (db) {
-    try {
-      await db`UPDATE users SET password = ${hashed} WHERE username = ${username.toLowerCase()}`;
-    } catch (e) {
-      warn('[AnimeVault DB] Neon password update failed, falling back:', e?.message);
+  if (!db) {
+    return { success: false, message: 'Database connection unavailable. Please try again later.' };
+  }
+  try {
+    const result = await db`UPDATE users SET password = ${hashed} WHERE username = ${username.toLowerCase()} RETURNING id`;
+    if (!result.length) {
+      return { success: false, message: 'User not found.' };
     }
-  }
-  // LocalStorage fallback
-  const users = getUsers();
-  const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
-  if (user) {
-    user.password = hashed;
-    saveUsers(users);
     return { success: true };
+  } catch (e) {
+    error('[AnimeVault DB] updateUserPassword error:', e);
+    return { success: false, message: 'Unable to update password. Please try again later.' };
   }
-  return { success: false, message: 'User not found.' };
 }
 
 export async function updateUserProfile(userId, newAvatar, newBanner) {
@@ -388,13 +325,7 @@ export async function fetchWatchHistory(userId) {
       warn('[AnimeVault DB] fetchWatchHistory DB failed:', e?.message);
     }
   }
-  // localStorage fallback
-  try {
-    const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCH_HISTORY) || '[]');
-    return history;
-  } catch (e) {
-    return [];
-  }
+  return [];
 }
 
 export async function addToHistory(userId, mediaId, mediaType, mediaTitle, mediaPoster) {
@@ -410,22 +341,7 @@ export async function addToHistory(userId, mediaId, mediaType, mediaTitle, media
       warn('[AnimeVault DB] addToHistory DB failed:', e?.message);
     }
   }
-  // localStorage fallback
-  try {
-    const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.WATCH_HISTORY) || '[]');
-    const newItem = {
-      id: mediaId,
-      media_type: mediaType,
-      title: mediaTitle,
-      image: mediaPoster,
-      watched_at: new Date().toISOString()
-    };
-    history.unshift(newItem);
-    localStorage.setItem(STORAGE_KEYS.WATCH_HISTORY, JSON.stringify(history.slice(0, 50)));
-    return true;
-  } catch (e) {
-    return false;
-  }
+  return false;
 }
 
 export async function clearWatchHistory(userId) {
@@ -438,13 +354,7 @@ export async function clearWatchHistory(userId) {
       warn('[AnimeVault DB] clearWatchHistory DB failed:', e?.message);
     }
   }
-  // localStorage fallback
-  try {
-    localStorage.setItem(STORAGE_KEYS.WATCH_HISTORY, JSON.stringify([]));
-    return true;
-  } catch (e) {
-    return false;
-  }
+  return false;
 }
 
 export async function fetchContinueWatching(userId) {
@@ -463,13 +373,7 @@ export async function fetchContinueWatching(userId) {
       warn('[AnimeVault DB] fetchContinueWatching DB failed:', e?.message);
     }
   }
-  // localStorage fallback
-  try {
-    const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.CONTINUE_WATCHING) || '[]');
-    return items;
-  } catch (e) {
-    return [];
-  }
+  return [];
 }
 
 export async function updateContinueWatching(userId, mediaId, mediaType, mediaTitle, mediaPoster, season, episode, progress, duration) {
@@ -487,31 +391,7 @@ export async function updateContinueWatching(userId, mediaId, mediaType, mediaTi
       warn('[AnimeVault DB] updateContinueWatching DB failed:', e?.message);
     }
   }
-  // localStorage fallback
-  try {
-    const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.CONTINUE_WATCHING) || '[]');
-    const existingIndex = items.findIndex(i => i.media_id === mediaId && i.media_type === mediaType);
-    const newItem = {
-      media_id: mediaId,
-      media_type: mediaType,
-      title: mediaTitle,
-      image: mediaPoster,
-      season: season,
-      episode: episode,
-      progress: progress,
-      duration: duration,
-      updated_at: new Date().toISOString()
-    };
-    if (existingIndex !== -1) {
-      items[existingIndex] = newItem;
-    } else {
-      items.unshift(newItem);
-    }
-    localStorage.setItem(STORAGE_KEYS.CONTINUE_WATCHING, JSON.stringify(items.slice(0, 50)));
-    return true;
-  } catch (e) {
-    return false;
-  }
+  return false;
 }
 
 export async function fetchLikedItems(userId) {
@@ -530,13 +410,7 @@ export async function fetchLikedItems(userId) {
       warn('[AnimeVault DB] fetchLikedItems DB failed:', e?.message);
     }
   }
-  // localStorage fallback
-  try {
-    const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.LIKED_ITEMS) || '[]');
-    return items;
-  } catch (e) {
-    return [];
-  }
+  return [];
 }
 
 export async function toggleLikeItem(userId, mediaId, mediaType, mediaTitle, mediaPoster) {
@@ -560,76 +434,54 @@ export async function toggleLikeItem(userId, mediaId, mediaType, mediaTitle, med
       warn('[AnimeVault DB] toggleLikeItem DB failed:', e?.message);
     }
   }
-  // localStorage fallback
-  try {
-    const items = JSON.parse(localStorage.getItem(STORAGE_KEYS.LIKED_ITEMS) || '[]');
-    const existingIndex = items.findIndex(i => i.media_id === mediaId && i.media_type === mediaType);
-    if (existingIndex !== -1) {
-      items.splice(existingIndex, 1);
-      localStorage.setItem(STORAGE_KEYS.LIKED_ITEMS, JSON.stringify(items));
-      return { action: 'unliked' };
-    } else {
-      items.unshift({
-        media_id: mediaId,
-        media_type: mediaType,
-        title: mediaTitle,
-        image: mediaPoster,
-        liked_at: new Date().toISOString()
-      });
-      localStorage.setItem(STORAGE_KEYS.LIKED_ITEMS, JSON.stringify(items));
-      return { action: 'liked' };
-    }
-  } catch (e) {
-    return { error: e?.message };
-  }
+  return { error: 'Database unavailable' };
 }
 
 export async function fetchReminders(userId) {
+  const db = await getSql();
+  if (!db) return [];
   try {
-    const reminders = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMINDERS) || '[]');
-    return reminders.sort((a, b) => (a.airing_at || a.airingAt) - (b.airing_at || b.airingAt));
-  } catch (error) {
-    error('Error fetching reminders:', error);
+    const result = await db`
+      SELECT id, schedule_id, anime_id, title, episode, airing_at, image, created_at
+      FROM user_reminders
+      WHERE user_id = ${userId}
+      ORDER BY created_at DESC
+      LIMIT 100
+    `;
+    return result;
+  } catch (err) {
+    error('[AnimeVault DB] Failed to fetch reminders:', err?.message || err);
     return [];
   }
 }
 
 export async function addReminder(userId, scheduleId, animeId, title, episode, airingAt, image) {
+  const db = await getSql();
+  if (!db) return null;
   try {
-    const reminders = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMINDERS) || '[]');
-    const newReminder = {
-      id: Date.now(),
-      user_id: userId,
-      schedule_id: scheduleId,
-      anime_id: animeId,
-      title: title,
-      episode: episode,
-      airing_at: airingAt,
-      image: image,
-      created_at: new Date().toISOString()
-    };
-
-    const exists = reminders.find(r => r.schedule_id === newReminder.schedule_id);
-    if (!exists) {
-      reminders.push(newReminder);
-      localStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(reminders));
-    }
-
-    return newReminder;
-  } catch (error) {
-    error('Error adding reminder:', error);
+    const now = new Date().toISOString();
+    const result = await db`
+      INSERT INTO user_reminders (user_id, schedule_id, anime_id, title, episode, airing_at, image, created_at)
+      VALUES (${userId}, ${scheduleId}, ${animeId}, ${title}, ${episode}, ${airingAt}, ${image}, ${now})
+      ON CONFLICT (user_id, schedule_id) DO UPDATE
+      SET anime_id = ${animeId}, title = ${title}, episode = ${episode}, airing_at = ${airingAt}, image = ${image}, created_at = ${now}
+      RETURNING id, user_id, schedule_id, anime_id, title, episode, airing_at, image, created_at
+    `;
+    return result[0] || null;
+  } catch (err) {
+    error('[AnimeVault DB] Failed to add reminder:', err?.message || err);
     return null;
   }
 }
 
 export async function removeReminder(userId, scheduleId) {
+  const db = await getSql();
+  if (!db) return false;
   try {
-    const reminders = JSON.parse(localStorage.getItem(STORAGE_KEYS.REMINDERS) || '[]');
-    const filtered = reminders.filter(r => r.schedule_id !== scheduleId);
-    localStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify(filtered));
+    await db`DELETE FROM user_reminders WHERE user_id = ${userId} AND schedule_id = ${scheduleId}`;
     return true;
-  } catch (error) {
-    error('Error removing reminder:', error);
+  } catch (err) {
+    error('[AnimeVault DB] Failed to remove reminder:', err?.message || err);
     return false;
   }
 }
@@ -1453,28 +1305,7 @@ export async function searchUsers(query, currentUserId) {
     }
   }
 
-  // LocalStorage fallback: return all users except current user
-  try {
-    const users = JSON.parse(localStorage.getItem('animevault_users') || '[]');
-    const searchTerm = (query || '').toLowerCase();
-    return users
-      .filter(u => {
-        if (currentUserId && String(u.id) === String(currentUserId)) return false;
-        if (searchTerm && !u.username.toLowerCase().includes(searchTerm)) return false;
-        return true;
-      })
-      .map(u => ({
-        id: u.id,
-        username: u.username,
-        avatar: u.avatar || null,
-        banner: u.banner || null,
-        is_admin: u.is_admin || false,
-        is_verified: u.is_verified || false,
-      }))
-      .slice(0, 50);
-  } catch (e) {
-    return [];
-  }
+  return [];
 }
 
 export async function getUserSocialStats(userId) {
@@ -1714,54 +1545,6 @@ export async function toggleFollowCollection(collectionId, userId) {
 
 export async function duplicateCollection(collectionId, userId) {
   return { success: true };
-}
-
-// LocalStorage functions from database.js (exported for compatibility)
-export async function initializeDatabase() {
-  log('Initializing localStorage storage');
-  if (!localStorage.getItem(STORAGE_KEYS.REMINDERS)) {
-    localStorage.setItem(STORAGE_KEYS.REMINDERS, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)) {
-    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.USER_STATS)) {
-    localStorage.setItem(STORAGE_KEYS.USER_STATS, JSON.stringify({
-      totalWatchTime: 0,
-      animeCompleted: 0,
-      episodesWatched: 0
-    }));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.FAVORITES)) {
-    localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify({
-      animes: [],
-      studios: [],
-      characters: []
-    }));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.WATCH_HISTORY)) {
-    localStorage.setItem(STORAGE_KEYS.WATCH_HISTORY, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.LEVEL)) {
-    localStorage.setItem(STORAGE_KEYS.LEVEL, JSON.stringify({
-      level: 1,
-      xp: 0,
-      xpToNextLevel: 100
-    }));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.ACTIVITY)) {
-    localStorage.setItem(STORAGE_KEYS.ACTIVITY, JSON.stringify({}));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.POSTS)) {
-    localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.FRIENDS)) {
-    localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify([]));
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.FRIEND_REQUESTS)) {
-    localStorage.setItem(STORAGE_KEYS.FRIEND_REQUESTS, JSON.stringify([]));
-  }
-  log('LocalStorage initialized successfully');
 }
 
 export async function getNotifications() {
@@ -2254,6 +2037,24 @@ export async function updateSetting(key, value) {
   }
 }
 
+export async function dismissNotification(id) {
+  try {
+    const db = await getSql();
+    if (db) {
+      await db`UPDATE user_notifications SET read = TRUE WHERE id = ${id}`;
+      return true;
+    }
+
+    const notifications = JSON.parse(localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS) || '[]');
+    const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
+    return true;
+  } catch (err) {
+    console.error('Error dismissing notification:', err);
+    return false;
+  }
+}
+
 export async function syncGoogleUserToDb(email, googleAvatar, isEmailVerified) {
   try {
     const db = await getSql();
@@ -2335,11 +2136,28 @@ function generateSessionToken() {
 }
 
 // Get or create a device ID for this browser
-export function getDeviceId() {
-  let deviceId = localStorage.getItem('animevault_device_id');
+export function getCookie(name) {
+  if (typeof document === 'undefined') return '';
+  const cookie = document.cookie.split('; ').find(row => row.startsWith(`${name}=`));
+  return cookie ? cookie.split('=')[1] : '';
+}
+
+function setCookie(name, value, days = 30) {
+  if (typeof document === 'undefined') return;
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${value}; expires=${expires}; path=/; samesite=lax`;
+}
+
+function deleteCookie(name) {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${name}=; max-age=0; path=/; samesite=lax`;
+}
+
+function getDeviceId() {
+  let deviceId = getCookie('animevault_device_id');
   if (!deviceId) {
     deviceId = 'dev_' + generateSessionToken().slice(0, 24);
-    localStorage.setItem('animevault_device_id', deviceId);
+    setCookie('animevault_device_id', deviceId, 365);
   }
   return deviceId;
 }
@@ -2364,7 +2182,7 @@ export async function createUserSession(userId) {
     `;
 
     if (result.length > 0) {
-      localStorage.setItem('animevault_session_token', result[0].session_token);
+      setCookie('animevault_session_token', result[0].session_token, 30);
       return result[0];
     }
     return null;
@@ -2376,7 +2194,7 @@ export async function createUserSession(userId) {
 
 // Restore user from a stored session token
 export async function restoreSession() {
-  const token = localStorage.getItem('animevault_session_token');
+  const token = getCookie('animevault_session_token');
   if (!token) return null;
 
   const db = await getSql();
@@ -2407,7 +2225,7 @@ export async function restoreSession() {
       };
     } else {
       // Session expired or invalid, clean up
-      localStorage.removeItem('animevault_session_token');
+      deleteCookie('animevault_session_token');
       return null;
     }
   } catch (e) {
@@ -2418,7 +2236,7 @@ export async function restoreSession() {
 
 // Delete session (logout)
 export async function deleteUserSession() {
-  const token = localStorage.getItem('animevault_session_token');
+  const token = getCookie('animevault_session_token');
   if (!token) return;
 
   const db = await getSql();
@@ -2429,7 +2247,7 @@ export async function deleteUserSession() {
       console.error('[AnimeVault DB] Failed to delete session:', e);
     }
   }
-  localStorage.removeItem('animevault_session_token');
+  deleteCookie('animevault_session_token');
 }
 
 // Get all active sessions/devices for a user

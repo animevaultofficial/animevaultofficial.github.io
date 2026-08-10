@@ -8,7 +8,6 @@ import {
 import './styles/designTokens.css';
 import { useUser } from './api/UserContext';
 import { fetchSiteSettings, initDatabase, getSettings } from './api/db';
-import { initializeDatabase } from './api/database';
 import { applyTheme, applyAccentColor } from './utils/appearance';
 import { storage } from './utils/storage';
 import { applyTvModeClass } from './utils/tvMode';
@@ -67,7 +66,6 @@ function App() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        await initializeDatabase();
         try { await initDatabase(); } catch (dbErr) { console.warn('Neon init skipped:', dbErr?.message); }
         const settings = await fetchSiteSettings();
         if (settings?.announcement) setAnnouncement(settings.announcement);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Bell, CalendarClock, CheckCircle2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { getNotifications } from '../../api/database';
+import { getNotifications } from '../../api/db';
 import { useUser } from '../../api/UserContext';
 
 export default function NotificationsPage({ navigate }) {

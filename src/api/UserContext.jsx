@@ -26,15 +26,13 @@ import {
   syncGoogleUserToDb,
   createUserSession, restoreSession, deleteUserSession,
   userLogin as dbUserLogin,
-  userSignup as dbUserSignup
-} from './db';
-import { initializeTrendingDefaults } from './db';
-import {
+  userSignup as dbUserSignup,
+  initializeTrendingDefaults,
   getUserStats, updateUserStats,
-  getFavorites, addFavorite, removeFavorite,
+  getFavorites, toggleFavorite,
   getWatchHistory as dbGetWatchHistory, addWatchHistory as dbAddWatchHistory,
   getLevel, addXP, addActivity
-} from './database';
+} from './db';
 import {
   proxyLogin,
   proxySignup,
@@ -45,7 +43,6 @@ import {
 } from './authProxy';
 
 const UserContext = createContext(null);
-const LOCAL_SESSION_USER_KEY = 'animevault_session_user';
 
 function getAuthCallbackURL() {
   const webFallback = 'https://animevaultofficial.github.io/';
@@ -79,29 +76,6 @@ function isNativeMobileShell() {
   return isCapacitorShell || isLocalhostMobile;
 }
 
-function readLocalSessionUser() {
-  try {
-    const raw = localStorage.getItem(LOCAL_SESSION_USER_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function persistLocalSessionUser(user) {
-  try {
-    if (user) localStorage.setItem(LOCAL_SESSION_USER_KEY, JSON.stringify(user));
-  } catch {
-    // localStorage can be unavailable in some mobile webview/privacy modes.
-  }
-}
-
-function clearLocalSessionUser() {
-  try {
-    localStorage.removeItem(LOCAL_SESSION_USER_KEY);
-  } catch {}
-}
-
 function getAuthUserFromResponse(res) {
   return res?.user || res?.data?.user || res?.data?.session?.user || res?.session?.user || null;
 }
@@ -116,6 +90,19 @@ function getAuthName(authUser, fallbackEmail = '') {
 
 function getAuthAvatar(authUser) {
   return authUser?.image || authUser?.avatar_url || authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture || null;
+}
+
+function normalizeProxyUser(proxyUser) {
+  if (!proxyUser) return null;
+  const user = proxyUser.user || proxyUser;
+  return {
+    id: user.id || null,
+    username: user.username || user.email || user.name || 'User',
+    avatar: user.avatar || user.image || null,
+    banner: user.banner || null,
+    is_admin: user.is_admin || false,
+    is_verified: user.is_verified || false
+  };
 }
 
 async function tryCreateUserSession(userId) {
@@ -143,7 +130,6 @@ export function UserProvider({ children }) {
       return { success: false, message: dbRes.message || 'Login failed. Please check your credentials.' };
     }
     await tryCreateUserSession(dbRes.user.id);
-    persistLocalSessionUser(dbRes.user);
     setUser(dbRes.user);
     setShowAuthModal(false);
     return { success: true };
@@ -155,7 +141,6 @@ export function UserProvider({ children }) {
       return { success: false, message: dbRes.message || 'Signup failed. Please try again.' };
     }
     await tryCreateUserSession(dbRes.user.id);
-    persistLocalSessionUser(dbRes.user);
     setUser(dbRes.user);
     setShowAuthModal(false);
     return { success: true };
@@ -174,7 +159,6 @@ export function UserProvider({ children }) {
 
     const dbUser = syncRes.user;
     await tryCreateUserSession(dbUser.id);
-    persistLocalSessionUser(dbUser);
     setUser(dbUser);
     setShowAuthModal(false);
     return { success: true };
@@ -187,7 +171,6 @@ export function UserProvider({ children }) {
       const dbUser = await restoreSession();
       if (dbUser) {
         log('[AnimeVault Auth] Session restored from DB');
-        persistLocalSessionUser(dbUser);
         setUser(dbUser);
         return;
       }
@@ -197,7 +180,6 @@ export function UserProvider({ children }) {
       const proxySession = await proxyRestoreSession();
       if (proxySession.success && proxySession.user) {
         const proxyUser = normalizeProxyUser(proxySession.user);
-        persistLocalSessionUser(proxyUser);
         setUser(proxyUser);
         return;
       }
@@ -207,12 +189,9 @@ export function UserProvider({ children }) {
 
       if (data?.session && data?.user) {
         await syncAuthSessionUser();
-      } else {
-        setUser(readLocalSessionUser());
       }
     } catch (err) {
       warn('[AnimeVault Auth] Session init failed:', err);
-      setUser(readLocalSessionUser());
     }
   };
 
@@ -243,8 +222,12 @@ export function UserProvider({ children }) {
           is_admin: false
         };
 
-    await createUserSession(sessionUser.id);
-    persistLocalSessionUser(sessionUser);
+    const sessionCreated = await tryCreateUserSession(sessionUser.id);
+    if (!sessionCreated) {
+      warn('[AnimeVault Auth] Could not persist auth session to DB');
+      return null;
+    }
+
     setUser(sessionUser);
     return sessionUser;
   };
@@ -307,7 +290,6 @@ export function UserProvider({ children }) {
       const proxyRes = await proxyLogin(email, password);
       if (proxyRes.success && proxyRes.user) {
         const proxyUser = normalizeProxyUser(proxyRes.user);
-        persistLocalSessionUser(proxyUser);
         setUser(proxyUser);
         setShowAuthModal(false);
         return { success: true };
@@ -334,11 +316,10 @@ export function UserProvider({ children }) {
         warn('[AnimeVault Auth] Neon Auth login threw, falling back to DB login:', neonErr.message);
       }
 
-      // Fallback: try local DB login (works with users stored in Neon DB or localStorage)
+      // Fallback: try DB login.
       const dbRes = await dbUserLogin(email, password);
       if (dbRes.success) {
         await tryCreateUserSession(dbRes.user.id);
-        persistLocalSessionUser(dbRes.user);
         setUser(dbRes.user);
         setShowAuthModal(false);
         return { success: true };
@@ -358,7 +339,6 @@ export function UserProvider({ children }) {
       const proxyRes = await proxySignup(email, password);
       if (proxyRes.success && proxyRes.user) {
         const proxyUser = normalizeProxyUser(proxyRes.user);
-        persistLocalSessionUser(proxyUser);
         setUser(proxyUser);
         setShowAuthModal(false);
         return { success: true };
@@ -390,7 +370,6 @@ export function UserProvider({ children }) {
       const dbRes = await dbUserSignup(email, password);
       if (dbRes.success) {
         await tryCreateUserSession(dbRes.user.id);
-        persistLocalSessionUser(dbRes.user);
         setUser(dbRes.user);
         setShowAuthModal(false);
         return { success: true };
@@ -446,7 +425,6 @@ export function UserProvider({ children }) {
     await deleteUserSession();
     await proxyLogout();
     clearStoredProxyToken();
-    clearLocalSessionUser();
     // Then sign out of Neon Auth
     try { await authClient.signOut(); } catch (e) { /* ignore */ }
     setUser(null);
@@ -524,7 +502,6 @@ export function UserProvider({ children }) {
     if (!user) return false;
     const res = await dbUpdateUserProfile(user.id, avatarUrl, bannerUrl);
     if (res.success) {
-      persistLocalSessionUser(res.user);
       setUser(res.user);
       return true;
     }

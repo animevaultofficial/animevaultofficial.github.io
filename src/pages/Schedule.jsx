@@ -21,7 +21,7 @@ import {
   pickAiringToday,
   generatePrediction 
 } from '../api/scheduleService';
-import { addNotification } from '../api/database';
+import { addNotification } from '../api/db';
 import { useUser } from '../api/UserContext';
 import '../styles/designTokens.css';
 import '../styles/schedule.css';

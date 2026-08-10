@@ -3,7 +3,6 @@ import { Home, Search, Film, Calendar, User, Menu, X, Heart, ChevronRight, Bell,
 import './mobile.css';
 import { useUser } from '../api/UserContext';
 import { initDatabase, fetchSiteSettings } from '../api/db';
-import { initializeDatabase } from '../api/database';
 import { applyAccentColor, applyTheme } from '../utils/appearance';
 import { storage } from '../utils/storage';
 import HomePage from './pages/HomePage';
@@ -124,7 +123,6 @@ export default function AppMobile() {
   useEffect(() => {
     async function boot() {
       try {
-        await initializeDatabase();
         try { await initDatabase(); } catch { }
         const settings = await fetchSiteSettings();
         if (settings?.announcement) setAnnouncement(settings.announcement);

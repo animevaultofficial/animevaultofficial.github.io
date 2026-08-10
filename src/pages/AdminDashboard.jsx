@@ -923,7 +923,7 @@ export default function AdminDashboard() {
               </div>
               <div style={{ display: 'flex', gap: '12px' }}><span style={{ color: '#64748b', minWidth: '120px' }}>Database Version:</span><span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{sysInfo.dbVersion || 'N/A'}</span></div>
               <div style={{ display: 'flex', gap: '12px' }}><span style={{ color: '#64748b', minWidth: '120px' }}>Environment:</span><span style={{ color: '#94a3b8' }}>{sysInfo.nodeEnv || import.meta.env.MODE}</span></div>
-              <div style={{ display: 'flex', gap: '12px' }}><span style={{ color: '#64748b', minWidth: '120px' }}>Session Token:</span><span style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: '0.75rem' }}>{localStorage.getItem('animevault_session_token')?.slice(0, 20) || 'None'}...</span></div>
+              <div style={{ display: 'flex', gap: '12px' }}><span style={{ color: '#64748b', minWidth: '120px' }}>Session Token:</span><span style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: '0.75rem' }}>Not stored in localStorage</span></div>
             </div>
           </div>
 

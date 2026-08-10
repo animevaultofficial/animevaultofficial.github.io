@@ -2,7 +2,7 @@ import React from 'react';
 import { BarChart3, Clock, Flame, Heart, Trophy, User } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useUser } from '../../api/UserContext';
-import { getActivity, getFavorites, getLevel, getUserStats, getWatchHistory } from '../../api/database';
+import { getActivity, getFavorites, getLevel, getUserStats, getWatchHistory } from '../../api/db';
 
 export default function StatsPage({ navigate }) {
   const { user, likes, continueWatching } = useUser();
