@@ -1,7 +1,7 @@
 {
   "name": "animevault",
   "private": true,
-  "version": "0.2.180",
+  "version": "0.2.176",
   "description": "The ultimate anime streaming experience",
   "author": "AnimeVault Team",
   "type": "module",
@@ -69,7 +69,7 @@
       "artifactName": "AnimeVault-Windows-${arch}.${ext}",
       "publisherName": "AnimeVault",
       "certificateFile": "animevault-code-signing.pfx",
-      "certificatePassword": "${env.CERT_PASSWORD}",
+      "certificatePassword": "${env.CSC_KEY_PASSWORD}",
       "forceCodeSigning": true,
       "signAndEditExecutable": true
     },
