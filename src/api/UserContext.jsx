@@ -227,6 +227,16 @@ export function UserProvider({ children }) {
     initSession();
     // Initialize trending defaults on app load
     initializeTrendingDefaults().catch(err => console.warn('Failed to init trending defaults:', err));
+
+    const subscription = authClient.onAuthStateChange?.((_event, session) => {
+      if (session?.user) {
+        syncAuthSessionUser({ session, user: session.user }).finally(() => setAuthLoading(false));
+      } else {
+        setUser(null);
+        setAuthLoading(false);
+      }
+    });
+    return () => subscription?.data?.subscription?.unsubscribe?.();
   }, []);
 
   const syncAuthSessionUser = async (existingSessionData = null) => {
