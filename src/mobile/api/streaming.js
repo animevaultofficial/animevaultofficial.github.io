@@ -237,6 +237,7 @@ export const EMBED_SERVERS = [
     languages: ['sub', 'dub'],
     buildUrl: ({ animeId, episode, lang }) => `https://vsembed.su/embed/tv/${animeId}/${episode}`,
   },
+  // VidPlus is currently down; remove it from anime streaming fallbacks.
 ];
 
 // Helper to extract numeric ID from potentially prefixed IDs (e.g. "mal-12345" -> "12345")
@@ -265,6 +266,7 @@ export function getFallbackEmbedUrl(animeId, episode, lang = 'sub') {
   const numericId = extractNumericId(animeId);
   const id = numericId || animeId;
   const servers = [
+    `https://player.vidplus.to/embed/anime/${id}/${episode}?dub=${lang === 'dub' ? 'true' : 'false'}`,
     `https://animeplay.cfd/stream/ani/${id}/${episode}/${lang}`,
     `https://animeplay.cfd/stream/mal/${id}/${episode}/${lang}`,
     `https://animeplay.cfd/stream/ani/${id}/${episode}/dub`,

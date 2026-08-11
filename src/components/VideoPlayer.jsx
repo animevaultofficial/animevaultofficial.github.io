@@ -154,6 +154,14 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
     }
   };
 
+  const handleIframeError = useCallback(() => {
+    if (!sources || sources.length <= 1) {
+      setFailoverMsg('Failed to load stream source. No fallback servers available.');
+      return;
+    }
+    handleFailover();
+  }, [handleFailover, sources]);
+
   // Determine active source object or fallback
   const activeSource = sources[activeSourceIndex] || (embedUrl ? { url: embedUrl, type: 'iframe', serverName: 'AllAnime Direct' } : null);
 
@@ -247,6 +255,7 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
               title={title}
               referrerPolicy="no-referrer"
               loading="lazy"
+              onError={handleIframeError}
             />
           )}
           {isZen && (

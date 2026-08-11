@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import mangaApiApp from './api/manga.js';
 import allAnimeApiApp from './api/allanime.js';
+import vidPlusApiApp from './api/vidplus.js';
 
 export default defineConfig(({ command, mode }) => {
   const isWebOSBuild = !!process.env.WEBOS || mode === 'webos' || process.env.npm_lifecycle_event === 'webos:package';
@@ -37,6 +38,9 @@ export default defineConfig(({ command, mode }) => {
             if (req.url && req.url.startsWith('/api/allanime')) {
               return allAnimeApiApp(req, res, next);
             }
+            if (req.url && req.url.startsWith('/api/vidplus')) {
+              return vidPlusApiApp(req, res, next);
+            }
             next();
           });
         }
@@ -56,8 +60,8 @@ export default defineConfig(({ command, mode }) => {
           target: 'http://localhost:3000',
           changeOrigin: true,
           bypass: (req) => {
-            // Do not proxy /api/manga or /api/allanime requests to port 3000
-            if (req.url && (req.url.startsWith('/api/manga') || req.url.startsWith('/api/allanime'))) {
+            // Do not proxy /api/manga, /api/allanime or /api/vidplus requests to port 3000
+            if (req.url && (req.url.startsWith('/api/manga') || req.url.startsWith('/api/allanime') || req.url.startsWith('/api/vidplus'))) {
               return req.url;
             }
           },

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchAnimeById, stripHtml } from '../api/anilist';
-import { fetchShowId, getDecodedEpisodeSources } from '../api/allanime';
+import { buildAnimeStreamUrlFromAniList } from '../utils/animeStreamingServer';
 import VideoPlayer from '../components/VideoPlayer';
 import CommentsSection from '../components/CommentsSection';
 import { useUser } from '../api/UserContext';
@@ -88,25 +88,6 @@ function findExternalId(links, siteName) {
   return url.split('/').filter(Boolean).pop();
 }
 
-function buildVidnestSources(anilistId, episodeNumber, language) {
-  if (!anilistId || !episodeNumber) return [];
-  const langKey = language === 'dub' ? 'dub' : 'sub';
-  return [
-    {
-      url: `https://vidnest.fun/anime/${anilistId}/${episodeNumber}/${langKey}`,
-      type: 'iframe',
-      serverName: 'Server 2 (Vidnest Anime)',
-      priority: 1001,
-    },
-    {
-      url: `https://vidnest.fun/animepahe/${anilistId}/${episodeNumber}/${langKey}`,
-      type: 'iframe',
-      serverName: 'Server 3 (Vidnest AnimePahe)',
-      priority: 1002,
-    },
-  ];
-}
-
 // ─────────────────────────────────────────────────────────
 // Streaming embeds with fallbacks for episodes missing on the primary host
 // ─────────────────────────────────────────────────────────
@@ -125,17 +106,12 @@ function AnimeDetails() {
   const [error, setError] = useState('');
   const [episodes, setEpisodes] = useState([]);
   const [currentEpisode, setCurrentEpisode] = useState(null);
-  const [zenMode, setZenMode] = useState(true);
   const [progress, setProgress] = useState(() =>
     JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}')
   );
 
   // AllAnime Player state
   const [language, setLanguage] = useState(DEFAULT_LANGUAGE);
-  const [allAnimeShowId, setAllAnimeShowId] = useState(null);
-  const [allAnimeSources, setAllAnimeSources] = useState([]);
-  const [allAnimeLoading, setAllAnimeLoading] = useState(false);
-  const [playerStatus, setPlayerStatus] = useState('');
 
   // UI state
   const [activeTab, setActiveTab] = useState('episodes');
@@ -150,8 +126,6 @@ function AnimeDetails() {
     setAnime(null);
     setEpisodes([]);
     setCurrentEpisode(null);
-    setAllAnimeSources([]);
-    setPlayerStatus('');
     setLanguage(DEFAULT_LANGUAGE);
     setEpPage(0);
 
@@ -224,60 +198,10 @@ function AnimeDetails() {
     };
   }, [anime, currentEpisode]);
 
-  // ───── AllAnime Show ID Lookup ─────
-  useEffect(() => {
-    if (!anime) return;
-    let isMounted = true;
-    async function loadShowId() {
-      try {
-        const showId = await fetchShowId(safeTitle(anime.title), anime.title?.english, anime.title?.romaji);
-        if (isMounted) setAllAnimeShowId(showId);
-      } catch (_) {}
-    }
-    loadShowId();
-    return () => { isMounted = false; };
-  }, [anime]);
-
-  // ───── AllAnime Episode Stream Fetching ─────
-  useEffect(() => {
-    if (!allAnimeShowId || !currentEpisode) {
-      setAllAnimeSources([]);
-      return;
-    }
-    let isMounted = true;
-    async function loadSources() {
-      setAllAnimeLoading(true);
-      setPlayerStatus('Fetching video streams from AllAnime GraphQL API...');
-      try {
-        const sources = await getDecodedEpisodeSources(allAnimeShowId, language, String(currentEpisode.number));
-        if (isMounted) {
-          setAllAnimeSources(sources);
-          if (sources.length === 0) {
-            setPlayerStatus(`No AllAnime streams found for episode ${currentEpisode.number} (${language.toUpperCase()}).`);
-          } else {
-            setPlayerStatus(`Loaded ${sources.length} server source(s) from AllAnime.`);
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          const message = err?.message || 'Failed to fetch AllAnime stream sources.';
-          setPlayerStatus(`Failed to fetch AllAnime stream sources: ${message}`);
-          setAllAnimeSources([]);
-        }
-      } finally {
-        if (isMounted) setAllAnimeLoading(false);
-      }
-    }
-    loadSources();
-    return () => { isMounted = false; };
-  }, [allAnimeShowId, currentEpisode, language]);
-
   // ───── Episode selection ─────
   // ───── Episode selection ─────
   function selectEpisode(ep) {
     setCurrentEpisode(ep);
-    setAllAnimeSources([]);
-    setPlayerStatus('');
 
     if (user && anime) {
       const updated = { ...progress, [anime.id]: ep.number };
@@ -304,9 +228,14 @@ function AnimeDetails() {
     }
   }, [currentEpisode, episodes]);
 
-  // ───── AllAnime + Vidnest fallback player sources ─────
-  const vidnestSources = currentEpisode ? buildVidnestSources(anime.id, currentEpisode.number, language) : [];
-  const playerSources = [...allAnimeSources, ...vidnestSources];
+  const playerSources = currentEpisode
+    ? [{
+        url: buildAnimeStreamUrlFromAniList(anime.id, currentEpisode.number, language),
+        type: 'iframe',
+        serverName: 'MegaFlix',
+        priority: 1000,
+      }]
+    : [];
 
   // ───── Episode pagination ─────
   const totalPages = Math.ceil(episodes.length / EP_PAGE_SIZE);
@@ -410,13 +339,13 @@ function AnimeDetails() {
           
           {/* ── Video Player ── */}
           <div className="player-section-v2">
-            {currentEpisode ? (
+              {currentEpisode ? (
               <VideoPlayer
                 sources={playerSources}
                 poster={anime.bannerImage || anime.coverImage?.extraLarge}
                 title={`${animeTitle} · EP ${currentEpisode.number}`}
-                key={`${allAnimeShowId}_${currentEpisode.id}_${language}`}
-                isZen={zenMode}
+                key={`${anime.id}_${currentEpisode.id}_${language}`}
+                isZen={false}
                 onNextEpisode={handleNextEpisode}
                 onPrevEpisode={handlePrevEpisode}
               />
@@ -427,31 +356,11 @@ function AnimeDetails() {
               </div>
             )}
 
-            {/* Player status message */}
-            {playerStatus && (
-              <div className="player-status-bar">
-                <AlertCircle size={14} />
-                <span>{playerStatus}</span>
-              </div>
-            )}
-            {allAnimeSources.length === 0 && vidnestSources.length > 0 && (
-              <div className="player-status-bar" style={{ background: 'rgba(255, 255, 255, 0.04)', borderColor: 'rgba(255,255,255,0.08)' }}>
-                <span>Fallback embed servers available: Server 2 = Vidnest Anime, Server 3 = Vidnest AnimePahe.</span>
-              </div>
-            )}
           </div>
 
           {/* ── Language & Zen Toggle ── */}
           {currentEpisode && (
             <div className="player-lang-bar">
-              <button
-                className={`zen-toggle-v2 ${zenMode ? 'active' : ''}`}
-                onClick={() => setZenMode(!zenMode)}
-                title={zenMode ? 'Turn off Ad-Blocker' : 'Turn on Ad-Blocker (Zen Mode)'}
-              >
-                <Zap size={14} fill={zenMode ? 'currentColor' : 'none'} />
-                {zenMode ? 'Zen' : 'Zen'}
-              </button>
               {STREAM_LANGUAGES.map(({ id: lang, label }) => (
                 <button
                   key={lang}

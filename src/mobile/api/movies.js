@@ -70,6 +70,7 @@ export const EMBED_SERVERS = [
     movie: (id) => `https://vidnest.fun/movie/${id}`,
     tv: (id, s, e) => `https://vidnest.fun/tv/${id}/${s}/${e}`,
   },
+
 ];
 
 export function getPlayerUrl(mediaType, tmdbId, season, episode, serverIndex = 0, accentColor = null) {
