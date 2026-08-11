@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Embed Demo — Anime Servers</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;line-height:1.5;padding:24px;background:#0f172a;color:#e6eef8}
+    h1,h2{color:#fff}
+    .note{margin-bottom:12px;color:#9fb0d6}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .card{background:#071031;padding:12px;border-radius:8px}
+    iframe{width:100%;height:320px;border:0;border-radius:6px}
+    .small{font-size:13px;color:#94a3b8}
+    @media (max-width:800px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <h1>Embed Demo — Anime Servers</h1>
+  <p class="note">This demo shows two anime embed iframes: the default server (VidPlus) and an alternate server (MineCloud). The site's configuration sets VidPlus as the default server in <code>_data/player.yml</code>.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Default — VidPlus</h2>
+      <p class="small">Base: https://player.vidplus.to/embed</p>
+      <!-- Example anime embed (AniList ID: 21, Episode: 1) -->
+      <iframe 
+        src="https://player.vidplus.to/embed/anime/21/1?autoplay=true&dub=false" 
+        allowfullscreen>
+      </iframe>
+      <p class="small">Example: <code>/embed/anime/{anilistId}/{episode}?dub={true/false}</code></p>
+    </div>
+
+    <div class="card">
+      <h2>Alternate — MineCloud</h2>
+      <p class="small">Base: https://player.minecloud.to/embed</p>
+      <!-- Example anime embed using alternate server -->
+      <iframe 
+        src="https://player.minecloud.to/embed/anime/21/1?autoplay=true&dub=false" 
+        allowfullscreen>
+      </iframe>
+      <p class="small">Replace <code>player.minecloud.to</code> with your server's embed domain.</p>
+    </div>
+  </div>
+
+  <section style="margin-top:18px">
+    <h2>How to use in your site</h2>
+    <pre style="background:#071031;padding:12px;border-radius:6px;color:#dbeafe;overflow:auto">
+// Use default (VidPlus)
+&lt;iframe src="https://player.vidplus.to/embed/anime/21/1?autoplay=true" frameborder="0" allowfullscreen&gt;&lt;/iframe&gt;
+
+// Use alternate server (MineCloud)
+&lt;iframe src="https://player.minecloud.to/embed/anime/21/1?autoplay=true" frameborder="0" allowfullscreen&gt;&lt;/iframe&gt;
+    </pre>
+
+    <p class="small">Note: The site configuration file (<code>_data/player.yml</code>) lists available servers and the <code>default_server</code>. You can update templates or a small script to read the default value and render the correct iframe by default.</p>
+  </section>
+</body>
+</html>
