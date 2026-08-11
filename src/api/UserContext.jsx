@@ -29,7 +29,7 @@ import {
   userSignup as dbUserSignup,
   initializeTrendingDefaults,
   getUserStats, updateUserStats,
-  getFavorites, toggleFavorite,
+  getFavorites, toggleFavorite, setFavorite,
   getWatchHistory as dbGetWatchHistory, addWatchHistory as dbAddWatchHistory,
   getLevel, addXP, addActivity
 } from './db';
@@ -43,6 +43,7 @@ import {
 } from './authProxy';
 
 const UserContext = createContext(null);
+const CACHED_USER_KEY = 'animevault_cached_user';
 
 function getAuthCallbackURL() {
   const webFallback = 'https://animevaultofficial.github.io/';
@@ -115,7 +116,25 @@ async function tryCreateUserSession(userId) {
 }
 
 export function UserProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUserState] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(CACHED_USER_KEY) || 'null');
+    } catch {
+      return null;
+    }
+  });
+  const [authLoading, setAuthLoading] = useState(true);
+
+  const setUser = (nextUser) => {
+    setUserState(nextUser);
+    try {
+      if (nextUser) {
+        localStorage.setItem(CACHED_USER_KEY, JSON.stringify(nextUser));
+      } else {
+        localStorage.removeItem(CACHED_USER_KEY);
+      }
+    } catch { }
+  };
 
   const [history, setHistory] = useState([]);
   const [continueWatching, setContinueWatching] = useState([]);
@@ -164,34 +183,43 @@ export function UserProvider({ children }) {
     return { success: true };
   };
 
-  // Try to restore session from DB on mount (survives refresh)
+  // Restore auth on mount without letting the UI treat a pending check as logged out.
   const initSession = async () => {
+    setAuthLoading(true);
     try {
-      // 1. First try restoring from our DB session token (fast, survives refresh)
-      const dbUser = await restoreSession();
-      if (dbUser) {
-        log('[AnimeVault Auth] Session restored from DB');
-        setUser(dbUser);
-        return;
+      const authSessionPromise = authClient.getSession().catch((err) => {
+        warn('[AnimeVault Auth] Neon Auth session check failed:', err?.message || err);
+        return null;
+      });
+
+      const { data } = await authSessionPromise || {};
+      if (data?.session || data?.user) {
+        const sessionUser = await syncAuthSessionUser(data);
+        if (sessionUser) return sessionUser;
       }
 
-      // 2. Try the optional Render auth proxy. This avoids mobile WebView
-      // Origin issues because Render talks to Neon server-side.
       const proxySession = await proxyRestoreSession();
       if (proxySession.success && proxySession.user) {
         const proxyUser = normalizeProxyUser(proxySession.user);
         setUser(proxyUser);
-        return;
+        return proxyUser;
       }
 
-      // 3. Fall back to Neon Auth session (only works if not refreshed)
-      const { data } = await authClient.getSession();
-
-      if (data?.session && data?.user) {
-        await syncAuthSessionUser();
+      const dbUser = await restoreSession();
+      if (dbUser) {
+        log('[AnimeVault Auth] Session restored from DB');
+        setUser(dbUser);
+        return dbUser;
       }
+
+      setUser(null);
+      return null;
     } catch (err) {
       warn('[AnimeVault Auth] Session init failed:', err);
+      setUser(null);
+      return null;
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -201,8 +229,8 @@ export function UserProvider({ children }) {
     initializeTrendingDefaults().catch(err => console.warn('Failed to init trending defaults:', err));
   }, []);
 
-  const syncAuthSessionUser = async () => {
-    const { data } = await authClient.getSession();
+  const syncAuthSessionUser = async (existingSessionData = null) => {
+    const data = existingSessionData || (await authClient.getSession()).data;
     const currentUser = data?.user || data?.session?.user;
     if (!currentUser?.email) return null;
 
@@ -481,14 +509,12 @@ export function UserProvider({ children }) {
     if (!result.error) {
       syncUserData();
 
-      const favorites = await getFavorites();
+      const favorites = await getFavorites(user.id);
       const isAlreadyFavorite = favorites.animes?.some(f => String(f.id) === String(mediaId));
 
       if (result.action === 'liked' && !isAlreadyFavorite) {
-        await addFavorite('animes', { id: mediaId, title: mediaTitle, image: mediaPoster });
+        await setFavorite(user.id, 'animes', { id: mediaId, title: mediaTitle, image: mediaPoster });
         await addXP(2);
-      } else if (result.action === 'unliked' && isAlreadyFavorite) {
-        await removeFavorite('animes', mediaId);
       }
     }
     return result;
@@ -537,6 +563,7 @@ export function UserProvider({ children }) {
   return (
     <UserContext.Provider value={{
       user,
+      authLoading,
       setUser,
       history,
       continueWatching,

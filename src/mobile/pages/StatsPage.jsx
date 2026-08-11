@@ -8,7 +8,11 @@ export default function StatsPage({ navigate }) {
   const { user, likes, continueWatching } = useUser();
   const { data: stats = {} } = useQuery({ queryKey: ['mobile-user-stats'], queryFn: getUserStats });
   const { data: level = { level: 1, xp: 0, xpToNextLevel: 100 } } = useQuery({ queryKey: ['mobile-level'], queryFn: getLevel });
-  const { data: favorites = { animes: [] } } = useQuery({ queryKey: ['mobile-favorites'], queryFn: getFavorites });
+  const { data: favorites = { animes: [], studios: [], characters: [] } } = useQuery({
+    queryKey: ['mobile-favorites', user?.id],
+    queryFn: () => getFavorites(user.id),
+    enabled: !!user?.id,
+  });
   const { data: history = [] } = useQuery({ queryKey: ['mobile-watch-history'], queryFn: getWatchHistory });
   const { data: activity = [] } = useQuery({ queryKey: ['mobile-activity'], queryFn: getActivity });
 

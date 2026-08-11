@@ -3,14 +3,26 @@ import { useEffect } from 'react';
 import { useUser } from '../api/UserContext';
 
 export default function RequireAuth({ children }) {
-  const { user, setShowAuthModal, setAuthTab } = useUser();
+  const { user, authLoading, setShowAuthModal, setAuthTab } = useUser();
 
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
       setAuthTab('login');
       setShowAuthModal(true);
     }
-  }, [user, setAuthTab, setShowAuthModal]);
+  }, [authLoading, user, setAuthTab, setShowAuthModal]);
+
+  if (authLoading) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', minHeight: '70vh', textAlign: 'center',
+        padding: '2rem', color: 'white'
+      }}>
+        <h2 style={{ marginBottom: '1rem', fontSize: '1.8rem' }}>Checking your session...</h2>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
