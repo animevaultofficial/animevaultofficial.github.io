@@ -29,6 +29,20 @@ function getRandomBannerColor() {
   return `#${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0')}`;
 }
 const RANDOM_BANNER_COLOR = getRandomBannerColor();
+const EMPTY_CONNECTIONS = { following: [], followers: [], blocked: [] };
+
+function normalizeConnections(value) {
+  return {
+    following: Array.isArray(value?.following) ? value.following : [],
+    followers: Array.isArray(value?.followers) ? value.followers : [],
+    blocked: Array.isArray(value?.blocked) ? value.blocked : []
+  };
+}
+
+function connectionMatchesUser(connection, userId) {
+  const connectionId = typeof connection === 'object' && connection !== null ? connection.id : connection;
+  return String(connectionId) === String(userId);
+}
 
 export default function Profile() {
   const { userid } = useParams();
@@ -62,7 +76,7 @@ export default function Profile() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
-  const [connections, setConnections] = useState({ following: [], followers: [], blocked: [] });
+  const [connections, setConnections] = useState(EMPTY_CONNECTIONS);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
 
   useEffect(() => {
@@ -99,7 +113,7 @@ export default function Profile() {
   // Load connections for follow/block status
   useEffect(() => {
     if (currentUser && !isOwnProfile && publicUser) {
-      getConnections(currentUser.id).then(setConnections);
+      getConnections(currentUser.id).then(result => setConnections(normalizeConnections(result)));
     }
   }, [currentUser, isOwnProfile, publicUser]);
 
@@ -116,7 +130,7 @@ export default function Profile() {
     if (success) {
       // Refresh connections and stats
       const newConns = await getConnections(currentUser.id);
-      setConnections(newConns);
+      setConnections(normalizeConnections(newConns));
       const sData = await getUserSocialStats(publicUser.id);
       setPublicStats(sData);
     }
@@ -445,7 +459,7 @@ export default function Profile() {
 
         {!isOwnProfile && currentUser && publicUser && (
           <div className="profile-actions-buttons" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            {connections.following.some(u => u.id === publicUser.id) ? (
+            {connections.following.some(u => connectionMatchesUser(u, publicUser.id)) ? (
               <button
                 onClick={() => handleSocialAction('unfollow')}
                 disabled={isProcessingAction}
@@ -462,21 +476,21 @@ export default function Profile() {
             ) : (
               <button
                 onClick={() => handleSocialAction('follow')}
-                disabled={isProcessingAction || connections.blocked.some(u => u.id === publicUser.id)}
+                disabled={isProcessingAction || connections.blocked.some(u => connectionMatchesUser(u, publicUser.id))}
                 style={{
                   padding: '12px 24px', background: 'var(--brand-color)',
                   border: 'none', color: '#000',
                   fontSize: '0.85rem', fontWeight: '800', borderRadius: '12px',
-                  cursor: (isProcessingAction || connections.blocked.some(u => u.id === publicUser.id)) ? 'not-allowed' : 'pointer',
+                  cursor: (isProcessingAction || connections.blocked.some(u => connectionMatchesUser(u, publicUser.id))) ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s ease',
-                  opacity: (isProcessingAction || connections.blocked.some(u => u.id === publicUser.id)) ? 0.5 : 1
+                  opacity: (isProcessingAction || connections.blocked.some(u => connectionMatchesUser(u, publicUser.id))) ? 0.5 : 1
                 }}
               >
                 Follow
               </button>
             )}
 
-            {connections.blocked.some(u => u.id === publicUser.id) ? (
+            {connections.blocked.some(u => connectionMatchesUser(u, publicUser.id)) ? (
               <button
                 onClick={() => handleSocialAction('unblock')}
                 disabled={isProcessingAction}
