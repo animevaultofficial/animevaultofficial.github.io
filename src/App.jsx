@@ -46,7 +46,7 @@ import { useReminderNotifications } from './hooks/useReminderNotifications';
 
 function App() {
   useReminderNotifications();
-  const { user, setShowAuthModal, setAuthTab } = useUser();
+  const { user, authLoading, setShowAuthModal, setAuthTab } = useUser();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const [maintenanceMode, setMaintenanceMode] = useState(false);
@@ -322,6 +322,8 @@ function App() {
               <User size={14} />
               <span>{user.username}</span>
             </FocusableLink>
+          ) : authLoading ? (
+            <div style={{ padding: '8px 14px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Checking session...</div>
           ) : (
             <FocusableButton onClick={() => { setAuthTab('login'); setShowAuthModal(true); }} style={{
               display: 'inline-flex', alignItems: 'center', gap: '6px',
