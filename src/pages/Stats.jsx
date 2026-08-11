@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, CheckCircle, TrendingUp, Trophy, Calendar, Star, Flame, User } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getUserStats, getLevel, getFavorites, setFavorite } from '../api/db';
+import { getUserStats, getLevel, getFavorites, setFavorite, getActivity } from '../api/db';
 import { searchAnime, fetchTrendingMedia, searchCharacters, fetchTrendingCharacters, searchStudios, fetchTrendingStudios, fetchAnimeById } from '../api/anilist';
 import { useUser } from '../api/UserContext';
 
