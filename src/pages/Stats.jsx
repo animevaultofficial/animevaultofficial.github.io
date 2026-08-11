@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, CheckCircle, TrendingUp, Trophy, Calendar, Star, Flame, User } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getUserStats, getLevel, getFavorites, getWatchHistory, getActivity } from '../api/db';
+import { getUserStats, getLevel, getFavorites, setFavorite } from '../api/db';
 import { searchAnime, fetchTrendingMedia, searchCharacters, fetchTrendingCharacters, searchStudios, fetchTrendingStudios, fetchAnimeById } from '../api/anilist';
 import { useUser } from '../api/UserContext';
 
 export default function Stats() {
-  const { user } = useUser();
+  const { user, authLoading, setAuthTab, setShowAuthModal } = useUser();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [favoriteType, setFavoriteType] = useState(null);
@@ -22,14 +22,10 @@ export default function Stats() {
     queryFn: getLevel,
   });
 
-  const { data: favorites = { animes: [], studios: [], characters: [] } } = useQuery({
-    queryKey: ['favorites'],
-    queryFn: getFavorites,
-  });
-
-  const { data: watchHistory = [] } = useQuery({
-    queryKey: ['watchHistory'],
-    queryFn: getWatchHistory,
+  const { data: favorites = { animes: [], studios: [], characters: [] }, isLoading: favoritesLoading, error: favoritesError } = useQuery({
+    queryKey: ['favorites', user?.id],
+    queryFn: () => getFavorites(user.id),
+    enabled: !!user?.id,
   });
 
   const { data: activityData = {} } = useQuery({
@@ -188,9 +184,26 @@ export default function Stats() {
       favItem = { id: item.id, name: item.name };
     }
     
-    const fullFavorites = { ...favorites, [type]: [favItem] };
-    localStorage.setItem('animevault_favorites', JSON.stringify(fullFavorites));
-    queryClient.invalidateQueries({ queryKey: ['favorites'] });
+    if (!user?.id) {
+      setAuthTab('login');
+      setShowAuthModal(true);
+      return;
+    }
+
+    const queryKey = ['favorites', user.id];
+    const previousFavorites = queryClient.getQueryData(queryKey);
+    const optimisticFavorites = { ...favorites, [type]: [favItem] };
+    queryClient.setQueryData(queryKey, optimisticFavorites);
+
+    const result = await setFavorite(user.id, type, favItem);
+    if (!result.success) {
+      queryClient.setQueryData(queryKey, previousFavorites || favorites);
+      console.error('Failed to save favorite:', result.error);
+      return;
+    }
+
+    queryClient.setQueryData(queryKey, result.favorites || optimisticFavorites);
+    queryClient.invalidateQueries({ queryKey });
     setFavoriteType(null);
     setSearchTerm('');
   };
@@ -511,6 +524,18 @@ export default function Stats() {
         {/* Favorite Selectors */}
         <section style={{ marginTop: '2rem', marginBottom: '2rem' }}>
           <h3 style={{ color: 'white', margin: '0 0 1.5rem', fontSize: '1.25rem' }}>Choose Your Favorites</h3>
+          {authLoading && (
+            <p style={{ color: '#94a3b8', margin: '0 0 1rem' }}>Checking your saved favorites...</p>
+          )}
+          {!authLoading && !user && (
+            <p style={{ color: '#f59e0b', margin: '0 0 1rem' }}>Sign in to save favorites across devices.</p>
+          )}
+          {favoritesLoading && user && (
+            <p style={{ color: '#94a3b8', margin: '0 0 1rem' }}>Loading favorites from your account...</p>
+          )}
+          {favoritesError && (
+            <p style={{ color: '#f87171', margin: '0 0 1rem' }}>Could not load favorites. You can try selecting again.</p>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
             {/* Favorite Anime */}
             <div style={{ background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,26,117,0.3)', borderRadius: '16px', padding: '1.5rem' }}>

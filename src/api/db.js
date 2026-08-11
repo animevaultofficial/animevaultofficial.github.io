@@ -58,9 +58,7 @@ async function getSql() {
     }
 
     sql = mod.neon(DATABASE_URL, { disableWarningInBrowsers: true });
-    // Test the connection immediately
-    await sql`SELECT 1`;
-    log('[AnimeVault DB] Connected to Neon DB successfully');
+    log('[AnimeVault DB] Neon DB client initialized');
     return sql;
   } catch (e) {
     error('[AnimeVault DB] Failed to connect to Neon DB:', e);
@@ -256,51 +254,129 @@ export async function updateProgress(userId, animeId, episode, progress, rating)
 }
 
 // Favorites Functions
+const EMPTY_FAVORITES = { animes: [], studios: [], characters: [] };
+const FAVORITE_TYPES = { animes: 'anime', studios: 'studio', characters: 'character' };
+const FAVORITE_KEYS = { anime: 'animes', studio: 'studios', character: 'characters' };
+
+function normalizeFavorites(rows = []) {
+  const favorites = { animes: [], studios: [], characters: [] };
+  rows.forEach((row) => {
+    const itemType = row.item_type || (row.anime_id ? 'anime' : null);
+    const bucket = FAVORITE_KEYS[itemType];
+    if (!bucket) return;
+
+    const metadata = row.item_metadata || {};
+    const item = {
+      ...metadata,
+      id: metadata.id || row.item_id || row.anime_id
+    };
+    if (row.favorited_at) item.favorited_at = row.favorited_at;
+    favorites[bucket].push(item);
+  });
+  return favorites;
+}
+
+async function ensureFavoritesTable(db) {
+  await db`
+    CREATE TABLE IF NOT EXISTS user_favorites (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      anime_id TEXT,
+      item_type TEXT DEFAULT 'anime',
+      item_id TEXT,
+      item_metadata JSONB DEFAULT '{}'::jsonb,
+      favorited_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (user_id, item_type)
+    )
+  `;
+  try { await db`ALTER TABLE user_favorites ADD COLUMN IF NOT EXISTS item_type TEXT DEFAULT 'anime'`; } catch (e) { }
+  try { await db`ALTER TABLE user_favorites ADD COLUMN IF NOT EXISTS item_id TEXT`; } catch (e) { }
+  try { await db`ALTER TABLE user_favorites ADD COLUMN IF NOT EXISTS item_metadata JSONB DEFAULT '{}'::jsonb`; } catch (e) { }
+  try { await db`ALTER TABLE user_favorites ADD COLUMN IF NOT EXISTS favorited_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP`; } catch (e) { }
+  try { await db`UPDATE user_favorites SET item_type = 'anime' WHERE item_type IS NULL`; } catch (e) { }
+  try { await db`UPDATE user_favorites SET item_id = anime_id WHERE item_id IS NULL AND anime_id IS NOT NULL`; } catch (e) { }
+  try { await db`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_favorites_user_type ON user_favorites(user_id, item_type)`; } catch (e) { }
+}
+
 export async function getFavorites(userId) {
+  if (!userId) return { ...EMPTY_FAVORITES };
   const db = await getSql();
   if (!db) {
-    console.warn('[AnimeVault DB] Database not connected');
-    return [];
+    warn('[AnimeVault DB] Database not connected');
+    return { ...EMPTY_FAVORITES };
   }
   try {
+    await ensureFavoritesTable(db);
     const result = await db`
-      SELECT anime_id, favorited_at
+      SELECT anime_id, item_type, item_id, item_metadata, favorited_at
       FROM user_favorites
       WHERE user_id = ${userId}
       ORDER BY favorited_at DESC
     `;
-    return result.map(row => row.anime_id);
+    return normalizeFavorites(result);
   } catch (e) {
     error('[AnimeVault DB] Failed to fetch favorites:', e?.message);
-    return [];
+    return { ...EMPTY_FAVORITES };
   }
 }
 
-export async function toggleFavorite(userId, animeId) {
+export async function setFavorite(userId, type, item) {
+  const itemType = FAVORITE_TYPES[type] || type;
+  if (!userId || !FAVORITE_KEYS[itemType] || !item?.id) return { success: false, error: 'Invalid favorite payload' };
+  const db = await getSql();
+  if (!db) return { success: false, error: 'Database connection unavailable' };
+  try {
+    await ensureFavoritesTable(db);
+    const metadata = JSON.stringify(item);
+    await db`
+      INSERT INTO user_favorites (user_id, anime_id, item_type, item_id, item_metadata, favorited_at)
+      VALUES (${userId}, ${itemType === 'anime' ? String(item.id) : null}, ${itemType}, ${String(item.id)}, ${metadata}::jsonb, NOW())
+      ON CONFLICT (user_id, item_type) DO UPDATE
+      SET anime_id = EXCLUDED.anime_id,
+          item_id = EXCLUDED.item_id,
+          item_metadata = EXCLUDED.item_metadata,
+          favorited_at = NOW()
+    `;
+    return { success: true, favorites: await getFavorites(userId) };
+  } catch (e) {
+    error('[AnimeVault DB] Failed to set favorite:', e?.message);
+    return { success: false, error: e?.message };
+  }
+}
+
+export async function toggleFavorite(userId, animeId, animeTitle = null, animePoster = null) {
+  if (!userId || !animeId) return { error: 'Missing user or anime id' };
   const db = await getSql();
   if (!db) {
-    console.warn('[AnimeVault DB] Database not connected');
-    return false;
+    warn('[AnimeVault DB] Database not connected');
+    return { error: 'Database connection unavailable' };
   }
   try {
+    await ensureFavoritesTable(db);
     const existing = await db`
       SELECT id FROM user_favorites
-      WHERE user_id = ${userId} AND anime_id = ${animeId}
+      WHERE user_id = ${userId} AND item_type = 'anime' AND item_id = ${String(animeId)}
     `;
 
     if (existing.length > 0) {
       await db`
         DELETE FROM user_favorites
-        WHERE user_id = ${userId} AND anime_id = ${animeId}
+        WHERE user_id = ${userId} AND item_type = 'anime' AND item_id = ${String(animeId)}
       `;
       return { action: 'unliked' };
-    } else {
-      await db`
-        INSERT INTO user_favorites (user_id, anime_id)
-        VALUES (${userId}, ${animeId})
-      `;
-      return { action: 'liked' };
     }
+
+    const item = JSON.stringify({ id: animeId, title: animeTitle || 'Unknown Title', image: animePoster || null });
+    await db`
+      INSERT INTO user_favorites (user_id, anime_id, item_type, item_id, item_metadata)
+      VALUES (${userId}, ${String(animeId)}, 'anime', ${String(animeId)}, ${item}::jsonb)
+      ON CONFLICT (user_id, item_type) DO UPDATE
+      SET anime_id = EXCLUDED.anime_id,
+          item_id = EXCLUDED.item_id,
+          item_metadata = EXCLUDED.item_metadata,
+          favorited_at = NOW()
+    `;
+    return { action: 'liked' };
   } catch (e) {
     error('[AnimeVault DB] Failed to toggle favorite:', e?.message);
     return { error: e?.message };
