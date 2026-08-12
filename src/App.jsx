@@ -49,10 +49,15 @@ function App() {
   useReminderNotifications();
   const { user, authLoading, activeSubAccount, subAccounts, setShowAuthModal, setAuthTab } = useUser();
   const activeSubAccountIndex = activeSubAccount
-    ? Math.max(1, subAccounts.findIndex(profile => profile.id === activeSubAccount.id) + 1)
+    ? subAccounts.findIndex(profile => profile.id === activeSubAccount.id)
+    : -1;
+  const activeSubAccountRouteId = activeSubAccount
+    ? activeSubAccountIndex >= 0
+      ? String(activeSubAccountIndex + 1)
+      : encodeURIComponent(activeSubAccount.id)
     : null;
   const ownProfilePath = user
-    ? `/profile/${user.id}${activeSubAccountIndex ? `/sub=${activeSubAccountIndex}` : ''}`
+    ? `/profile/${user.id}${activeSubAccountRouteId ? `/sub=${activeSubAccountRouteId}` : ''}`
     : '/profile';
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');

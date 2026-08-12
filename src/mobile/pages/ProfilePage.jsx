@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Heart, Clock, User, LogOut, Calendar, Camera, Edit2, Image, Sparkles, Award, Settings as SettingsIcon, UploadCloud, Loader, BadgeCheck, Tv, Save, Check, Trash2, BarChart3, Bell } from 'lucide-react';
 import { useUser } from '../../api/UserContext';
 import { getUserStats as dbGetUserStats, fetchReminders, checkUser2FA } from '../../api/db';
@@ -203,10 +203,18 @@ function AuthScreen() {
 }
 
 export default function ProfilePage({ navigate }) {
-  const { user, setUser, history, likes, continueWatching: syncedContinue, logout, updateProfile } = useUser();
+  const { user, setUser, history, likes, continueWatching: syncedContinue, logout, updateProfile, activeSubAccount } = useUser();
   const [activeTab, setActiveTab] = useState('likes');
   const [showStoryUpload, setShowStoryUpload] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatar || '/logo.png');
+  const displayUser = useMemo(() => {
+    if (!user || !activeSubAccount) return user;
+    return {
+      ...user,
+      username: activeSubAccount.name || user.username,
+      avatar: activeSubAccount.avatar || user.avatar,
+    };
+  }, [activeSubAccount, user]);
+  const [avatarUrl, setAvatarUrl] = useState(displayUser?.avatar || '/logo.png');
   const [bannerUrl, setBannerUrl] = useState(user?.banner || '');
   const [isEditing, setIsEditing] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
@@ -221,13 +229,13 @@ export default function ProfilePage({ navigate }) {
 
   // Sync from user object when it changes
   useEffect(() => {
-    if (user) {
-      setAvatarUrl(user.avatar || '/logo.png');
-      setBannerUrl(user.banner || '');
-      setEditAvatar(user.avatar || '/logo.png');
-      setEditBanner(user.banner || '');
+    if (displayUser) {
+      setAvatarUrl(displayUser.avatar || '/logo.png');
+      setBannerUrl(user?.banner || '');
+      setEditAvatar(displayUser.avatar || '/logo.png');
+      setEditBanner(user?.banner || '');
     }
-  }, [user]);
+  }, [displayUser, user?.banner]);
 
   // Fetch stats and reminders from DB
   useEffect(() => {
@@ -328,7 +336,7 @@ export default function ProfilePage({ navigate }) {
       <div style={{ display: 'flex', alignItems: 'flex-end', padding: '0 16px', marginTop: -40, position: 'relative', zIndex: 5 }}>
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <StoryAvatar
-            user={user}
+            user={{ ...displayUser, avatar: avatarUrl }}
             viewerId={user.id}
             size={80}
             style={{
@@ -350,7 +358,7 @@ export default function ProfilePage({ navigate }) {
         <div style={{ flex: 1, paddingLeft: 12, paddingBottom: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, fontWeight: 900, fontSize: '1.3rem', color: '#fff' }}>
-              {user.username || user.email || 'AnimeVault User'}
+              {displayUser?.username || user.email || 'AnimeVault User'}
             </h2>
             {user.is_verified && <BadgeCheck size={18} fill="#1d9bf0" color="#fff" />}
             {user.is_admin && (

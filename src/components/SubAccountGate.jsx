@@ -12,6 +12,24 @@ import {
   setActiveSubAccount
 } from '../utils/subAccounts';
 
+
+function getProfileRouteSubAccountRequest(userId) {
+  if (typeof window === 'undefined' || !userId) return null;
+  const prefix = `#/profile/${userId}/`;
+  const hash = window.location.hash || '';
+  if (!hash.toLowerCase().startsWith(prefix.toLowerCase())) return null;
+  const segment = hash.slice(prefix.length).split('/').find(part => part.toLowerCase().startsWith('sub='));
+  return segment ? decodeURIComponent(segment.slice(4)) : null;
+}
+
+function findRequestedProfile(profiles, request) {
+  if (!request) return null;
+  const exact = profiles.find(profile => String(profile.id) === String(request));
+  if (exact) return exact;
+  const index = Number.parseInt(request, 10);
+  return Number.isInteger(index) && index > 0 ? profiles[index - 1] || null : null;
+}
+
 const FALLBACK_POSTERS = [
   'https://cdn.myanimelist.net/images/anime/10/47347.jpg',
   'https://cdn.myanimelist.net/images/anime/1208/94745.jpg',
@@ -135,9 +153,17 @@ export default function SubAccountGate({ children }) {
       if (!nextProfiles.length) nextProfiles = ensureSubAccounts(user);
       setProfiles(nextProfiles);
       saveSubAccounts(user.id, nextProfiles);
+      const routeRequestedProfile = findRequestedProfile(
+        nextProfiles,
+        getProfileRouteSubAccountRequest(user.id)
+      );
       const savedActive = getActiveSubAccount(user.id);
-      const validActive = savedActive && nextProfiles.some(profile => profile.id === savedActive.id);
-      setActiveSubAccountState(validActive ? savedActive : null);
+      const validActive = savedActive
+        ? nextProfiles.find(profile => profile.id === savedActive.id)
+        : null;
+      const nextActive = routeRequestedProfile || validActive || null;
+      if (nextActive) setActiveSubAccount(user.id, nextActive);
+      setActiveSubAccountState(nextActive);
       setIsLoadingProfiles(false);
     }
 
@@ -202,13 +228,13 @@ export default function SubAccountGate({ children }) {
   if (!user) {
     return (
       <>
-        <div style={{ minHeight: '100vh', position: 'relative', display: 'grid', placeItems: 'center', padding: '32px', background: '#050505', color: '#fff', textAlign: 'center', overflow: 'hidden' }}>
+        <div className="sub-account-signup" style={{ minHeight: '100vh', position: 'relative', display: 'grid', placeItems: 'center', padding: '20px', background: '#050505', color: '#fff', textAlign: 'center', overflow: 'hidden' }}>
           <PosterWall />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(0,0,0,0.92), rgba(12,3,8,0.82) 48%, rgba(0,0,0,0.94)), radial-gradient(circle at center, rgba(255,26,117,0.18), transparent 42%)' }} />
-          <div style={{ position: 'relative', zIndex: 1, maxWidth: 660, padding: 32, border: '1px solid rgba(255, 26, 117, 0.28)', borderRadius: 28, background: 'rgba(10, 10, 16, 0.72)', boxShadow: '0 30px 90px rgba(0,0,0,0.58), 0 0 42px rgba(255, 26, 117, 0.16)', backdropFilter: 'blur(14px)' }}>
-            <img src="/logo.png" alt="AnimeVault" style={{ height: 74, marginBottom: 24 }} />
-            <h1 style={{ fontSize: 'clamp(2.4rem, 7vw, 5.5rem)', lineHeight: 1, margin: '0 0 16px', fontWeight: 950 }}>Sign up to watch AnimeVault.</h1>
-            <p style={{ color: '#f8fafc', fontSize: '1.12rem', marginBottom: 28, textShadow: '0 2px 16px rgba(0,0,0,0.8)' }}>Create one main account with one email, then add up to five synced watching profiles for everyone in your home.</p>
+          <div className="sub-account-signup-card" style={{ position: 'relative', zIndex: 1, width: 'min(520px, 100%)', padding: 'clamp(20px, 4vw, 28px)', border: '1px solid rgba(255, 26, 117, 0.28)', borderRadius: 24, background: 'rgba(10, 10, 16, 0.72)', boxShadow: '0 24px 70px rgba(0,0,0,0.52), 0 0 34px rgba(255, 26, 117, 0.14)', backdropFilter: 'blur(14px)' }}>
+            <img src="/logo.png" alt="AnimeVault" style={{ height: 'clamp(48px, 11vw, 62px)', marginBottom: 16 }} />
+            <h1 style={{ fontSize: 'clamp(1.9rem, 9vw, 3.8rem)', lineHeight: 1.02, margin: '0 0 12px', fontWeight: 950 }}>Sign up to watch AnimeVault.</h1>
+            <p style={{ color: '#f8fafc', fontSize: 'clamp(0.95rem, 3vw, 1.05rem)', marginBottom: 22, textShadow: '0 2px 16px rgba(0,0,0,0.8)' }}>Create one main account with one email, then add up to five synced watching profiles for everyone in your home.</p>
             <button onClick={() => { setAuthTab('signup'); setShowAuthModal(true); }} style={{ border: 'none', borderRadius: 999, padding: '14px 28px', fontWeight: 900, background: 'linear-gradient(135deg, #ff1a75, #ef4444)', color: '#000', cursor: 'pointer', fontSize: '1rem', boxShadow: '0 0 24px rgba(255, 26, 117, 0.35)' }}>Sign Up to Watch</button>
             <button onClick={() => { setAuthTab('login'); setShowAuthModal(true); }} style={{ marginLeft: 12, border: '1px solid rgba(255,26,117,0.35)', borderRadius: 999, padding: '13px 24px', fontWeight: 800, background: 'rgba(255,26,117,0.08)', color: '#fff', cursor: 'pointer' }}>Sign In</button>
           </div>
@@ -220,21 +246,33 @@ export default function SubAccountGate({ children }) {
 
   if (hasActiveProfile) return children;
 
+  if (isLoadingProfiles) {
+    return (
+      <div className="sub-account-gate sub-account-gate-loading" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '24px', background: 'radial-gradient(circle at top, rgba(255,26,117,0.20), transparent 32%), linear-gradient(135deg, #050505, #16030c 55%, #09090f)', color: '#fff', textAlign: 'center' }}>
+        <div style={{ display: 'grid', gap: 12, justifyItems: 'center' }}>
+          <img src="/logo.png" alt="AnimeVault" style={{ height: 56 }} />
+          <h1 style={{ margin: 0, fontSize: 'clamp(1.9rem, 9vw, 3.5rem)', fontWeight: 950 }}><span style={{ color: '#ff1a75' }}>Anime</span>Vault</h1>
+          <p style={{ margin: 0, color: '#fda4af', fontWeight: 800 }}>Loading your watching profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at top, rgba(255,26,117,0.20), transparent 32%), linear-gradient(135deg, #050505, #16030c 55%, #09090f)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '36px 20px' }}>
+    <div className="sub-account-gate" style={{ minHeight: '100vh', background: 'radial-gradient(circle at top, rgba(255,26,117,0.20), transparent 32%), linear-gradient(135deg, #050505, #16030c 55%, #09090f)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(24px, 6vw, 36px) 16px' }}>
       <div style={{ width: 'min(980px, 100%)', textAlign: 'center' }}>
         <h1 style={{ fontSize: 'clamp(2.5rem, 7vw, 4.5rem)', margin: '0 0 12px', fontWeight: 950 }}><span style={{ color: '#ff1a75' }}>Anime</span>Vault</h1>
-        <p style={{ color: '#f8fafc', fontSize: '1.45rem', margin: '0 0 70px' }}>{isLoadingProfiles ? 'Loading profiles...' : "Who's watching?"}</p>
+        <p style={{ color: '#f8fafc', fontSize: 'clamp(1.1rem, 4vw, 1.45rem)', margin: '0 0 clamp(34px, 8vw, 70px)' }}>Who's watching?</p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(24px, 6vw, 70px)', flexWrap: 'wrap' }}>
           {profiles.map(profile => (
             <button key={profile.id} onClick={() => chooseProfile(profile)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', display: 'grid', gap: 18, justifyItems: 'center' }}>
-              <ProfileAvatar profile={profile} />
+              <ProfileAvatar profile={profile} size={typeof window !== 'undefined' && window.innerWidth < 520 ? 104 : 132} />
               <span style={{ fontSize: '1.15rem', fontWeight: 800 }}>{profile.name}</span>
             </button>
           ))}
           {canCreate && (
             <button onClick={() => setShowCreate(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', display: 'grid', gap: 18, justifyItems: 'center' }}>
-              <div style={{ width: 132, height: 132, borderRadius: '50%', background: 'rgba(17, 24, 39, 0.82)', display: 'grid', placeItems: 'center', boxShadow: '0 24px 55px rgba(255,26,117,0.16)', border: '4px solid rgba(255, 26, 117, 0.2)' }}><Plus size={44} /></div>
+              <div style={{ width: typeof window !== 'undefined' && window.innerWidth < 520 ? 104 : 132, height: typeof window !== 'undefined' && window.innerWidth < 520 ? 104 : 132, borderRadius: '50%', background: 'rgba(17, 24, 39, 0.82)', display: 'grid', placeItems: 'center', boxShadow: '0 24px 55px rgba(255,26,117,0.16)', border: '4px solid rgba(255, 26, 117, 0.2)' }}><Plus size={44} /></div>
               <span style={{ fontSize: '1.15rem', fontWeight: 800 }}>Add Profile</span>
             </button>
           )}
