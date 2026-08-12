@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Heart, Clock, User, LogOut, Trash2, Calendar, Film, Camera, Edit2, Image, Sparkles, Tv, Check, Save, ExternalLink, Award, Settings as SettingsIcon, UploadCloud, Loader, Users, BadgeCheck } from 'lucide-react';
+import { Heart, Clock, User, LogOut, Trash2, Calendar, Film, Camera, Edit2, Image, Sparkles, Tv, Check, Save, ExternalLink, Award, Settings as SettingsIcon, UploadCloud, Loader, Users, BadgeCheck, Repeat } from 'lucide-react';
 import { useUser } from '../api/UserContext';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fetchTrendingMedia } from '../api/anilist';
@@ -8,6 +8,7 @@ import { fetchPublicUserProfile, getUserSocialStats, followUser, unfollowUser, b
 import { getSettings } from '../api/settings';
 import StoryAvatar from '../components/StoryAvatar';
 import StoryUploadModal from '../components/StoryUploadModal';
+import { clearActiveSubAccount } from '../utils/subAccounts';
 
 const PRESET_BANNERS = [
   { name: 'Anime Landscape', url: 'https://images.unsplash.com/photo-1614728263952-c834c7302501?auto=format&fit=crop&w=1200&q=80' },
@@ -46,7 +47,7 @@ function connectionMatchesUser(connection, userId) {
 
 export default function Profile() {
   const { userid } = useParams();
-  const { user: currentUser, history: ownHistory, likes: ownLikes, continueWatching: ownContinueWatching, logout, clearHistory, updateProfile } = useUser();
+  const { user: currentUser, history: ownHistory, likes: ownLikes, continueWatching: ownContinueWatching, logout, clearHistory, updateProfile, activeSubAccount, setActiveSubAccountState } = useUser();
   const navigate = useNavigate();
 
   const isOwnProfile = currentUser && String(currentUser.id) === String(userid);
@@ -439,6 +440,21 @@ export default function Profile() {
             >
               <SettingsIcon size={16} /> Settings
             </Link>
+
+            <button
+              onClick={() => { clearActiveSubAccount(); setActiveSubAccountState(null); navigate('/'); }}
+              style={{
+                padding: '12px 24px', background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.14)', color: '#fff',
+                fontSize: '0.85rem', fontWeight: '800', borderRadius: '12px',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+                transition: 'all 0.2s ease', marginBottom: '10px'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+            >
+              <Repeat size={16} /> Switch Profile{activeSubAccount?.name ? ` (${activeSubAccount.name})` : ''}
+            </button>
 
             <button
               onClick={() => { logout(); navigate('/'); }}
