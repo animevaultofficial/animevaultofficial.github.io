@@ -49,6 +49,7 @@ export function createDefaultSubAccount(user) {
     id: `profile-${Date.now()}`,
     name,
     color: SUB_ACCOUNT_COLORS[0],
+    avatar: user?.avatar || null,
     isMain: true,
     createdAt: new Date().toISOString()
   };
