@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { log, warn, error } from '../utils/logger.js';
 import { createAnimeVaultAuthClient } from './authClient';
+import { clearActiveSubAccount } from '../utils/subAccounts';
 
 // Neon Auth client
 const authClient = createAnimeVaultAuthClient();
@@ -19,7 +20,8 @@ import {
   getUserStats, updateUserStats,
   getFavorites, toggleFavorite, setFavorite,
   getWatchHistory as dbGetWatchHistory, addWatchHistory as dbAddWatchHistory,
-  getLevel, addXP, addActivity
+  getLevel, addXP, addActivity,
+  fetchSubAccounts as dbFetchSubAccounts, createSubAccount as dbCreateSubAccount, ensureMainSubAccount as dbEnsureMainSubAccount
 } from './db';
 import {
   proxyLogin,
@@ -130,6 +132,8 @@ export function UserProvider({ children }) {
   const [reminders, setReminders] = useState([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState('login');
+  const [activeSubAccount, setActiveSubAccountState] = useState(null);
+  const [subAccounts, setSubAccounts] = useState([]);
 
   const loginWithDbCredentials = async (email, password) => {
     const dbRes = await dbUserLogin(email, password);
@@ -262,8 +266,8 @@ export function UserProvider({ children }) {
     if (!user) return;
     try {
       const [histData, contData, likedData, remData] = await Promise.all([
-        fetchWatchHistory(user.id),
-        fetchContinueWatching(user.id),
+        fetchWatchHistory(user.id, activeSubAccount?.id),
+        fetchContinueWatching(user.id, activeSubAccount?.id),
         fetchLikedItems(user.id),
         fetchReminders(user.id)
       ]);
@@ -285,7 +289,7 @@ export function UserProvider({ children }) {
       setLikes([]);
       setReminders([]);
     }
-  }, [user]);
+  }, [user, activeSubAccount?.id]);
 
   const login = async (email, password, verificationCode) => {
     try {
@@ -454,13 +458,16 @@ export function UserProvider({ children }) {
     // Then sign out of Neon Auth
     try { await authClient.signOut(); } catch (e) { /* ignore */ }
     setUser(null);
+    setActiveSubAccountState(null);
+    setSubAccounts([]);
+    clearActiveSubAccount();
   };
 
   const addToHistory = async (mediaId, mediaType, mediaTitle, mediaPoster) => {
     if (!user) return false;
 
     await dbAddWatchHistory({ id: mediaId, title: mediaTitle, image: mediaPoster });
-    await dbAddToHistory(user.id, mediaId, mediaType, mediaTitle, mediaPoster);
+    await dbAddToHistory(user.id, mediaId, mediaType, mediaTitle, mediaPoster, activeSubAccount?.id || null);
     await addXP(5);
     await addActivity();
 
@@ -470,7 +477,7 @@ export function UserProvider({ children }) {
 
   const clearHistory = async () => {
     if (!user) return false;
-    const success = await dbClearWatchHistory(user.id);
+    const success = await dbClearWatchHistory(user.id, activeSubAccount?.id || null);
     if (success) {
       setHistory([]);
     }
@@ -479,7 +486,7 @@ export function UserProvider({ children }) {
 
   const updateContinueWatching = async (mediaId, mediaType, mediaTitle, mediaPoster, season = 1, episode = 1, progress = 0, duration = 0) => {
     if (!user) return false;
-    const success = await dbUpdateContinueWatching(user.id, mediaId, mediaType, mediaTitle, mediaPoster, season, episode, progress, duration);
+    const success = await dbUpdateContinueWatching(user.id, mediaId, mediaType, mediaTitle, mediaPoster, season, episode, progress, duration, activeSubAccount?.id || null);
     if (success) {
       syncUserData();
 
@@ -558,6 +565,28 @@ export function UserProvider({ children }) {
     return reminders.some(item => String(item.schedule_id) === String(scheduleId));
   };
 
+
+  const fetchSubAccounts = async () => {
+    if (!user?.id) return [];
+    const profiles = await dbFetchSubAccounts(user.id);
+    setSubAccounts(profiles || []);
+    return profiles || [];
+  };
+
+  const ensureMainSubAccount = async () => {
+    if (!user?.id) return null;
+    const profile = await dbEnsureMainSubAccount(user);
+    await fetchSubAccounts();
+    return profile;
+  };
+
+  const createSubAccount = async (profile) => {
+    if (!user?.id) return { success: false, message: 'Sign in required.' };
+    const result = await dbCreateSubAccount(user.id, profile);
+    if (result.success) await fetchSubAccounts();
+    return result;
+  };
+
   return (
     <UserContext.Provider value={{
       user,
@@ -567,10 +596,16 @@ export function UserProvider({ children }) {
       continueWatching,
       likes,
       reminders,
+      subAccounts,
+      activeSubAccount,
       showAuthModal,
       authTab,
       setShowAuthModal,
       setAuthTab,
+      setActiveSubAccountState,
+      fetchSubAccounts,
+      ensureMainSubAccount,
+      createSubAccount,
       login,
       signup,
       sendVerificationCode,
