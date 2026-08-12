@@ -10,10 +10,20 @@ import { PLAYER_SOURCES, getSourceUrl } from '../utils/playerSources';
 const TMDB_API_KEY = '288d312680f3117dd4c56964be6809dc'; // Public TMDB key
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
+
+function getUSCertification(data, mediaType) {
+  if (mediaType === 'movie') {
+    const us = data?.release_dates?.results?.find(item => item.iso_3166_1 === 'US');
+    return us?.release_dates?.find(item => item.certification)?.certification || '';
+  }
+  const us = data?.content_ratings?.results?.find(item => item.iso_3166_1 === 'US');
+  return us?.rating || '';
+}
+
 // Fetch movie details by TMDB ID
 export async function fetchMovieDetails(tmdbId) {
   try {
-    const res = await fetch(`${TMDB_BASE_URL}/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=en-US`);
+    const res = await fetch(`${TMDB_BASE_URL}/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=en-US&append_to_response=release_dates`);
     return await res.json();
   } catch (e) {
     console.warn('Failed to fetch movie details:', e);
@@ -24,7 +34,7 @@ export async function fetchMovieDetails(tmdbId) {
 // Fetch TV show details by TMDB ID
 export async function fetchTVDetails(tmdbId) {
   try {
-    const res = await fetch(`${TMDB_BASE_URL}/tv/${tmdbId}?api_key=${TMDB_API_KEY}&language=en-US`);
+    const res = await fetch(`${TMDB_BASE_URL}/tv/${tmdbId}?api_key=${TMDB_API_KEY}&language=en-US&append_to_response=content_ratings`);
     return await res.json();
   } catch (e) {
     console.warn('Failed to fetch TV details:', e);
@@ -82,6 +92,8 @@ export async function fetchMediaMeta(mediaType, tmdbId) {
         description: data.overview,
         releaseInfo: data.release_date ? data.release_date.split('-')[0] : data.first_air_date?.split('-')[0] || '',
         genres: data.genres?.map(g => g.name) || [],
+        certification: getUSCertification(data, mediaType),
+        adult: Boolean(data.adult),
         runtime: data.runtime,
         type: mediaType,
         seasons
@@ -169,6 +181,7 @@ export async function fetchLatestMovies(page = 1, genre = '') {
         year: item.release_date ? item.release_date.split('-')[0] : '',
         poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',
         quality: '1080p',
+        adult: Boolean(item.adult),
         progress: getMovieProgress(item.id),
         mediaType: 'movie',
         type: 'movie'
@@ -199,6 +212,7 @@ export async function fetchLatestTVShows(page = 1, genre = '') {
         year: item.first_air_date ? item.first_air_date.split('-')[0] : '',
         poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',
         quality: 'HD',
+        adult: Boolean(item.adult),
         progress: getMovieProgress(item.id),
         mediaType: 'series',
         type: 'series'
@@ -225,6 +239,7 @@ export async function searchMoviesAndSeries(query) {
           name: item.title || item.name,
           poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',
           banner: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : '',
+          adult: Boolean(item.adult),
           progress: getMovieProgress(item.id),
           mediaType: item.media_type === 'tv' ? 'series' : 'movie',
           type: item.media_type === 'tv' ? 'series' : 'movie'

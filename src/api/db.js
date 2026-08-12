@@ -392,11 +392,13 @@ async function ensureSubAccountTables(db) {
       name TEXT NOT NULL,
       color TEXT DEFAULT '#ff1a75',
       avatar TEXT,
+      age_rating TEXT DEFAULT 'adults',
       is_main BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )
   `;
   await db`CREATE INDEX IF NOT EXISTS idx_user_sub_accounts_user ON user_sub_accounts(user_id, created_at ASC)`;
+  try { await db`ALTER TABLE user_sub_accounts ADD COLUMN IF NOT EXISTS age_rating TEXT DEFAULT 'adults'`; } catch (e) { }
   try { await db`ALTER TABLE user_watch_history ADD COLUMN IF NOT EXISTS sub_account_id TEXT`; } catch (e) { }
   try { await db`ALTER TABLE user_continue_watching ADD COLUMN IF NOT EXISTS sub_account_id TEXT`; } catch (e) { }
 }
@@ -407,7 +409,7 @@ export async function fetchSubAccounts(userId) {
   try {
     await ensureSubAccountTables(db);
     const result = await db`
-      SELECT id, user_id, name, color, avatar, is_main, created_at
+      SELECT id, user_id, name, color, avatar, age_rating, is_main, created_at
       FROM user_sub_accounts
       WHERE user_id = ${userId}
       ORDER BY is_main DESC, created_at ASC
@@ -419,6 +421,7 @@ export async function fetchSubAccounts(userId) {
       name: profile.name,
       color: profile.color,
       avatar: profile.avatar,
+      ageRating: profile.age_rating || 'adults',
       isMain: profile.is_main,
       createdAt: profile.created_at
     }));
@@ -439,9 +442,9 @@ export async function createSubAccount(userId, profile) {
     }
     const id = profile.id || `${userId}-${Date.now()}`;
     const result = await db`
-      INSERT INTO user_sub_accounts (id, user_id, name, color, avatar, is_main)
-      VALUES (${id}, ${userId}, ${profile.name}, ${profile.color}, ${profile.avatar || null}, ${Boolean(profile.isMain)})
-      RETURNING id, user_id, name, color, avatar, is_main, created_at
+      INSERT INTO user_sub_accounts (id, user_id, name, color, avatar, age_rating, is_main)
+      VALUES (${id}, ${userId}, ${profile.name}, ${profile.color}, ${profile.avatar || null}, ${profile.ageRating || 'adults'}, ${Boolean(profile.isMain)})
+      RETURNING id, user_id, name, color, avatar, age_rating, is_main, created_at
     `;
     const saved = result[0];
     return {
@@ -452,6 +455,7 @@ export async function createSubAccount(userId, profile) {
         name: saved.name,
         color: saved.color,
         avatar: saved.avatar,
+        ageRating: saved.age_rating || 'adults',
         isMain: saved.is_main,
         createdAt: saved.created_at
       }
@@ -459,6 +463,28 @@ export async function createSubAccount(userId, profile) {
   } catch (e) {
     warn('[AnimeVault DB] createSubAccount DB failed:', e?.message);
     return { success: false, message: e?.message || 'Could not create profile.' };
+  }
+}
+
+
+export async function updateSubAccount(userId, profileId, updates = {}) {
+  const db = await getSql();
+  if (!db) return { success: false, message: 'Database unavailable' };
+  try {
+    await ensureSubAccountTables(db);
+    const result = await db`
+      UPDATE user_sub_accounts
+      SET avatar = ${updates.avatar || null},
+          age_rating = ${updates.ageRating || 'adults'}
+      WHERE user_id = ${userId} AND id = ${profileId}
+      RETURNING id, user_id, name, color, avatar, age_rating, is_main, created_at
+    `;
+    const saved = result[0];
+    if (!saved) return { success: false, message: 'Profile not found.' };
+    return { success: true, profile: { id: saved.id, userId: saved.user_id, name: saved.name, color: saved.color, avatar: saved.avatar, ageRating: saved.age_rating || 'adults', isMain: saved.is_main, createdAt: saved.created_at } };
+  } catch (e) {
+    warn('[AnimeVault DB] updateSubAccount DB failed:', e?.message);
+    return { success: false, message: e?.message || 'Could not update profile.' };
   }
 }
 
@@ -471,6 +497,7 @@ export async function ensureMainSubAccount(user) {
     name: user.username?.split('@')[0] || 'Main',
     color: '#ff1a75',
     avatar: user.avatar || null,
+    ageRating: 'adults',
     isMain: true
   });
   return created.success ? created.profile : null;
@@ -1379,6 +1406,7 @@ export async function initDatabase() {
           name TEXT NOT NULL,
           color TEXT DEFAULT '#ff1a75',
           avatar TEXT,
+          age_rating TEXT DEFAULT 'adults',
           is_main BOOLEAN DEFAULT FALSE,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )
@@ -1386,6 +1414,7 @@ export async function initDatabase() {
       await db`
         CREATE INDEX IF NOT EXISTS idx_user_sub_accounts_user ON user_sub_accounts(user_id, created_at ASC)
       `;
+      try { await db`ALTER TABLE user_sub_accounts ADD COLUMN IF NOT EXISTS age_rating TEXT DEFAULT 'adults'`; } catch (e) { }
 
       await db`
         CREATE TABLE IF NOT EXISTS user_reminders (

@@ -6,6 +6,7 @@ import VideoPlayer from '../components/VideoPlayer';
 import CommentsSection from '../components/CommentsSection';
 import { useUser } from '../api/UserContext';
 import { buildDlhubSearchUrl } from '../utils/downloadLinks';
+import { isBlockedForProfile } from '../utils/ageRating';
 import {
   Play,
   Calendar,
@@ -99,7 +100,7 @@ const STREAM_LANGUAGES = [
 
 function AnimeDetails() {
   const { id } = useParams();
-  const { user, addToHistory, toggleLike, isLiked, setShowAuthModal, setAuthTab } = useUser();
+  const { user, activeSubAccount, addToHistory, toggleLike, isLiked, setShowAuthModal, setAuthTab } = useUser();
 
   const [anime, setAnime] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -138,6 +139,13 @@ function AnimeDetails() {
         const media = await fetchAnimeById(id);
         if (!media) {
           setError('Anime not found.');
+          return;
+        }
+
+        if (isBlockedForProfile(media, activeSubAccount)) {
+          setError('This title is blocked for Kids profiles. Switch to an Adults profile to watch it.');
+          setLoading(false);
+          clearTimeout(safetyTimer);
           return;
         }
 

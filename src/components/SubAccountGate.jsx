@@ -5,6 +5,7 @@ import AuthModal from './AuthModal';
 import {
   MAX_SUB_ACCOUNTS,
   SUB_ACCOUNT_COLORS,
+  SUB_ACCOUNT_AGE_RATINGS,
   clearActiveSubAccount,
   ensureSubAccounts,
   getActiveSubAccount,
@@ -127,6 +128,8 @@ export default function SubAccountGate({ children }) {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newAvatar, setNewAvatar] = useState('');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [newAgeRating, setNewAgeRating] = useState('adults');
   const [newColor, setNewColor] = useState(SUB_ACCOUNT_COLORS[0]);
   const hasActiveProfile = Boolean(activeSubAccount);
 
@@ -184,6 +187,39 @@ export default function SubAccountGate({ children }) {
     setActiveSubAccountState(profile);
   }
 
+
+  async function handleAvatarUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setCreateMessage('Profile picture must be under 5MB.');
+      return;
+    }
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName || !uploadPreset) {
+      setCreateMessage('Cloudinary upload is not configured.');
+      return;
+    }
+    setIsUploadingAvatar(true);
+    setCreateMessage('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', uploadPreset);
+      formData.append('folder', 'animevault_profiles');
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: formData });
+      const result = await response.json();
+      if (!response.ok || !result.secure_url) throw new Error(result.error?.message || 'Upload failed.');
+      setNewAvatar(result.secure_url);
+    } catch (err) {
+      setCreateMessage(err.message || 'Could not upload profile picture.');
+    } finally {
+      setIsUploadingAvatar(false);
+      event.target.value = '';
+    }
+  }
+
   async function handleCreate(event) {
     event.preventDefault();
     if (!canCreate || createError) return;
@@ -193,6 +229,7 @@ export default function SubAccountGate({ children }) {
       name: newName.trim(),
       color: newColor,
       avatar: newAvatar.trim() || null,
+      ageRating: newAgeRating,
       isMain: profiles.length === 0,
       createdAt: new Date().toISOString()
     };
@@ -208,6 +245,7 @@ export default function SubAccountGate({ children }) {
     setProfiles(nextProfiles);
     setNewName('');
     setNewAvatar('');
+    setNewAgeRating('adults');
     setNewColor(SUB_ACCOUNT_COLORS[nextProfiles.length % SUB_ACCOUNT_COLORS.length]);
     setShowCreate(false);
     chooseProfile(savedProfile);
@@ -268,6 +306,7 @@ export default function SubAccountGate({ children }) {
             <button key={profile.id} onClick={() => chooseProfile(profile)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', display: 'grid', gap: 18, justifyItems: 'center' }}>
               <ProfileAvatar profile={profile} size={typeof window !== 'undefined' && window.innerWidth < 520 ? 104 : 132} />
               <span style={{ fontSize: '1.15rem', fontWeight: 800 }}>{profile.name}</span>
+              {profile.ageRating === 'kids' && <span style={{ marginTop: -12, color: '#fbbf24', fontSize: '0.78rem', fontWeight: 900 }}>Kids 0-12</span>}
             </button>
           ))}
           {canCreate && (
@@ -286,7 +325,18 @@ export default function SubAccountGate({ children }) {
             <button type="button" onClick={() => setShowCreate(false)} style={{ float: 'right', background: 'transparent', color: '#fda4af', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
             <h2 style={{ marginTop: 0, display: 'flex', gap: 10, alignItems: 'center' }}><UserPlus size={22} /> Add Profile</h2>
             <input autoFocus value={newName} onChange={event => setNewName(event.target.value)} placeholder="Profile name" style={{ width: '100%', padding: '13px 14px', borderRadius: 12, border: '1px solid rgba(255,26,117,0.24)', background: 'rgba(255,255,255,0.06)', color: '#fff', marginBottom: 12 }} />
-            <input value={newAvatar} onChange={event => setNewAvatar(event.target.value)} placeholder="Profile picture URL (optional)" style={{ width: '100%', padding: '13px 14px', borderRadius: 12, border: '1px solid rgba(255,26,117,0.24)', background: 'rgba(255,255,255,0.06)', color: '#fff', marginBottom: 16 }} />
+            <label style={{ display: 'grid', gap: 8, marginBottom: 16, color: '#f8fafc', fontWeight: 800 }}>
+              Profile picture
+              {newAvatar && <ProfileAvatar profile={{ name: newName || 'Profile', avatar: newAvatar, color: newColor }} size={72} />}
+              <input type="file" accept="image/*" onChange={handleAvatarUpload} disabled={isUploadingAvatar} style={{ width: '100%', color: '#fff' }} />
+              {isUploadingAvatar && <span style={{ color: '#fda4af', fontSize: '0.85rem' }}>Uploading profile picture...</span>}
+            </label>
+            <label style={{ display: 'grid', gap: 8, marginBottom: 16, color: '#f8fafc', fontWeight: 800 }}>
+              Age rating
+              <select value={newAgeRating} onChange={event => setNewAgeRating(event.target.value)} style={{ width: '100%', padding: '13px 14px', borderRadius: 12, border: '1px solid rgba(255,26,117,0.24)', background: '#111827', color: '#fff' }}>
+                {SUB_ACCOUNT_AGE_RATINGS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+              </select>
+            </label>
             <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>{SUB_ACCOUNT_COLORS.map(color => <button key={color} type="button" onClick={() => setNewColor(color)} aria-label={`Use ${color}`} style={{ width: 34, height: 34, borderRadius: '50%', background: color, border: newColor === color ? '3px solid #fff' : '3px solid transparent', cursor: 'pointer' }} />)}</div>
             {(createError || createMessage) && <p style={{ color: '#fca5a5', fontSize: '0.85rem' }}>{createError || createMessage}</p>}
             <button disabled={Boolean(createError)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: 'none', background: createError ? '#475569' : 'linear-gradient(135deg, #ff1a75, #ef4444)', color: '#000', fontWeight: 900, cursor: createError ? 'not-allowed' : 'pointer' }}>Create Profile</button>
