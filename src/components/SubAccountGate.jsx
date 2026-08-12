@@ -187,7 +187,17 @@ export default function SubAccountGate({ children }) {
     chooseProfile(savedProfile);
   }
 
-  if (authLoading) return children;
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '32px', background: 'radial-gradient(circle at top, rgba(255,26,117,0.20), transparent 32%), linear-gradient(135deg, #050505, #16030c 55%, #09090f)', color: '#fff', textAlign: 'center' }}>
+        <div style={{ display: 'grid', gap: 14, justifyItems: 'center' }}>
+          <img src="/logo.png" alt="AnimeVault" style={{ height: 70 }} />
+          <h1 style={{ margin: 0, fontSize: 'clamp(2rem, 6vw, 4rem)', fontWeight: 950 }}><span style={{ color: '#ff1a75' }}>Anime</span>Vault</h1>
+          <p style={{ margin: 0, color: '#fda4af', fontWeight: 800 }}>Loading your watching profiles...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
