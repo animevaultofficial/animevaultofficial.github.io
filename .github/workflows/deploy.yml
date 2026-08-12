@@ -33,7 +33,15 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build production bundle
+- name: Build production bundle
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
+          CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: npm run build
 
       - name: Make sure no Jekyll processing runs on the published site
