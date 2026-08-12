@@ -8,7 +8,7 @@ import { fetchPublicUserProfile, getUserSocialStats, followUser, unfollowUser, b
 import { getSettings } from '../api/settings';
 import StoryAvatar from '../components/StoryAvatar';
 import StoryUploadModal from '../components/StoryUploadModal';
-import { clearActiveSubAccount } from '../utils/subAccounts';
+import { clearActiveSubAccount, setActiveSubAccount } from '../utils/subAccounts';
 
 const PRESET_BANNERS = [
   { name: 'Anime Landscape', url: 'https://images.unsplash.com/photo-1614728263952-c834c7302501?auto=format&fit=crop&w=1200&q=80' },
@@ -32,6 +32,35 @@ function getRandomBannerColor() {
 const RANDOM_BANNER_COLOR = getRandomBannerColor();
 const EMPTY_CONNECTIONS = { following: [], followers: [], blocked: [] };
 
+function getRequestedSubAccountId(routeTail = '') {
+  const match = String(routeTail || '').match(/(?:^|\/)sub=([^/]+)/i);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function findRequestedSubAccount(profiles, requestedSubAccountId) {
+  if (!requestedSubAccountId) return null;
+  const requested = String(requestedSubAccountId);
+  const directMatch = profiles.find(profile => String(profile.id) === requested);
+  if (directMatch) return directMatch;
+
+  const requestedIndex = Number.parseInt(requested, 10);
+  if (Number.isInteger(requestedIndex) && requestedIndex > 0) {
+    return profiles[requestedIndex - 1] || null;
+  }
+
+  return null;
+}
+
+function getProfileDisplayUser(user, subAccount) {
+  if (!user || !subAccount) return user;
+  return {
+    ...user,
+    username: subAccount.name || user.username,
+    avatar: subAccount.avatar || user.avatar,
+    activeSubAccountId: subAccount.id,
+  };
+}
+
 function normalizeConnections(value) {
   return {
     following: Array.isArray(value?.following) ? value.following : [],
@@ -46,10 +75,11 @@ function connectionMatchesUser(connection, userId) {
 }
 
 export default function Profile() {
-  const { userid } = useParams();
-  const { user: currentUser, history: ownHistory, likes: ownLikes, continueWatching: ownContinueWatching, logout, clearHistory, updateProfile, activeSubAccount, setActiveSubAccountState } = useUser();
+  const { userid, '*': routeTail = '' } = useParams();
+  const { user: currentUser, history: ownHistory, likes: ownLikes, continueWatching: ownContinueWatching, logout, clearHistory, updateProfile, activeSubAccount, subAccounts, fetchSubAccounts, setActiveSubAccountState } = useUser();
   const navigate = useNavigate();
 
+  const requestedSubAccountId = getRequestedSubAccountId(routeTail);
   const isOwnProfile = currentUser && String(currentUser.id) === String(userid);
   const settings = getSettings();
   const showHistoryTab = isOwnProfile && !settings.hideHistory;
@@ -64,7 +94,8 @@ export default function Profile() {
   const [loadingProfile, setLoadingProfile] = useState(true);
 
   // Determine displayed data
-  const user = isOwnProfile ? currentUser : publicUser;
+  const displayedSubAccount = isOwnProfile ? activeSubAccount : null;
+  const user = isOwnProfile ? getProfileDisplayUser(currentUser, displayedSubAccount) : publicUser;
   const history = showHistoryTab ? (isOwnProfile ? ownHistory : []) : [];
   const continueWatching = isOwnProfile ? ownContinueWatching : [];
   const likes = isOwnProfile ? ownLikes : [];
@@ -85,7 +116,14 @@ export default function Profile() {
       if (isOwnProfile) {
         setLoadingProfile(false);
         if (currentUser) {
-          setAvatarUrl(currentUser.avatar || DEFAULT_AVATAR);
+          const profiles = subAccounts.length ? subAccounts : await fetchSubAccounts();
+          const requestedProfile = findRequestedSubAccount(profiles, requestedSubAccountId);
+          if (requestedSubAccountId && requestedProfile && requestedProfile.id !== activeSubAccount?.id) {
+            setActiveSubAccount(currentUser.id, requestedProfile);
+            setActiveSubAccountState(requestedProfile);
+          }
+          const profileForDisplay = requestedProfile || activeSubAccount;
+          setAvatarUrl(profileForDisplay?.avatar || currentUser.avatar || DEFAULT_AVATAR);
           setBannerUrl(currentUser.banner || DEFAULT_BANNER);
         } else {
           navigate('/');
@@ -109,7 +147,7 @@ export default function Profile() {
       setLoadingProfile(false);
     }
     loadProfileData();
-  }, [userid, isOwnProfile, currentUser, navigate]);
+  }, [userid, routeTail, requestedSubAccountId, isOwnProfile, currentUser, activeSubAccount, subAccounts, fetchSubAccounts, setActiveSubAccountState, navigate]);
 
   // Load connections for follow/block status
   useEffect(() => {
