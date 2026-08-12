@@ -29,6 +29,7 @@ import NotFound from './pages/NotFound';
 import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
 import ProfileModal from './components/ProfileModal';
+import SubAccountGate from './components/SubAccountGate';
 import UpdateCenter from './components/UpdateCenter';
 import Profile from './pages/Profile';
 import RequireAdmin from './components/RequireAdmin';
@@ -163,6 +164,7 @@ function App() {
 
 
   return (
+    <SubAccountGate>
     <div className={`app-shell ${isTvMode ? 'tv-app-shell' : ''}`}>
       {announcement && (
         <div style={{
@@ -577,6 +579,7 @@ function App() {
         }
       `}</style>
     </div>
+    </SubAccountGate>
   );
 }
 

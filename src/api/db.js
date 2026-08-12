@@ -383,16 +383,111 @@ export async function toggleFavorite(userId, animeId, animeTitle = null, animePo
   }
 }
 
+
+async function ensureSubAccountTables(db) {
+  await db`
+    CREATE TABLE IF NOT EXISTS user_sub_accounts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      color TEXT DEFAULT '#ff1a75',
+      avatar TEXT,
+      is_main BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+  await db`CREATE INDEX IF NOT EXISTS idx_user_sub_accounts_user ON user_sub_accounts(user_id, created_at ASC)`;
+  try { await db`ALTER TABLE user_watch_history ADD COLUMN IF NOT EXISTS sub_account_id TEXT`; } catch (e) { }
+  try { await db`ALTER TABLE user_continue_watching ADD COLUMN IF NOT EXISTS sub_account_id TEXT`; } catch (e) { }
+}
+
+export async function fetchSubAccounts(userId) {
+  const db = await getSql();
+  if (!db) return [];
+  try {
+    await ensureSubAccountTables(db);
+    const result = await db`
+      SELECT id, user_id, name, color, avatar, is_main, created_at
+      FROM user_sub_accounts
+      WHERE user_id = ${userId}
+      ORDER BY is_main DESC, created_at ASC
+      LIMIT 5
+    `;
+    return result.map(profile => ({
+      id: profile.id,
+      userId: profile.user_id,
+      name: profile.name,
+      color: profile.color,
+      avatar: profile.avatar,
+      isMain: profile.is_main,
+      createdAt: profile.created_at
+    }));
+  } catch (e) {
+    warn('[AnimeVault DB] fetchSubAccounts DB failed:', e?.message);
+    return [];
+  }
+}
+
+export async function createSubAccount(userId, profile) {
+  const db = await getSql();
+  if (!db) return { success: false, message: 'Database unavailable' };
+  try {
+    await ensureSubAccountTables(db);
+    const count = await db`SELECT COUNT(*)::int AS count FROM user_sub_accounts WHERE user_id = ${userId}`;
+    if ((count?.[0]?.count || 0) >= 5) {
+      return { success: false, message: 'Maximum of 5 profiles reached.' };
+    }
+    const id = profile.id || `${userId}-${Date.now()}`;
+    const result = await db`
+      INSERT INTO user_sub_accounts (id, user_id, name, color, avatar, is_main)
+      VALUES (${id}, ${userId}, ${profile.name}, ${profile.color}, ${profile.avatar || null}, ${Boolean(profile.isMain)})
+      RETURNING id, user_id, name, color, avatar, is_main, created_at
+    `;
+    const saved = result[0];
+    return {
+      success: true,
+      profile: {
+        id: saved.id,
+        userId: saved.user_id,
+        name: saved.name,
+        color: saved.color,
+        avatar: saved.avatar,
+        isMain: saved.is_main,
+        createdAt: saved.created_at
+      }
+    };
+  } catch (e) {
+    warn('[AnimeVault DB] createSubAccount DB failed:', e?.message);
+    return { success: false, message: e?.message || 'Could not create profile.' };
+  }
+}
+
+export async function ensureMainSubAccount(user) {
+  if (!user?.id) return null;
+  const existing = await fetchSubAccounts(user.id);
+  if (existing.length > 0) return existing[0];
+  const created = await createSubAccount(user.id, {
+    id: `${user.id}-main`,
+    name: user.username?.split('@')[0] || 'Main',
+    color: '#ff1a75',
+    avatar: user.avatar || null,
+    isMain: true
+  });
+  return created.success ? created.profile : null;
+}
+
 // ── DB-backed user data functions (with localStorage fallback) ──
 
-export async function fetchWatchHistory(userId) {
+export async function fetchWatchHistory(userId, subAccountId = null) {
   const db = await getSql();
   if (db) {
     try {
+      await ensureSubAccountTables(db);
       const result = await db`
         SELECT media_id, media_type, media_title as title, media_poster as image, watched_at
         FROM user_watch_history
         WHERE user_id = ${userId}
+          AND (${subAccountId}::text IS NULL OR sub_account_id = ${subAccountId})
         ORDER BY watched_at DESC
         LIMIT 50
       `;
@@ -404,13 +499,14 @@ export async function fetchWatchHistory(userId) {
   return [];
 }
 
-export async function addToHistory(userId, mediaId, mediaType, mediaTitle, mediaPoster) {
+export async function addToHistory(userId, mediaId, mediaType, mediaTitle, mediaPoster, subAccountId = null) {
   const db = await getSql();
   if (db) {
     try {
+      await ensureSubAccountTables(db);
       await db`
-        INSERT INTO user_watch_history (user_id, media_id, media_type, media_title, media_poster)
-        VALUES (${userId}, ${mediaId}, ${mediaType}, ${mediaTitle}, ${mediaPoster})
+        INSERT INTO user_watch_history (user_id, sub_account_id, media_id, media_type, media_title, media_poster)
+        VALUES (${userId}, ${subAccountId}, ${mediaId}, ${mediaType}, ${mediaTitle}, ${mediaPoster})
       `;
       return true;
     } catch (e) {
@@ -420,11 +516,16 @@ export async function addToHistory(userId, mediaId, mediaType, mediaTitle, media
   return false;
 }
 
-export async function clearWatchHistory(userId) {
+export async function clearWatchHistory(userId, subAccountId = null) {
   const db = await getSql();
   if (db) {
     try {
-      await db`DELETE FROM user_watch_history WHERE user_id = ${userId}`;
+      await ensureSubAccountTables(db);
+      await db`
+        DELETE FROM user_watch_history
+        WHERE user_id = ${userId}
+          AND (${subAccountId}::text IS NULL OR sub_account_id = ${subAccountId})
+      `;
       return true;
     } catch (e) {
       warn('[AnimeVault DB] clearWatchHistory DB failed:', e?.message);
@@ -433,14 +534,16 @@ export async function clearWatchHistory(userId) {
   return false;
 }
 
-export async function fetchContinueWatching(userId) {
+export async function fetchContinueWatching(userId, subAccountId = null) {
   const db = await getSql();
   if (db) {
     try {
+      await ensureSubAccountTables(db);
       const result = await db`
         SELECT media_id, media_type, media_title as title, media_poster as image, season, episode, progress, duration, updated_at
         FROM user_continue_watching
         WHERE user_id = ${userId}
+          AND (${subAccountId}::text IS NULL OR sub_account_id = ${subAccountId})
         ORDER BY updated_at DESC
         LIMIT 50
       `;
@@ -452,15 +555,21 @@ export async function fetchContinueWatching(userId) {
   return [];
 }
 
-export async function updateContinueWatching(userId, mediaId, mediaType, mediaTitle, mediaPoster, season, episode, progress, duration) {
+export async function updateContinueWatching(userId, mediaId, mediaType, mediaTitle, mediaPoster, season, episode, progress, duration, subAccountId = null) {
   const db = await getSql();
   if (db) {
     try {
+      await ensureSubAccountTables(db);
       await db`
-        INSERT INTO user_continue_watching (user_id, media_id, media_type, media_title, media_poster, season, episode, progress, duration, updated_at)
-        VALUES (${userId}, ${mediaId}, ${mediaType}, ${mediaTitle}, ${mediaPoster}, ${season || 1}, ${episode || 1}, ${progress || 0}, ${duration || 0}, CURRENT_TIMESTAMP)
-        ON CONFLICT (user_id, media_id, media_type)
-        DO UPDATE SET media_title = ${mediaTitle}, media_poster = ${mediaPoster}, season = ${season || 1}, episode = ${episode || 1}, progress = ${progress || 0}, duration = ${duration || 0}, updated_at = CURRENT_TIMESTAMP
+        DELETE FROM user_continue_watching
+        WHERE user_id = ${userId}
+          AND media_id = ${mediaId}
+          AND media_type = ${mediaType}
+          AND (${subAccountId}::text IS NULL OR sub_account_id = ${subAccountId})
+      `;
+      await db`
+        INSERT INTO user_continue_watching (user_id, sub_account_id, media_id, media_type, media_title, media_poster, season, episode, progress, duration, updated_at)
+        VALUES (${userId}, ${subAccountId}, ${mediaId}, ${mediaType}, ${mediaTitle}, ${mediaPoster}, ${season || 1}, ${episode || 1}, ${progress || 0}, ${duration || 0}, CURRENT_TIMESTAMP)
       `;
       return true;
     } catch (e) {
@@ -1225,6 +1334,7 @@ export async function initDatabase() {
           watched_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )
       `;
+      try { await db`ALTER TABLE user_watch_history ADD COLUMN IF NOT EXISTS sub_account_id TEXT`; } catch (e) { }
       await db`
         CREATE INDEX IF NOT EXISTS idx_watch_history_user ON user_watch_history(user_id, watched_at DESC)
       `;
@@ -1245,6 +1355,9 @@ export async function initDatabase() {
           UNIQUE (user_id, media_id, media_type)
         )
       `;
+      try { await db`ALTER TABLE user_continue_watching ADD COLUMN IF NOT EXISTS sub_account_id TEXT`; } catch (e) { }
+      try { await db`ALTER TABLE user_continue_watching DROP CONSTRAINT IF EXISTS user_continue_watching_user_id_media_id_media_type_key`; } catch (e) { }
+      try { await db`CREATE UNIQUE INDEX IF NOT EXISTS idx_continue_watching_profile_media ON user_continue_watching(user_id, COALESCE(sub_account_id, ''), media_id, media_type)`; } catch (e) { }
 
       await db`
         CREATE TABLE IF NOT EXISTS user_likes (
@@ -1257,6 +1370,21 @@ export async function initDatabase() {
           liked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           UNIQUE (user_id, media_id, media_type)
         )
+      `;
+
+      await db`
+        CREATE TABLE IF NOT EXISTS user_sub_accounts (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          color TEXT DEFAULT '#ff1a75',
+          avatar TEXT,
+          is_main BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+      await db`
+        CREATE INDEX IF NOT EXISTS idx_user_sub_accounts_user ON user_sub_accounts(user_id, created_at ASC)
       `;
 
       await db`

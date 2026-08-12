@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { X, Heart, Clock, User, LogOut, Trash2, Calendar, Film } from 'lucide-react';
+import { X, Heart, Clock, User, LogOut, Trash2, Calendar, Film, Repeat } from 'lucide-react';
 import { useUser } from '../api/UserContext';
 import { Link } from 'react-router-dom';
 import { getSettings } from '../api/settings';
+import { clearActiveSubAccount } from '../utils/subAccounts';
 
 export default function ProfileModal({ isOpen, onClose }) {
-  const { user, history: userHistory, likes, logout, clearHistory } = useUser();
+  const { user, history: userHistory, likes, logout, clearHistory, activeSubAccount, setActiveSubAccountState } = useUser();
   const settings = getSettings();
   const showHistoryTab = !settings.hideHistory;
   const [activeTab, setActiveTab] = useState(showHistoryTab ? 'likes' : 'likes'); // history tab available only when allowed
@@ -73,6 +74,14 @@ export default function ProfileModal({ isOpen, onClose }) {
               </span>
             </div>
           </div>
+          <button onClick={() => { clearActiveSubAccount(); setActiveSubAccountState(null); onClose(); }} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            padding: '8px 14px', fontSize: '0.8rem', fontWeight: '800', borderRadius: '8px',
+            border: '1px solid rgba(255, 255, 255, 0.16)', background: 'rgba(255, 255, 255, 0.06)',
+            color: '#fff', cursor: 'pointer', transition: 'all 0.2s ease'
+          }}>
+            <Repeat size={14} /> Switch Profile{activeSubAccount?.name ? ` (${activeSubAccount.name})` : ''}
+          </button>
           <button onClick={() => { logout(); onClose(); }} style={{
             display: 'inline-flex', alignItems: 'center', gap: '6px',
             padding: '8px 14px', fontSize: '0.8rem', fontWeight: '800', borderRadius: '8px',
@@ -152,14 +161,14 @@ export default function ProfileModal({ isOpen, onClose }) {
               </div>
             )
           ) : (
-            history.length === 0 ? (
+            userHistory.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-tertiary)' }}>
                 <Clock size={32} style={{ marginBottom: '12px', opacity: 0.5 }} />
                 <p>Your watch history is empty. Start streaming now!</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {history.map((item, idx) => (
+                {userHistory.map((item, idx) => (
                   <Link key={idx} to={item.media_type === 'movie' || item.media_type === 'series' || item.media_type === 'tv' ? `/watch/${item.media_type}/${item.media_id}` : `/anime/${item.media_id}`} onClick={onClose} style={{ textDecoration: 'none' }}>
                     <div style={{
                       display: 'flex', gap: '14px', padding: '10px', borderRadius: '10px',
