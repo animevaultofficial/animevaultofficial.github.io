@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Search as SearchIcon, Film, Tv, Play, X, Star, Calendar, Info, Sparkles, Hash, Filter } from 'lucide-react';
 import { fetchLatestMovies, fetchLatestTVShows, searchMoviesAndSeries } from '../api/movies';
 import { FocusableLink, FocusableButton } from '../components/FocusableWrapper';
+import { useUser } from '../api/UserContext';
+import { isBlockedForProfile } from '../utils/ageRating';
 
 const MOVIE_GENRES = [
   'Action', 'Romance', 'Thriller', 'Horror', 'Comedy', 'Drama', 'Sci-Fi', 'Crime', 'Fantasy', 'Mystery'
@@ -80,10 +82,11 @@ function DramasMovies() {
   const [activeSlide, setActiveSlide] = useState(0);
 
   const navigate = useNavigate();
+  const { activeSubAccount } = useUser();
 
   useEffect(() => {
     loadLatest();
-  }, [activeTab, moviePage, tvPage, selectedGenre]);
+  }, [activeTab, moviePage, tvPage, selectedGenre, activeSubAccount]);
 
   // Auto-advance slideshow
   useEffect(() => {
@@ -97,10 +100,10 @@ function DramasMovies() {
     setLoading(true);
     if (activeTab === 'movies') {
       const data = await fetchLatestMovies(moviePage, selectedGenre);
-      setMovies(data);
+      setMovies((data || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
     } else {
       const data = await fetchLatestTVShows(tvPage, selectedGenre);
-      setTvShows(data);
+      setTvShows((data || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
     }
     setLoading(false);
   }
@@ -116,7 +119,7 @@ function DramasMovies() {
     setSearching(true);
     setSelectedGenre(''); // Clear genre filter on global query search
     const results = await searchMoviesAndSeries(query);
-    setSearchResults(results);
+    setSearchResults((results || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
     setLoading(false);
   }
 
