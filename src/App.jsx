@@ -47,7 +47,18 @@ import { useReminderNotifications } from './hooks/useReminderNotifications';
 
 function App() {
   useReminderNotifications();
-  const { user, authLoading, setShowAuthModal, setAuthTab } = useUser();
+  const { user, authLoading, activeSubAccount, subAccounts, setShowAuthModal, setAuthTab } = useUser();
+  const activeSubAccountIndex = activeSubAccount
+    ? subAccounts.findIndex(profile => profile.id === activeSubAccount.id)
+    : -1;
+  const activeSubAccountRouteId = activeSubAccount
+    ? activeSubAccountIndex >= 0
+      ? String(activeSubAccountIndex + 1)
+      : encodeURIComponent(activeSubAccount.id)
+    : null;
+  const ownProfilePath = user
+    ? `/profile/${user.id}${activeSubAccountRouteId ? `/sub=${activeSubAccountRouteId}` : ''}`
+    : '/profile';
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const [maintenanceMode, setMaintenanceMode] = useState(false);
@@ -312,7 +323,7 @@ function App() {
             }}>⌘K</kbd>}
           </button>
           {user ? (
-            <FocusableLink to={`/profile/${user.id}`} style={{
+            <FocusableLink to={ownProfilePath} style={{
               display: 'inline-flex', alignItems: 'center', gap: '6px',
               padding: '6px 12px', fontSize: '0.8rem', fontWeight: '800', borderRadius: '8px',
               border: '1px solid rgba(255, 26, 117, 0.3)', textDecoration: 'none',
@@ -436,7 +447,7 @@ function App() {
             </FocusableNavLink>
             {user && (
               <FocusableNavLink
-                to={`/profile/${user.id}`}
+                to={ownProfilePath}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
               >
@@ -470,7 +481,7 @@ function App() {
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/dmca" element={<DMCA />} />
           <Route path="/request" element={<RequestAnime />} />
-          <Route path="/profile/:userid" element={<Profile />} />
+          <Route path="/profile/:userid/*" element={<Profile />} />
           <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/set-new-password" element={<SetNewPassword />} />
