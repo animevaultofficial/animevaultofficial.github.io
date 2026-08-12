@@ -6,19 +6,17 @@ import { neon } from '@neondatabase/serverless';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
-const sql = neon(process.env.DATABASE_URL);
+// Safely fetch process.env variable provided by GitHub Secrets / Vercel
+const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
-function simpleHash(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return 'hash_' + Math.abs(hash).toString(36);
+if (!dbUrl) {
+  console.warn('⚠️ Missing DATABASE_URL environment variable.');
 }
 
+const sql = dbUrl ? neon(dbUrl) : null;
+
 async function getSql() {
+  if (!sql) throw new Error('Database connection string (DATABASE_URL) is missing!');
   return sql;
 }
 
