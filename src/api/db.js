@@ -474,7 +474,9 @@ export async function updateSubAccount(userId, profileId, updates = {}) {
     await ensureSubAccountTables(db);
     const result = await db`
       UPDATE user_sub_accounts
-      SET avatar = ${updates.avatar || null},
+      SET name = ${updates.name || ''},
+          color = ${updates.color || '#ff1a75'},
+          avatar = ${updates.avatar || null},
           age_rating = ${updates.ageRating || 'adults'}
       WHERE user_id = ${userId} AND id = ${profileId}
       RETURNING id, user_id, name, color, avatar, age_rating, is_main, created_at
@@ -485,6 +487,23 @@ export async function updateSubAccount(userId, profileId, updates = {}) {
   } catch (e) {
     warn('[AnimeVault DB] updateSubAccount DB failed:', e?.message);
     return { success: false, message: e?.message || 'Could not update profile.' };
+  }
+}
+
+
+export async function deleteSubAccount(userId, profileId) {
+  const db = await getSql();
+  if (!db) return { success: false, message: 'Database unavailable' };
+  try {
+    await ensureSubAccountTables(db);
+    const count = await db`SELECT COUNT(*)::int AS count FROM user_sub_accounts WHERE user_id = ${userId}`;
+    if ((count?.[0]?.count || 0) <= 1) return { success: false, message: 'Keep at least one profile.' };
+    const result = await db`DELETE FROM user_sub_accounts WHERE user_id = ${userId} AND id = ${profileId} RETURNING id`;
+    if (!result[0]) return { success: false, message: 'Profile not found.' };
+    return { success: true };
+  } catch (e) {
+    warn('[AnimeVault DB] deleteSubAccount DB failed:', e?.message);
+    return { success: false, message: e?.message || 'Could not delete profile.' };
   }
 }
 

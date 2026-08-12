@@ -10,6 +10,17 @@ const MOVIE_GENRES = [
   'Action', 'Romance', 'Thriller', 'Horror', 'Comedy', 'Drama', 'Sci-Fi', 'Crime', 'Fantasy', 'Mystery'
 ];
 
+
+const KIDS_MOVIE_GENRES = ['Animation', 'Family', 'Adventure', 'Comedy', 'Fantasy'];
+
+const KIDS_TRENDING_SHOWS = [
+  { id: '12', name: 'Finding Nemo', type: 'movie', year: '2003', rating: '8.2', poster: 'https://image.tmdb.org/t/p/w500/eHuGQ10FUzK1mdOY69wF5pGgEf5.jpg', banner: 'https://image.tmdb.org/t/p/original/h3b6pzm7tpomYz2ZVD4Rgoz5EEP.jpg', description: 'A little clownfish gets lost, and his dad crosses the ocean with new friends to bring him home.', genre: 'Animation, Family, Adventure' },
+  { id: '862', name: 'Toy Story', type: 'movie', year: '1995', rating: '8.3', poster: 'https://image.tmdb.org/t/p/w500/uXDfjJbdP4ijW5hWSBrPrlKpxab.jpg', banner: 'https://image.tmdb.org/t/p/original/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg', description: 'Woody, Buzz, and a bedroom full of toys learn about friendship, teamwork, and imagination.', genre: 'Animation, Family, Comedy' },
+  { id: '508943', name: 'Luca', type: 'movie', year: '2021', rating: '7.4', poster: 'https://image.tmdb.org/t/p/w500/jTswp6KyDYKtvC52GbHagrZbGvD.jpg', banner: 'https://image.tmdb.org/t/p/original/620hnMVLu6RSZW6a5rwO8gqpt0t.jpg', description: 'Two young sea monsters enjoy a summer of discovery, scooters, and friendship on the Italian Riviera.', genre: 'Animation, Family, Fantasy' },
+  { id: '14160', name: 'Up', type: 'movie', year: '2009', rating: '8.0', poster: 'https://image.tmdb.org/t/p/w500/mFvoEwSfLqbcWwFsDjQebn9bzFe.jpg', banner: 'https://image.tmdb.org/t/p/original/hGGC9gKo7CFE3fW07RA587e5kol.jpg', description: 'A balloon-powered house carries an unlikely duo into a colorful wilderness adventure.', genre: 'Animation, Family, Adventure' },
+  { id: '92685', name: 'The Owl House', type: 'tv', year: '2020', rating: '8.6', poster: 'https://image.tmdb.org/t/p/w500/zhdy3PcNVE15wj1wrxn45ARZBnx.jpg', banner: 'https://image.tmdb.org/t/p/original/4tS0iyKQBDFqVpVcH21MSJwXZdq.jpg', description: 'A creative teen discovers a magical realm filled with odd creatures, big lessons, and found family.', genre: 'Animation, Family, Fantasy' }
+];
+
 const TRENDING_SHOWS = [
   {
     id: '200709',
@@ -83,6 +94,9 @@ function DramasMovies() {
 
   const navigate = useNavigate();
   const { activeSubAccount } = useUser();
+  const isKidsProfile = activeSubAccount?.ageRating === 'kids';
+  const heroShows = isKidsProfile ? KIDS_TRENDING_SHOWS : TRENDING_SHOWS;
+  const genresToShow = isKidsProfile ? KIDS_MOVIE_GENRES : MOVIE_GENRES;
 
   useEffect(() => {
     loadLatest();
@@ -91,18 +105,18 @@ function DramasMovies() {
   // Auto-advance slideshow
   useEffect(() => {
     const interval = setInterval(() => {
-      setActiveSlide(prev => (prev + 1) % TRENDING_SHOWS.length);
+      setActiveSlide(prev => (prev + 1) % heroShows.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [heroShows.length]);
 
   async function loadLatest() {
     setLoading(true);
     if (activeTab === 'movies') {
-      const data = await fetchLatestMovies(moviePage, selectedGenre);
+      const data = isKidsProfile && !selectedGenre ? KIDS_TRENDING_SHOWS.filter(item => item.type === 'movie') : await fetchLatestMovies(moviePage, selectedGenre);
       setMovies((data || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
     } else {
-      const data = await fetchLatestTVShows(tvPage, selectedGenre);
+      const data = isKidsProfile && !selectedGenre ? KIDS_TRENDING_SHOWS.filter(item => item.type === 'tv') : await fetchLatestTVShows(tvPage, selectedGenre);
       setTvShows((data || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
     }
     setLoading(false);
@@ -155,7 +169,7 @@ function DramasMovies() {
       {/* Immersive Hero Slideshow Carousel (Flashcards) */}
       {!searching && !selectedGenre && (
         <div className="hero-v2 hero-carousel-v2" style={{ position: 'relative', overflow: 'hidden', height: '520px', marginBottom: '2.5rem' }}>
-          {TRENDING_SHOWS.map((show, index) => {
+          {heroShows.map((show, index) => {
             const isActive = index === activeSlide;
             return (
               <div
@@ -236,7 +250,7 @@ function DramasMovies() {
             display: 'flex',
             gap: '8px'
           }}>
-            {TRENDING_SHOWS.map((_, index) => (
+            {heroShows.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setActiveSlide(index)}
@@ -271,7 +285,7 @@ function DramasMovies() {
               {searching ? 'Search Results' : selectedGenre ? `Genre: ${selectedGenre}` : 'Explore Collections'}
             </h2>
             <p style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem', marginTop: '4px', margin: '4px 0 0 0' }}>
-              Ad-neutral, high-speed streaming for Blockbusters & Series.
+              {isKidsProfile ? 'A safer homepage with family movies and kid-friendly TV picks.' : 'Ad-neutral, high-speed streaming for Blockbusters & Series.'}
             </p>
           </div>
 
@@ -288,7 +302,7 @@ function DramasMovies() {
             <SearchIcon className="search-icon" size={18} style={{ color: 'var(--text-tertiary)', marginRight: '8px' }} />
             <input
               type="text"
-              placeholder="Search movies, K-Dramas..."
+              placeholder={isKidsProfile ? 'Search kids movies and shows...' : 'Search movies, K-Dramas...'}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               style={{
@@ -464,7 +478,7 @@ function DramasMovies() {
                   fontSize: '0.85rem'
                 }}
               >
-                <Film size={16} /> Blockbuster Movies
+                <Film size={16} /> {isKidsProfile ? 'Kids Movies' : 'Blockbuster Movies'}
               </FocusableButton>
               <FocusableButton
                 className={`movies-tab-btn ${activeTab === 'tv' ? 'active' : ''}`}
@@ -486,7 +500,7 @@ function DramasMovies() {
                   fontSize: '0.85rem'
                 }}
               >
-                <Tv size={16} /> TV Shows & K-Dramas
+                <Tv size={16} /> {isKidsProfile ? 'Kids TV Shows' : 'TV Shows & K-Dramas'}
               </FocusableButton>
             </div>
 
@@ -496,7 +510,7 @@ function DramasMovies() {
                 <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff', margin: 0 }}>Popular Genres</h2>
               </div>
               <div className="genres-container-v2" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-                {MOVIE_GENRES.map(genre => (
+                {genresToShow.map(genre => (
                   <button
                     key={genre}
                     onClick={() => handleGenreClick(genre)}

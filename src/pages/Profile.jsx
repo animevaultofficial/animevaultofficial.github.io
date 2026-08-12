@@ -270,6 +270,8 @@ export default function Profile() {
     let success = false;
     if (activeSubAccount?.id) {
       const result = await updateSubAccount(activeSubAccount.id, {
+        name: activeSubAccount.name,
+        color: activeSubAccount.color,
         avatar: avatarUrl,
         ageRating: activeSubAccount.ageRating || 'adults'
       });

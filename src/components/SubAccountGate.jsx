@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, UserPlus, X } from 'lucide-react';
+import { Edit3, Plus, Trash2, UserPlus, X } from 'lucide-react';
 import { useUser } from '../api/UserContext';
 import AuthModal from './AuthModal';
 import {
@@ -120,12 +120,15 @@ export default function SubAccountGate({ children }) {
     setActiveSubAccountState,
     fetchSubAccounts,
     ensureMainSubAccount,
-    createSubAccount
+    createSubAccount,
+    updateSubAccount,
+    deleteSubAccount
   } = useUser();
   const [profiles, setProfiles] = useState([]);
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
   const [createMessage, setCreateMessage] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(null);
   const [newName, setNewName] = useState('');
   const [newAvatar, setNewAvatar] = useState('');
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -178,9 +181,53 @@ export default function SubAccountGate({ children }) {
   const createError = useMemo(() => {
     if (!newName.trim()) return 'Enter a profile name.';
     if (newName.trim().length > 18) return 'Use 18 characters or less.';
-    if (profiles.some(profile => profile.name.toLowerCase() === newName.trim().toLowerCase())) return 'That profile name already exists.';
+    if (profiles.some(profile => profile.id !== editingProfile?.id && profile.name.toLowerCase() === newName.trim().toLowerCase())) return 'That profile name already exists.';
     return '';
-  }, [newName, profiles]);
+  }, [newName, profiles, editingProfile]);
+
+
+  function resetProfileForm() {
+    setEditingProfile(null);
+    setNewName('');
+    setNewAvatar('');
+    setNewAgeRating('adults');
+    setNewColor(SUB_ACCOUNT_COLORS[profiles.length % SUB_ACCOUNT_COLORS.length]);
+    setCreateMessage('');
+  }
+
+  function openCreateProfile() {
+    resetProfileForm();
+    setShowCreate(true);
+  }
+
+  function openEditProfile(profile) {
+    setEditingProfile(profile);
+    setNewName(profile.name || '');
+    setNewAvatar(profile.avatar || '');
+    setNewAgeRating(profile.ageRating || 'adults');
+    setNewColor(profile.color || SUB_ACCOUNT_COLORS[0]);
+    setCreateMessage('');
+    setShowCreate(true);
+  }
+
+  async function handleDeleteProfile(profile) {
+    if (profiles.length <= 1) {
+      setCreateMessage('Keep at least one profile.');
+      return;
+    }
+    if (!window.confirm(`Remove ${profile.name}? Watch history stays on the main account, but this profile will be deleted.`)) return;
+    const result = await deleteSubAccount(profile.id);
+    if (!result.success) {
+      setCreateMessage(result.message || 'Could not delete profile.');
+      return;
+    }
+    const nextProfiles = saveSubAccounts(user.id, profiles.filter(item => item.id !== profile.id));
+    setProfiles(nextProfiles);
+    if (activeSubAccount?.id === profile.id) {
+      clearActiveSubAccount();
+      setActiveSubAccountState(null);
+    }
+  }
 
   function chooseProfile(profile) {
     setActiveSubAccount(user.id, profile);
@@ -222,7 +269,7 @@ export default function SubAccountGate({ children }) {
 
   async function handleCreate(event) {
     event.preventDefault();
-    if (!canCreate || createError) return;
+    if ((!editingProfile && !canCreate) || createError) return;
     setCreateMessage('');
     const nextProfile = {
       id: `${user.id}-profile-${Date.now()}`,
@@ -230,25 +277,27 @@ export default function SubAccountGate({ children }) {
       color: newColor,
       avatar: newAvatar.trim() || null,
       ageRating: newAgeRating,
-      isMain: profiles.length === 0,
+      isMain: editingProfile?.isMain || profiles.length === 0,
       createdAt: new Date().toISOString()
     };
 
-    const result = await createSubAccount(nextProfile);
+    const result = editingProfile
+      ? await updateSubAccount(editingProfile.id, { ...nextProfile, id: editingProfile.id })
+      : await createSubAccount(nextProfile);
     if (!result.success) {
       setCreateMessage(result.message || 'Could not save profile to the database.');
       return;
     }
 
     const savedProfile = result.profile || nextProfile;
-    const nextProfiles = saveSubAccounts(user.id, [...profiles, savedProfile]);
+    const nextProfiles = editingProfile
+      ? profiles.map(profile => profile.id === editingProfile.id ? savedProfile : profile)
+      : [...profiles, savedProfile];
+    saveSubAccounts(user.id, nextProfiles);
     setProfiles(nextProfiles);
-    setNewName('');
-    setNewAvatar('');
-    setNewAgeRating('adults');
-    setNewColor(SUB_ACCOUNT_COLORS[nextProfiles.length % SUB_ACCOUNT_COLORS.length]);
     setShowCreate(false);
-    chooseProfile(savedProfile);
+    resetProfileForm();
+    if (!editingProfile || activeSubAccount?.id === editingProfile.id) chooseProfile(savedProfile);
   }
 
   if (authLoading) {
@@ -307,10 +356,14 @@ export default function SubAccountGate({ children }) {
               <ProfileAvatar profile={profile} size={typeof window !== 'undefined' && window.innerWidth < 520 ? 104 : 132} />
               <span style={{ fontSize: '1.15rem', fontWeight: 800 }}>{profile.name}</span>
               {profile.ageRating === 'kids' && <span style={{ marginTop: -12, color: '#fbbf24', fontSize: '0.78rem', fontWeight: 900 }}>Kids 0-12</span>}
+              <span style={{ display: 'flex', gap: 8, marginTop: -8 }}>
+                <span onClick={(event) => { event.stopPropagation(); openEditProfile(profile); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: '0.72rem', fontWeight: 900 }}><Edit3 size={12} /> Edit</span>
+                {profiles.length > 1 && <span onClick={(event) => { event.stopPropagation(); handleDeleteProfile(profile); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 999, background: 'rgba(239,68,68,0.16)', color: '#fecaca', fontSize: '0.72rem', fontWeight: 900 }}><Trash2 size={12} /> Remove</span>}
+              </span>
             </button>
           ))}
           {canCreate && (
-            <button onClick={() => setShowCreate(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', display: 'grid', gap: 18, justifyItems: 'center' }}>
+            <button onClick={openCreateProfile} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', display: 'grid', gap: 18, justifyItems: 'center' }}>
               <div style={{ width: typeof window !== 'undefined' && window.innerWidth < 520 ? 104 : 132, height: typeof window !== 'undefined' && window.innerWidth < 520 ? 104 : 132, borderRadius: '50%', background: 'rgba(17, 24, 39, 0.82)', display: 'grid', placeItems: 'center', boxShadow: '0 24px 55px rgba(255,26,117,0.16)', border: '4px solid rgba(255, 26, 117, 0.2)' }}><Plus size={44} /></div>
               <span style={{ fontSize: '1.15rem', fontWeight: 800 }}>Add Profile</span>
             </button>
@@ -320,10 +373,10 @@ export default function SubAccountGate({ children }) {
       </div>
 
       {showCreate && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)', display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => setShowCreate(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)', display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => { setShowCreate(false); resetProfileForm(); }}>
           <form onSubmit={handleCreate} onClick={event => event.stopPropagation()} style={{ width: 'min(430px, 100%)', background: '#09090f', border: '1px solid rgba(255,26,117,0.28)', borderRadius: 20, padding: 24, textAlign: 'left', boxShadow: '0 30px 80px rgba(255,26,117,0.18)' }}>
-            <button type="button" onClick={() => setShowCreate(false)} style={{ float: 'right', background: 'transparent', color: '#fda4af', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
-            <h2 style={{ marginTop: 0, display: 'flex', gap: 10, alignItems: 'center' }}><UserPlus size={22} /> Add Profile</h2>
+            <button type="button" onClick={() => { setShowCreate(false); resetProfileForm(); }} style={{ float: 'right', background: 'transparent', color: '#fda4af', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
+            <h2 style={{ marginTop: 0, display: 'flex', gap: 10, alignItems: 'center' }}><UserPlus size={22} /> {editingProfile ? 'Edit Profile' : 'Add Profile'}</h2>
             <input autoFocus value={newName} onChange={event => setNewName(event.target.value)} placeholder="Profile name" style={{ width: '100%', padding: '13px 14px', borderRadius: 12, border: '1px solid rgba(255,26,117,0.24)', background: 'rgba(255,255,255,0.06)', color: '#fff', marginBottom: 12 }} />
             <label style={{ display: 'grid', gap: 8, marginBottom: 16, color: '#f8fafc', fontWeight: 800 }}>
               Profile picture
@@ -339,7 +392,7 @@ export default function SubAccountGate({ children }) {
             </label>
             <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>{SUB_ACCOUNT_COLORS.map(color => <button key={color} type="button" onClick={() => setNewColor(color)} aria-label={`Use ${color}`} style={{ width: 34, height: 34, borderRadius: '50%', background: color, border: newColor === color ? '3px solid #fff' : '3px solid transparent', cursor: 'pointer' }} />)}</div>
             {(createError || createMessage) && <p style={{ color: '#fca5a5', fontSize: '0.85rem' }}>{createError || createMessage}</p>}
-            <button disabled={Boolean(createError)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: 'none', background: createError ? '#475569' : 'linear-gradient(135deg, #ff1a75, #ef4444)', color: '#000', fontWeight: 900, cursor: createError ? 'not-allowed' : 'pointer' }}>Create Profile</button>
+            <button disabled={Boolean(createError)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: 'none', background: createError ? '#475569' : 'linear-gradient(135deg, #ff1a75, #ef4444)', color: '#000', fontWeight: 900, cursor: createError ? 'not-allowed' : 'pointer' }}>{editingProfile ? 'Save Profile' : 'Create Profile'}</button>
           </form>
         </div>
       )}
