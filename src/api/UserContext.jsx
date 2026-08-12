@@ -21,7 +21,7 @@ import {
   getFavorites, toggleFavorite, setFavorite,
   getWatchHistory as dbGetWatchHistory, addWatchHistory as dbAddWatchHistory,
   getLevel, addXP, addActivity,
-  fetchSubAccounts as dbFetchSubAccounts, createSubAccount as dbCreateSubAccount, ensureMainSubAccount as dbEnsureMainSubAccount
+  fetchSubAccounts as dbFetchSubAccounts, createSubAccount as dbCreateSubAccount, updateSubAccount as dbUpdateSubAccount, deleteSubAccount as dbDeleteSubAccount, ensureMainSubAccount as dbEnsureMainSubAccount
 } from './db';
 import {
   proxyLogin,
@@ -587,6 +587,20 @@ export function UserProvider({ children }) {
     return result;
   };
 
+  const updateSubAccount = async (profileId, updates) => {
+    if (!user?.id) return { success: false, message: 'Sign in required.' };
+    const result = await dbUpdateSubAccount(user.id, profileId, updates);
+    if (result.success) await fetchSubAccounts();
+    return result;
+  };
+
+  const deleteSubAccount = async (profileId) => {
+    if (!user?.id) return { success: false, message: 'Sign in required.' };
+    const result = await dbDeleteSubAccount(user.id, profileId);
+    if (result.success) await fetchSubAccounts();
+    return result;
+  };
+
   return (
     <UserContext.Provider value={{
       user,
@@ -606,6 +620,8 @@ export function UserProvider({ children }) {
       fetchSubAccounts,
       ensureMainSubAccount,
       createSubAccount,
+      updateSubAccount,
+      deleteSubAccount,
       login,
       signup,
       sendVerificationCode,

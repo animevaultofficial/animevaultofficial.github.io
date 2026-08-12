@@ -1,5 +1,9 @@
 export const MAX_SUB_ACCOUNTS = 5;
 export const SUB_ACCOUNT_COLORS = ['#ff3b3b', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7'];
+export const SUB_ACCOUNT_AGE_RATINGS = [
+  { id: 'kids', label: 'Kids (0-12)', maxAge: 12 },
+  { id: 'adults', label: 'Adults & older (12-18+)', maxAge: 18 }
+];
 const ACTIVE_SUB_ACCOUNT_KEY = 'animevault_active_sub_account';
 const SUB_ACCOUNTS_KEY_PREFIX = 'animevault_sub_accounts_';
 
@@ -50,6 +54,7 @@ export function createDefaultSubAccount(user) {
     name,
     color: SUB_ACCOUNT_COLORS[0],
     avatar: user?.avatar || null,
+    ageRating: 'adults',
     isMain: true,
     createdAt: new Date().toISOString()
   };

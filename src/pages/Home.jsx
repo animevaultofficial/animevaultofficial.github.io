@@ -8,6 +8,7 @@ import {
 } from "../api/anilist";
 import { getTrendingBoard } from "../api/db";
 import LatestSection from "../components/LatestSection";
+import { useUser } from "../api/UserContext";
 import {
   Play,
   Calendar,
@@ -114,6 +115,17 @@ const FEATURED_SLIDE_FALLBACKS = [
 
 const FEATURED_SLIDE_IDS = FEATURED_SLIDE_FALLBACKS.map((anime) => anime.id);
 
+const KIDS_GENRES = ["Adventure", "Comedy", "Fantasy", "Slice of Life", "Sports"];
+
+const KIDS_ANIME_HOME = [
+  { id: 21, title: { english: "One Piece" }, description: "A bright pirate adventure about friendship, courage, and chasing big dreams across the seas.", seasonYear: 1999, averageScore: 89, format: "TV", bannerImage: "https://static1.cbrimages.com/wordpress/wp-content/uploads/2024/01/one-piece-anime-straw-hats.jpg", coverImage: { extraLarge: "https://cdn.myanimelist.net/images/anime/6/73245.jpg" }, genres: ["Adventure", "Comedy", "Fantasy"] },
+  { id: 20, title: { english: "Naruto" }, description: "Naruto trains with friends, faces rivals, and works toward becoming the best ninja in his village.", seasonYear: 2002, averageScore: 79, format: "TV", bannerImage: "https://static0.gamerantimages.com/wordpress/wp-content/uploads/2024/05/naruto-main-characters.jpg", coverImage: { extraLarge: "https://cdn.myanimelist.net/images/anime/13/17405.jpg" }, genres: ["Adventure", "Comedy"] },
+  { id: 527, title: { english: "Pokémon" }, description: "Ash and Pikachu travel, meet new friends, and discover amazing creatures in every region.", seasonYear: 1997, averageScore: 72, format: "TV", bannerImage: "https://assets.pokemon.com/assets/cms2/img/watch-pokemon-tv/seasons/season01/season01_ep01_ss01.jpg", coverImage: { extraLarge: "https://cdn.myanimelist.net/images/anime/13/73834.jpg" }, genres: ["Adventure", "Comedy"] },
+  { id: 813, title: { english: "Digimon Adventure" }, description: "A group of kids enter a digital world and learn teamwork while helping their Digimon partners grow.", seasonYear: 1999, averageScore: 75, format: "TV", bannerImage: "https://static1.colliderimages.com/wordpress/wp-content/uploads/2023/09/digimon-adventure.jpg", coverImage: { extraLarge: "https://cdn.myanimelist.net/images/anime/10/2963.jpg" }, genres: ["Adventure", "Fantasy"] },
+  { id: 523, title: { english: "Tonari no Totoro" }, description: "Two sisters move to the countryside and meet gentle forest spirits in a warm family fantasy.", seasonYear: 1988, averageScore: 82, format: "MOVIE", bannerImage: "https://images7.alphacoders.com/105/1051734.jpg", coverImage: { extraLarge: "https://cdn.myanimelist.net/images/anime/4/75923.jpg" }, genres: ["Fantasy", "Slice of Life"] }
+];
+
+
 function getTitle(anime) {
   return (
     anime?.title?.english ||
@@ -184,12 +196,21 @@ function Home() {
   const favorites = favoritesData.animes || [];
   const [activeSlide, setActiveSlide] = useState(0);
   const navigate = useNavigate();
+  const { activeSubAccount } = useUser();
+  const isKidsProfile = activeSubAccount?.ageRating === "kids";
 
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
         
+        if (isKidsProfile) {
+          setAnimeList(KIDS_ANIME_HOME);
+          setFeaturedSlides(KIDS_ANIME_HOME);
+          setLoading(false);
+          return;
+        }
+
         // Try to get featured slides from database first
         let dbFeaturedSlides = [];
         try {
@@ -236,12 +257,16 @@ function Home() {
       }
     }
     load();
-  }, []);
+  }, [isKidsProfile]);
 
   useEffect(() => {
     async function loadSeasonal() {
       try {
         setSeasonalLoading(true);
+        if (isKidsProfile) {
+          setSeasonalList(KIDS_ANIME_HOME.slice().reverse());
+          return;
+        }
         const data = await fetchAnimeBySeason(selectedSeason, selectedYear);
         setSeasonalList(data);
       } catch (err) {
@@ -251,7 +276,7 @@ function Home() {
       }
     }
     loadSeasonal();
-  }, [selectedSeason, selectedYear]);
+  }, [selectedSeason, selectedYear, isKidsProfile]);
 
   // Slideshow interval timer
   useEffect(() => {
@@ -263,6 +288,7 @@ function Home() {
   }, [featuredSlides]);
 
   const trending = animeList.slice(0, 12);
+  const genresToShow = isKidsProfile ? KIDS_GENRES : GENRES;
 
   function toggleFavorite(anime) {
     setFavoritesData((current) => {
@@ -359,7 +385,7 @@ function Home() {
                         width: "fit-content",
                       }}
                     >
-                      <Sparkles size={14} /> #{index + 1} Trending Classic
+                      <Sparkles size={14} /> #{index + 1} {isKidsProfile ? "Kids Pick" : "Trending Classic"}
                     </span>
                     <h1 className="hero-title-v2">{getTitle(anime)}</h1>
                     <div className="hero-meta-v2">
@@ -448,8 +474,12 @@ function Home() {
           </div>
         </div>
 
-        {/* Latest from External Servers */}
-        <LatestSection />
+        {!isKidsProfile && (
+          <>
+            {/* Latest from External Servers */}
+            <LatestSection />
+          </>
+        )}
 
         {/* Seasonal Browser */}
         <section className="home-section-v2">
@@ -462,7 +492,7 @@ function Home() {
                 flexWrap: "wrap",
               }}
             >
-              <h2>Seasonal Browser</h2>
+              <h2>{isKidsProfile ? "Kids Anime Adventures" : "Seasonal Browser"}</h2>
               <div
                 className="seasonal-controls-v2"
                 style={{ display: "flex", gap: "0.5rem" }}
@@ -540,7 +570,7 @@ function Home() {
               marginBottom: "2rem",
             }}
           >
-            {GENRES.map((genre) => (
+            {genresToShow.map((genre) => (
               <Link
                 key={genre}
                 to={`/search?genre=${genre}`}
@@ -556,7 +586,7 @@ function Home() {
         {/* Global Trending */}
         <section className="home-section-v2">
           <div className="section-header-v2">
-            <h2>Global Trending</h2>
+            <h2>{isKidsProfile ? "More Kids Anime" : "Global Trending"}</h2>
             <Link to="/search?trending=true" className="view-all">
               View All <ChevronRight size={18} />
             </Link>

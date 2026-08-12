@@ -125,3 +125,25 @@ export function getAgeLimitSetting(storage) {
 export function getRatingCountry(storage) {
   return storage.get("ratingCountry") || "US";
 }
+
+const MATURE_GENRES = ['adult', 'ecchi', 'erotica', 'hentai', 'horror', 'gore', 'psychological', 'thriller'];
+
+export function getProfileMaxAge(profile) {
+  return profile?.ageRating === 'kids' ? 12 : 18;
+}
+
+export function getContentMinAgeFromMedia(media, countryCode = 'US') {
+  if (!media) return null;
+  if (media.adult || media.isAdult) return 18;
+  const cert = media.certification || media.contentRating || media.ratingCertification;
+  const certAge = certToMinAge(cert, countryCode);
+  if (certAge !== null) return certAge;
+  const genres = (media.genres || media.genre || []).map((genre) => String(genre).toLowerCase());
+  if (genres.some((genre) => MATURE_GENRES.some((blocked) => genre.includes(blocked)))) return 18;
+  return null;
+}
+
+export function isBlockedForProfile(media, profile, countryCode = 'US') {
+  const maxAge = getProfileMaxAge(profile);
+  return isRestricted(getContentMinAgeFromMedia(media, countryCode), maxAge);
+}

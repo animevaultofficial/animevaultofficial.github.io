@@ -76,7 +76,7 @@ function connectionMatchesUser(connection, userId) {
 
 export default function Profile() {
   const { userid, '*': routeTail = '' } = useParams();
-  const { user: currentUser, history: ownHistory, likes: ownLikes, continueWatching: ownContinueWatching, logout, clearHistory, updateProfile, activeSubAccount, subAccounts, fetchSubAccounts, setActiveSubAccountState } = useUser();
+  const { user: currentUser, history: ownHistory, likes: ownLikes, continueWatching: ownContinueWatching, logout, clearHistory, updateProfile, updateSubAccount, activeSubAccount, subAccounts, fetchSubAccounts, setActiveSubAccountState } = useUser();
   const navigate = useNavigate();
 
   const requestedSubAccountId = getRequestedSubAccountId(routeTail);
@@ -267,7 +267,22 @@ export default function Profile() {
 
   const handleSaveProfile = async () => {
     setSaveStatus('Saving...');
-    const success = await updateProfile(avatarUrl, bannerUrl);
+    let success = false;
+    if (activeSubAccount?.id) {
+      const result = await updateSubAccount(activeSubAccount.id, {
+        name: activeSubAccount.name,
+        color: activeSubAccount.color,
+        avatar: avatarUrl,
+        ageRating: activeSubAccount.ageRating || 'adults'
+      });
+      success = result.success;
+      if (result.success && result.profile) {
+        setActiveSubAccount(currentUser.id, result.profile);
+        setActiveSubAccountState(result.profile);
+      }
+    } else {
+      success = await updateProfile(avatarUrl, bannerUrl);
+    }
     if (success) {
       setSaveStatus('Profile updated successfully!');
       setTimeout(() => {

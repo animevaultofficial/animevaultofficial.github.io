@@ -24,6 +24,7 @@ import electronBridge from "../utils/electronBridge";
 import { FocusableButton, FocusableLink } from "../components/FocusableWrapper";
 import { PLAYER_SOURCES, getSourceUrl } from "../utils/playerSources";
 import { storage } from "../utils/storage";
+import { isBlockedForProfile } from "../utils/ageRating";
 import VideoPlayer from "../components/VideoPlayer";
 
 // Helper to get episode number
@@ -39,7 +40,7 @@ function stripHtml(html) {
 
 function MovieWatch() {
   const { type, id } = useParams();
-  const { user, addToHistory, updateContinueWatching, toggleLike, isLiked } = useUser();
+  const { user, activeSubAccount, addToHistory, updateContinueWatching, toggleLike, isLiked } = useUser();
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeSeason, setActiveSeason] = useState(null);
@@ -62,7 +63,7 @@ function MovieWatch() {
   // Load video metadata and set initial player source
   useEffect(() => {
     loadMeta();
-  }, [id, type]);
+  }, [id, type, activeSubAccount]);
 
   // Ensure active tab makes sense when meta loads
   useEffect(() => {
@@ -144,6 +145,12 @@ function MovieWatch() {
         episode: v.number !== undefined ? v.number : v.episode,
       }));
     }
+    if (isBlockedForProfile(data, activeSubAccount)) {
+      setMeta({ blocked: true, title: data?.title || data?.name || 'This title' });
+      setLoading(false);
+      return;
+    }
+
     setMeta(data);
     // Initialise season/episode for series
     if (data && (type === "tv" || type === "series")) {
@@ -294,11 +301,12 @@ function MovieWatch() {
         <p>Loading media credentials...</p>
       </div>
     );
-  if (!meta)
+  if (!meta || meta.blocked)
     return (
       <div className="watch-error-container">
         <AlertTriangle size={48} className="error-icon" />
-        <h2>Failed to Load Media</h2>
+        <h2>{meta?.blocked ? 'Blocked for Kids Profile' : 'Failed to Load Media'}</h2>
+        {meta?.blocked && <p>This title is above the selected Kids 0-12 age rating. Switch to an Adults profile to watch it.</p>}
         <Link to="/dramas-movies" className="btn-back">
           <ArrowLeft size={16} /> Back
         </Link>
