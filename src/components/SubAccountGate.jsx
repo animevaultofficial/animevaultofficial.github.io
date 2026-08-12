@@ -12,6 +12,59 @@ import {
   setActiveSubAccount
 } from '../utils/subAccounts';
 
+const FALLBACK_POSTERS = [
+  'https://cdn.myanimelist.net/images/anime/10/47347.jpg',
+  'https://cdn.myanimelist.net/images/anime/1208/94745.jpg',
+  'https://cdn.myanimelist.net/images/anime/1223/96541.jpg',
+  'https://cdn.myanimelist.net/images/anime/5/87048.jpg',
+  'https://cdn.myanimelist.net/images/anime/1517/100633.jpg',
+  'https://cdn.myanimelist.net/images/anime/1764/126627.jpg',
+  'https://cdn.myanimelist.net/images/anime/1935/127974.jpg',
+  'https://cdn.myanimelist.net/images/anime/1806/126216.jpg',
+  'https://cdn.myanimelist.net/images/anime/1000/110531.jpg',
+  'https://cdn.myanimelist.net/images/anime/1286/99889.jpg',
+  'https://cdn.myanimelist.net/images/anime/1171/109222.jpg',
+  'https://cdn.myanimelist.net/images/anime/3/72078.jpg'
+];
+
+function PosterWall() {
+  const [posterImages, setPosterImages] = useState(FALLBACK_POSTERS);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPosterWall() {
+      try {
+        const response = await fetch('https://api.jikan.moe/v4/top/anime?filter=bypopularity&limit=24');
+        if (!response.ok) return;
+        const payload = await response.json();
+        const images = (payload?.data || [])
+          .map(anime => anime?.images?.jpg?.large_image_url || anime?.images?.webp?.large_image_url)
+          .filter(Boolean);
+        if (!cancelled && images.length >= 12) setPosterImages(images);
+      } catch {
+        // Keep the curated fallback poster set if the public API is unavailable.
+      }
+    }
+
+    loadPosterWall();
+    return () => { cancelled = true; };
+  }, []);
+
+  const tiledPosters = Array.from({ length: 48 }, (_, index) => posterImages[index % posterImages.length]);
+
+  return (
+    <div aria-hidden="true" style={{ position: 'absolute', inset: '-12vh -12vw', overflow: 'hidden', opacity: 0.68, transform: 'rotate(-10deg) scale(1.18)', transformOrigin: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(120px, 1fr))', gap: 14 }}>
+        {tiledPosters.map((poster, index) => (
+          <div key={`${poster}-${index}`} style={{ aspectRatio: '2 / 3', borderRadius: 16, overflow: 'hidden', background: 'rgba(255,255,255,0.08)', boxShadow: '0 12px 34px rgba(0,0,0,0.42)' }}>
+            <img src={poster} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ProfileAvatar({ profile, size = 132 }) {
   return (
     <div style={{
@@ -139,11 +192,13 @@ export default function SubAccountGate({ children }) {
   if (!user) {
     return (
       <>
-        <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '32px', background: 'radial-gradient(circle at top, rgba(255,26,117,0.22), transparent 34%), linear-gradient(135deg, #050505, #13040a 52%, #09090f)', color: '#fff', textAlign: 'center' }}>
-          <div style={{ maxWidth: 640, padding: 28, border: '1px solid rgba(255, 26, 117, 0.22)', borderRadius: 28, background: 'rgba(10, 10, 16, 0.62)', boxShadow: '0 30px 80px rgba(255, 26, 117, 0.14)' }}>
+        <div style={{ minHeight: '100vh', position: 'relative', display: 'grid', placeItems: 'center', padding: '32px', background: '#050505', color: '#fff', textAlign: 'center', overflow: 'hidden' }}>
+          <PosterWall />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(0,0,0,0.92), rgba(12,3,8,0.82) 48%, rgba(0,0,0,0.94)), radial-gradient(circle at center, rgba(255,26,117,0.18), transparent 42%)' }} />
+          <div style={{ position: 'relative', zIndex: 1, maxWidth: 660, padding: 32, border: '1px solid rgba(255, 26, 117, 0.28)', borderRadius: 28, background: 'rgba(10, 10, 16, 0.72)', boxShadow: '0 30px 90px rgba(0,0,0,0.58), 0 0 42px rgba(255, 26, 117, 0.16)', backdropFilter: 'blur(14px)' }}>
             <img src="/logo.png" alt="AnimeVault" style={{ height: 74, marginBottom: 24 }} />
             <h1 style={{ fontSize: 'clamp(2.4rem, 7vw, 5.5rem)', lineHeight: 1, margin: '0 0 16px', fontWeight: 950 }}>Sign up to watch AnimeVault.</h1>
-            <p style={{ color: '#cbd5e1', fontSize: '1.1rem', marginBottom: 28 }}>Create one main account with one email, then add up to five synced watching profiles for everyone in your home.</p>
+            <p style={{ color: '#f8fafc', fontSize: '1.12rem', marginBottom: 28, textShadow: '0 2px 16px rgba(0,0,0,0.8)' }}>Create one main account with one email, then add up to five synced watching profiles for everyone in your home.</p>
             <button onClick={() => { setAuthTab('signup'); setShowAuthModal(true); }} style={{ border: 'none', borderRadius: 999, padding: '14px 28px', fontWeight: 900, background: 'linear-gradient(135deg, #ff1a75, #ef4444)', color: '#000', cursor: 'pointer', fontSize: '1rem', boxShadow: '0 0 24px rgba(255, 26, 117, 0.35)' }}>Sign Up to Watch</button>
             <button onClick={() => { setAuthTab('login'); setShowAuthModal(true); }} style={{ marginLeft: 12, border: '1px solid rgba(255,26,117,0.35)', borderRadius: 999, padding: '13px 24px', fontWeight: 800, background: 'rgba(255,26,117,0.08)', color: '#fff', cursor: 'pointer' }}>Sign In</button>
           </div>
