@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { log, warn, error } from '../utils/logger.js';
 import { createAnimeVaultAuthClient } from './authClient';
+import { clearActiveSubAccount } from '../utils/subAccounts';
 
 // Neon Auth client
 const authClient = createAnimeVaultAuthClient();
@@ -130,6 +131,7 @@ export function UserProvider({ children }) {
   const [reminders, setReminders] = useState([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState('login');
+  const [activeSubAccount, setActiveSubAccountState] = useState(null);
 
   const loginWithDbCredentials = async (email, password) => {
     const dbRes = await dbUserLogin(email, password);
@@ -454,6 +456,8 @@ export function UserProvider({ children }) {
     // Then sign out of Neon Auth
     try { await authClient.signOut(); } catch (e) { /* ignore */ }
     setUser(null);
+    setActiveSubAccountState(null);
+    clearActiveSubAccount();
   };
 
   const addToHistory = async (mediaId, mediaType, mediaTitle, mediaPoster) => {
@@ -567,10 +571,12 @@ export function UserProvider({ children }) {
       continueWatching,
       likes,
       reminders,
+      activeSubAccount,
       showAuthModal,
       authTab,
       setShowAuthModal,
       setAuthTab,
+      setActiveSubAccountState,
       login,
       signup,
       sendVerificationCode,
