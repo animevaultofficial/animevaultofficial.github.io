@@ -377,9 +377,7 @@ jobs:
           retention-days: 14
 
   webos:
-    name: LG webOS build
-    needs: [version-bump]
-    if: always()
+    name: Build LG webOS
     runs-on: ubuntu-latest
 
     steps:
@@ -392,46 +390,98 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Build LG webOS package
+      # LG officially provides the webOS CLI through npm.
+      - name: Install LG webOS CLI
+        run: npm install --global @webos-tools/cli
+
+      - name: Verify LG webOS CLI
         shell: bash
         run: |
           set -euo pipefail
-          npm run webos:package
 
-          mkdir -p release
+          echo "Checking ares..."
+          ares --version
 
-          if [ -d dist-webos ]; then
-            cd dist-webos
-            zip -r "../release/AnimeVault-webos.zip" .
-            cd ..
-          else
-            echo "No dist-webos folder produced." >&2
+          echo "Checking ares-package..."
+          ares-package --version
+
+      - name: Build LG webOS application
+        run: npm run webos:package
+
+      - name: Verify webOS package
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Checking build directory..."
+
+          test -f dist-webos/index.html
+          test -f dist-webos/appinfo.json
+          test -f dist-webos/logo.png
+
+          echo ""
+          echo "appinfo.json:"
+          cat dist-webos/appinfo.json
+
+          echo ""
+          echo "Generated IPK files:"
+
+          find dist-ipk \
+            -maxdepth 1 \
+            -type f \
+            -name "*.ipk" \
+            -print
+
+          if ! find dist-ipk \
+            -maxdepth 1 \
+            -type f \
+            -name "*.ipk" \
+            -print -quit | grep -q .; then
+
+            echo "ERROR: No .ipk was produced."
             exit 1
           fi
 
-          ipk=$(find dist-ipk -maxdepth 1 -name '*.ipk' -print -quit || true)
-          if [ -n "$ipk" ]; then
-            cp "$ipk" release/AnimeVault-webos.ipk
-          else
-            echo "No webOS IPK produced; uploaded zip only."
+      - name: Prepare webOS release files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p release
+
+          IPK_FILE="$(find dist-ipk \
+            -maxdepth 1 \
+            -type f \
+            -name '*.ipk' \
+            -print -quit)"
+
+          if [ -z "$IPK_FILE" ]; then
+            echo "ERROR: Could not locate generated IPK."
+            exit 1
           fi
 
-      - name: Upload LG webOS artifacts
+          cp "$IPK_FILE" release/AnimeVault-webOS.ipk
+
+          cd dist-webos
+          zip -r ../release/AnimeVault-webOS-source.zip .
+
+          echo ""
+          echo "Release files:"
+          ls -lh ../release/
+
+      - name: Upload webOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: AnimeVault-webos
-          path: |
-            release/AnimeVault-webos.zip
-            release/AnimeVault-webos.ipk
-          if-no-files-found: warn
-          retention-days: 14
-
+          path: release/
+          if-no-files-found: error
+          retention-days: 30
   publish:
     name: Publish GitHub Release
     needs: [desktop, android, webos]
