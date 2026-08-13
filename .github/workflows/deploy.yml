@@ -35,6 +35,8 @@ jobs:
 
       - name: Build production bundle
         env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
           CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
