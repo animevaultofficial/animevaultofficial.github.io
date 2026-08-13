@@ -314,11 +314,15 @@ jobs:
             echo "Android project exists, cleaning build files..."
           fi
 
-      - name: Sync Capacitor and verify Gradle setup
-        shell: bash
-        run: |
+           - name: Build Web App & Sync Capacitor
+             shell: bash
+              run: |
           set -euo pipefail
-          echo "Syncing Capacitor and building web assets..."
+          echo "Cleaning old web build..."
+          rm -rf dist
+          echo "Building fresh web app..."
+          npm run build
+          echo "Syncing Capacitor..."
           npm run android:sync
           
           # Verify critical files exist
