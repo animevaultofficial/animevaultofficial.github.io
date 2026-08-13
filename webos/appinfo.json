@@ -1,16 +1,14 @@
 {
   "id": "com.animevault.app",
-  "version": "0.2.134",
-  "vendor": "AnimeVault Team",
+  "version": "0.2.200",
   "type": "web",
   "main": "index.html",
   "title": "AnimeVault",
-  "appDescription": "AnimeVault streaming experience for LG webOS TV.",
   "icon": "logo.png",
   "largeIcon": "logo.png",
-  "bgColor": "#03060d",
-  "splashBackground": "#03060d",
-  "requiredPermissions": ["internet"],
-  "supportPortrait": false,
-  "disableBackHistoryAPI": false
+  "vendor": "AnimeVault",
+  "appDescription": "Anime streaming application for LG webOS TVs",
+  "resolution": "1920x1080",
+  "requiredMemory": 128,
+  "disableBackHistoryAPI": true
 }
