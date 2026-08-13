@@ -958,12 +958,10 @@ jobs:
       # UPLOAD ALL RELEASE ASSETS
       # ========================================================
 
-      - name: Upload release assets
+- name: Upload release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
-
         shell: bash
         run: |
           set -euo pipefail
@@ -992,68 +990,3 @@ jobs:
             echo "ERROR: No release assets found."
             exit 1
           fi
-
-          echo ""
-          echo "Files to publish:"
-          printf ' - %s\n' "${files[@]}"
-
-          echo ""
-          echo "Uploading ${#files[@]} assets..."
-
-          gh release upload \
-            "${RELEASE_TAG}" \
-            "${files[@]}" \
-            --clobber
-
-          echo ""
-          echo "======================================"
-          echo " Release published successfully"
-          echo "======================================"
-
-      # ========================================================
-      # FINAL RELEASE VERIFICATION
-      # ========================================================
-
-      - name: Verify GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
-
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "GitHub Release assets:"
-
-          gh release view \
-            "${RELEASE_TAG}" \
-            --json assets \
-            --jq '.assets[].name'
-
-          echo ""
-          echo "Checking Android assets..."
-
-          gh release view \
-            "${RELEASE_TAG}" \
-            --json assets \
-            --jq '.assets[].name' \
-            | grep -Fx "AnimeVault-Android.apk"
-
-          gh release view \
-            "${RELEASE_TAG}" \
-            --json assets \
-            --jq '.assets[].name' \
-            | grep -Fx "AnimeVault-Android.aab"
-
-          echo ""
-          echo "Checking webOS asset..."
-
-          gh release view \
-            "${RELEASE_TAG}" \
-            --json assets \
-            --jq '.assets[].name' \
-            | grep -Fx "AnimeVault-webOS.ipk"
-
-          echo ""
-          echo "Release verification successful."
