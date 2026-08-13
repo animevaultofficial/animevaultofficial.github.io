@@ -299,7 +299,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Clean and ensure fresh Android project
+       - name: Clean and ensure fresh Android project
         shell: bash
         run: |
           set -euo pipefail
