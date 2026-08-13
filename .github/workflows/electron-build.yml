@@ -233,7 +233,10 @@ jobs:
       - name: Build installer
         shell: bash
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_LINK: ${{ github.workspace }}/animevault-code-signing.pfx
+          CSC_KEY_PASSWORD: '${{ secrets.CSC_KEY_PASSWORD }}'
+          WIN_CSC_LINK: ${{ github.workspace }}/animevault-code-signing.pfx
+          WIN_CSC_KEY_PASSWORD: '${{ secrets.CSC_KEY_PASSWORD }}'
         run: |
           set -euo pipefail
           npm run electron:build -- ${{ matrix.args }}
