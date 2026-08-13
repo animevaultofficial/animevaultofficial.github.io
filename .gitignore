@@ -9,3 +9,13 @@ certs/*.pfx
 *.pfx
 key
 key.pub
+
+# Android release signing keys
+*.keystore
+*.jks
+
+# Capacitor Android native project is generated in CI
+/android/
+/dist-mobile/
+/dist-webos/
+/dist-ipk/

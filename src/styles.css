@@ -8220,3 +8220,146 @@ select {
   height: 100dvh;
   aspect-ratio: auto;
 }
+
+/* Android / phone app polish: keep the full web app feature set, but make it feel native on small screens. */
+@media (max-width: 768px) {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    width: 100%;
+    overflow-x: hidden;
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: radial-gradient(circle at 50% -10%, rgba(255, 26, 117, 0.18), transparent 34%), var(--bg-color, #050505);
+  }
+
+  .app-shell {
+    min-height: 100dvh;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 120;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.65rem;
+    padding: max(0.75rem, env(safe-area-inset-top)) 0.85rem 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(5, 5, 8, 0.88);
+    backdrop-filter: blur(22px) saturate(1.3);
+  }
+
+  .topbar .brand span {
+    font-size: 1rem;
+    letter-spacing: -0.03em;
+  }
+
+  .topbar .brand img {
+    width: 2rem;
+    height: 2rem;
+    object-fit: contain;
+  }
+
+  .topnav {
+    display: none;
+  }
+
+  .topbar-actions {
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .topbar-search-form {
+    width: 2.45rem !important;
+    height: 2.45rem !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
+  }
+
+  .topbar-search-form span,
+  .topbar-search-form kbd {
+    display: none !important;
+  }
+
+  .content {
+    width: 100%;
+    padding: 0.85rem 0.85rem calc(5.8rem + env(safe-area-inset-bottom));
+  }
+
+  .bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    position: fixed;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: max(0.65rem, env(safe-area-inset-bottom));
+    z-index: 130;
+    padding: 0.35rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 1.25rem;
+    background: rgba(10, 10, 14, 0.92);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.48);
+    backdrop-filter: blur(24px) saturate(1.35);
+  }
+
+  .bottom-nav-link {
+    min-height: 3.2rem;
+    border-radius: 0.95rem;
+  }
+
+  .bottom-nav-link.active {
+    background: linear-gradient(135deg, rgba(255, 26, 117, 0.24), rgba(255, 170, 0, 0.14));
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 26, 117, 0.25);
+  }
+
+  .mobile-menu {
+    width: min(88vw, 22rem);
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    margin: 1rem;
+    padding: 0.8rem;
+    border-radius: 1.25rem;
+    background: rgba(14, 14, 18, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .mobile-nav-link {
+    min-height: 3rem;
+    border-radius: 0.95rem;
+  }
+
+  .hero-section,
+  .premium-hero,
+  .mixed-hero,
+  .details-hero {
+    border-radius: 1.25rem;
+    overflow: hidden;
+  }
+
+  .poster-grid,
+  .results-grid,
+  .anime-grid,
+  .manga-grid,
+  .collections-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .modal-overlay {
+    padding: max(1rem, env(safe-area-inset-top)) 0.75rem 0.75rem;
+  }
+
+  .search-box {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 1.1rem;
+  }
+}

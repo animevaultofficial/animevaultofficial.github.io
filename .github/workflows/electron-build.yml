@@ -279,7 +279,7 @@ jobs:
   # ============================================================
 
   android:
-    name: Android release artifacts
+    name: Android APK + AAB
     runs-on: ubuntu-latest
 
     needs:
@@ -287,21 +287,18 @@ jobs:
 
     if: always()
 
+    env:
+      ANDROID_PLATFORM: android-34
+      ANDROID_BUILD_TOOLS: 34.0.0
+      ANDROID_KEYSTORE_PATH: android/animevault-release.keystore
+      ANDROID_PACKAGE_NAME: com.animevault.app
+
     steps:
-
-      # --------------------------------------------------------
-      # Checkout
-      # --------------------------------------------------------
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'push' && 'refs/heads/main' || github.ref }}
-
-      # --------------------------------------------------------
-      # Node
-      # --------------------------------------------------------
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -309,31 +306,21 @@ jobs:
           node-version: "22"
           cache: npm
 
-      # --------------------------------------------------------
-      # Android SDK
-      # --------------------------------------------------------
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 34
-          build-tools: 34.0.0
-          ndk: 26.1.11579264
-          platform-tools: true
-
-      # --------------------------------------------------------
-      # Java
-      # --------------------------------------------------------
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
 
-      # --------------------------------------------------------
-      # Gradle cache
-      # --------------------------------------------------------
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}" "platform-tools"
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -341,240 +328,184 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-
-          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties') }}
-
+          key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             gradle-${{ runner.os }}-
-
-      # --------------------------------------------------------
-      # Dependencies
-      # --------------------------------------------------------
 
       - name: Install dependencies
         run: npm ci
 
-      # --------------------------------------------------------
-      # Android project
-      # --------------------------------------------------------
+      - name: Build web application
+        run: npm run build
 
-      - name: Clean and ensure fresh Android project
+      - name: Generate fresh Capacitor Android project
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf android
+          npx cap add android
+          npm run generate-android-icons
+          npx vite build --config vite.mobile.config.js
+          npx cap sync android
 
-          echo "Cleaning old Android build artifacts..."
-
-          rm -rf \
-            android/.gradle \
-            android/build \
-            android/app/build
-
-          if [ ! -d "android" ]; then
-            echo "Android project missing."
-            echo "Creating Android project..."
-
-            npx cap add android
-          else
-            echo "Android project already exists."
-          fi
-
-      # --------------------------------------------------------
-      # Web build + Capacitor sync
-      # --------------------------------------------------------
-
-      - name: Build Web App and Sync Capacitor
+      - name: Decode Android release keystore
         shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-
-          echo "Cleaning dist..."
-          rm -rf dist
-
-          echo "Building web application..."
-          npm run build
-
-          echo "Syncing Capacitor..."
-          npm run android:sync
-
-          if [ ! -d "android" ]; then
-            echo "ERROR: android directory does not exist."
+          if [ -z "${ANDROID_KEYSTORE_BASE64}" ]; then
+            echo "ERROR: ANDROID_KEYSTORE_BASE64 secret is not configured. Create the Android release keystore once and store it in GitHub Secrets."
             exit 1
           fi
+          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "${ANDROID_KEYSTORE_PATH}"
+          chmod 600 "${ANDROID_KEYSTORE_PATH}"
 
-          cd android
-
-          # Emergency recovery
-          if [ ! -f "gradlew" ]; then
-            echo "gradlew missing after Capacitor sync."
-
-            cd ..
-
-            rm -rf android
-
-            npx cap add android
-            npm run android:sync
-
-            cd android
-          fi
-
-          # Final validation
-          test -f gradlew
-          test -f gradle/wrapper/gradle-wrapper.jar
-          test -f build.gradle
-          test -f settings.gradle
-
-          echo "Android project validated."
-
-      # --------------------------------------------------------
-      # Build APK + AAB
-      # --------------------------------------------------------
-
-      - name: Build Android APK and AAB
+      - name: Configure Android release signing and version
         shell: bash
         run: |
           set -euo pipefail
+          python3 <<'PY'
+          import json
+          import re
+          from pathlib import Path
 
-          cd android
+          package = json.loads(Path('package.json').read_text())
+          version_name = package['version']
+          major, minor, patch = (int(part) for part in version_name.split('.')[:3])
+          version_code = major * 1000000 + minor * 1000 + patch
 
-          chmod +x gradlew
+          path = Path('android/app/build.gradle')
+          text = path.read_text()
+          signing = '''    signingConfigs {
+              release {
+                  storeFile file("../animevault-release.keystore")
+                  storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                  keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                  keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+              }
+          }
 
-          ./gradlew \
-            assembleRelease \
-            bundleRelease \
-            --stacktrace
+          '''
+          if 'signingConfigs {' not in text:
+              marker = '    buildTypes {'
+              if marker not in text:
+                  raise SystemExit('ERROR: android/app/build.gradle does not contain buildTypes block.')
+              text = text.replace(marker, signing + marker, 1)
+          if 'signingConfig signingConfigs.release' not in text:
+              marker = '    buildTypes {\n        release {'
+              if marker not in text:
+                  raise SystemExit('ERROR: android/app/build.gradle does not contain release build type.')
+              text = text.replace(marker, marker + '\n            signingConfig signingConfigs.release', 1)
 
-      # --------------------------------------------------------
-      # Normalize artifacts
-      # --------------------------------------------------------
+          if re.search(r'\n\s*versionCode\s+\d+', text):
+              text = re.sub(r'(\n\s*versionCode\s+)\d+', rf'\g<1>{version_code}', text, count=1)
+          else:
+              text = text.replace('        targetSdkVersion rootProject.ext.targetSdkVersion', '        targetSdkVersion rootProject.ext.targetSdkVersion\n        versionCode ' + str(version_code), 1)
 
-      - name: Normalize Android artifact names
+          if re.search(r'\n\s*versionName\s+"[^"]+"', text):
+              text = re.sub(r'(\n\s*versionName\s+)"[^"]+"', rf'\g<1>"{version_name}"', text, count=1)
+          else:
+              text = text.replace('        versionCode ' + str(version_code), '        versionCode ' + str(version_code) + '\n        versionName "' + version_name + '"', 1)
+
+          path.write_text(text)
+          print(f'Configured Android versionName {version_name} and versionCode {version_code}')
+          PY
+
+      - name: Verify generated Android project
         shell: bash
         run: |
           set -euo pipefail
+          test -x android/gradlew || { echo "ERROR: android/gradlew is missing or not executable."; exit 1; }
+          test -f android/settings.gradle || { echo "ERROR: android/settings.gradle is missing."; exit 1; }
+          test -f android/build.gradle || { echo "ERROR: android/build.gradle is missing."; exit 1; }
+          test -f android/app/build.gradle || { echo "ERROR: android/app/build.gradle is missing."; exit 1; }
+          package_matches="$(find android/app -type f \( -name "*.gradle" -o -name "*.xml" -o -name "*.java" -o -name "*.kt" \) -print0 | xargs -0 grep -l "${ANDROID_PACKAGE_NAME}" | wc -l)"
+          [ "${package_matches}" -gt 0 ] || { echo "ERROR: Generated Android project does not reference ${ANDROID_PACKAGE_NAME}."; exit 1; }
+          grep -q 'signingConfigs' android/app/build.gradle
+          grep -q 'signingConfig signingConfigs.release' android/app/build.gradle
 
+      - name: Build signed Android APK
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "${ANDROID_KEYSTORE_PASSWORD}"
+          test -n "${ANDROID_KEY_ALIAS}"
+          test -n "${ANDROID_KEY_PASSWORD}"
+          cd android
+          ./gradlew clean assembleRelease --stacktrace
+
+      - name: Build signed Android App Bundle
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          cd android
+          ./gradlew bundleRelease --stacktrace
+
+      - name: Locate and normalize Android artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="android/app/build/outputs/apk/release/app-release.apk"
+          aab="android/app/build/outputs/bundle/release/app-release.aab"
+          test -f "${apk}" || { echo "ERROR: Expected APK not found at ${apk}."; exit 1; }
+          test -f "${aab}" || { echo "ERROR: Expected AAB not found at ${aab}."; exit 1; }
+          min_size=$((1024 * 1024))
+          [ "$(stat -c%s "${apk}")" -gt "${min_size}" ] || { echo "ERROR: APK is suspiciously small."; exit 1; }
+          [ "$(stat -c%s "${aab}")" -gt "${min_size}" ] || { echo "ERROR: AAB is suspiciously small."; exit 1; }
           mkdir -p release
-
-          apk="$(
-            find \
-              android/app/build/outputs/apk/release \
-              -maxdepth 1 \
-              -type f \
-              -name '*.apk' \
-              -print \
-              -quit
-          )"
-
-          aab="$(
-            find \
-              android/app/build/outputs/bundle/release \
-              -maxdepth 1 \
-              -type f \
-              -name '*.aab' \
-              -print \
-              -quit
-          )"
-
-          # APK is mandatory
-          if [ -z "$apk" ]; then
-            echo "ERROR: Android APK was not produced."
-            exit 1
-          fi
-
-          cp "$apk" \
-            "release/AnimeVault-Android.apk"
-
-          echo "APK:"
-          ls -lh release/AnimeVault-Android.apk
-
-          # AAB is expected
-          if [ -z "$aab" ]; then
-            echo "ERROR: Android AAB was not produced."
-            exit 1
-          fi
-
-          cp "$aab" \
-            "release/AnimeVault-Android.aab"
-
-          echo "AAB:"
-          ls -lh release/AnimeVault-Android.aab
-
-      # --------------------------------------------------------
-      # APK verification
-      # --------------------------------------------------------
+          cp "${apk}" release/AnimeVault-Android.apk
+          cp "${aab}" release/AnimeVault-Android.aab
+          ls -lh release/AnimeVault-Android.apk release/AnimeVault-Android.aab
 
       - name: Verify Android APK
         shell: bash
         run: |
           set -euo pipefail
-
           apk="release/AnimeVault-Android.apk"
+          unzip -t "${apk}" >/dev/null
+          unzip -l "${apk}" | grep -q 'AndroidManifest.xml' || { echo "ERROR: AndroidManifest.xml missing from APK."; exit 1; }
+          unzip -l "${apk}" | grep -Eq '(^|[[:space:]])classes[0-9]*\.dex$' || { echo "ERROR: classes.dex missing from APK."; exit 1; }
+          aapt dump badging "${apk}" | grep -q "package: name='${ANDROID_PACKAGE_NAME}'" || { echo "ERROR: APK package name is not ${ANDROID_PACKAGE_NAME}."; exit 1; }
 
-          test -f "$apk"
-
-          echo "File information:"
-          file "$apk"
-
-          echo "Testing ZIP integrity..."
-
-          unzip -t "$apk" > /dev/null
-
-          echo "Checking AndroidManifest.xml..."
-
-          if ! unzip -l "$apk" | grep -q "AndroidManifest.xml"; then
-            echo "ERROR: AndroidManifest.xml missing."
-            exit 1
-          fi
-
-          echo "Checking classes.dex..."
-
-          if ! unzip -l "$apk" | grep -q "classes.dex"; then
-            echo "ERROR: classes.dex missing."
-            exit 1
-          fi
-
-          echo "APK validation successful."
-
-      # --------------------------------------------------------
-      # Verify AAB
-      # --------------------------------------------------------
+      - name: Verify Android APK signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          apksigner verify --verbose --print-certs release/AnimeVault-Android.apk
 
       - name: Verify Android AAB
         shell: bash
         run: |
           set -euo pipefail
-
           aab="release/AnimeVault-Android.aab"
-
-          test -f "$aab"
-
-          echo "AAB:"
-          ls -lh "$aab"
-
-          file "$aab"
-
-          unzip -t "$aab" > /dev/null
-
-          echo "AAB validation successful."
-
-      # --------------------------------------------------------
-      # Upload Actions artifact
-      # --------------------------------------------------------
+          unzip -t "${aab}" >/dev/null
+          unzip -l "${aab}" | grep -q 'BundleConfig.pb' || { echo "ERROR: BundleConfig.pb missing from AAB."; exit 1; }
+          unzip -l "${aab}" | grep -q 'base/manifest/AndroidManifest.xml' || { echo "ERROR: Base module AndroidManifest.xml missing from AAB."; exit 1; }
 
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
         with:
           name: AnimeVault-Android
-
           retention-days: 30
-
-          # IMPORTANT:
-          # The Android artifact MUST exist or this job fails.
           if-no-files-found: error
-
           path: |
             release/AnimeVault-Android.apk
             release/AnimeVault-Android.aab
+
+      - name: Delete Android release keystore
+        if: always()
+        shell: bash
+        run: |
+          rm -f "${ANDROID_KEYSTORE_PATH}"
 
 
   # ============================================================
