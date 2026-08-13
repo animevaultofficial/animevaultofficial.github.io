@@ -101,14 +101,10 @@ console.log("========================================");
 console.log("");
 
 // Package the application
-execFileSync(
-  packager,
-  ["-o", ipkDir, outDir],
-  {
-    stdio: "inherit",
-    shell: process.platform === "win32",
-  }
-);
+execFileSync(packager, ["--no-minify", "-o", ipkDir, outDir], {
+  stdio: "inherit",
+  shell: process.platform === "win32",
+});
 
 // Find generated IPK
 const ipkFiles = readdirSync(ipkDir).filter(
