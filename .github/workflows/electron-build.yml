@@ -122,6 +122,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'push' && 'refs/heads/main' || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -188,83 +189,19 @@ jobs:
             release/*.yml
             release/*.blockmap
 
-      # Publish desktop files immediately to release (don't wait for other jobs)
-      - name: Resolve version tag
-        id: release
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="$(node -p "require('./package.json').version")"
-          tag="v${version}"
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
-
-      - name: Publish to GitHub Release
-        if: github.event_name != 'pull_request'
-        shell: bash
-        run: |
-          #!/bin/bash
-          set -euo pipefail
-          RELEASE_TAG="${{ steps.release.outputs.tag }}"
-          RELEASE_VERSION="${{ steps.release.outputs.version }}"
-          
-          # Find only the compiled installers and metadata files, not the uncompressed folders
-          shopt -s nullglob
-          files=(release/*.exe release/*.dmg release/*.zip release/*.AppImage release/*.deb release/*.yml release/*.blockmap)
-          
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "No installer files found." >&2
-            exit 1
-          fi
-          
-          echo "Publishing ${#files[@]} files to release ${RELEASE_TAG}"
-          
-          # Create or update release
-          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            echo "Release ${RELEASE_TAG} exists, uploading files..."
-          else
-            echo "Creating new release ${RELEASE_TAG}..."
-            cat > release-notes.md <<NOTES
-          Automated AnimeVault installer release for ${RELEASE_TAG}.
-          
-          Download page links use the stable latest-release URLs, for example:
-          - https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/AnimeVault-Windows-x64.exe
-          - https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/AnimeVault-Android.apk
-          - https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/AnimeVault-Android.aab
-          
-          Built from commit ${GITHUB_SHA}.
-          NOTES
-            
-            gh release create "${RELEASE_TAG}" \
-              --target "${GITHUB_SHA}" \
-              --title "AnimeVault ${RELEASE_TAG}" \
-              --notes-file release-notes.md \
-              --latest
-          fi
-          
-          # Delete existing Info.plist if present to avoid duplicate errors
-          existing_ids=$(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[] | select(.name=="Info.plist") | .id')
-          for id in $existing_ids; do
-            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${id}"
-          done
-          
-          echo "Uploading ${#files[@]} files..."
-          gh release upload "${RELEASE_TAG}" "${files[@]}" --clobber
-          
-          echo "✅ Successfully published ${#files[@]} files to ${RELEASE_TAG}"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   android:
     name: Android release artifacts
     needs: [version-bump]
     if: always()
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'push' && 'refs/heads/main' || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -299,13 +236,13 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-       - name: Clean and ensure fresh Android project
+      - name: Clean and ensure fresh Android project
         shell: bash
         run: |
           set -euo pipefail
           echo "Cleaning old Android build artifacts..."
           rm -rf android/.gradle android/build android/app/build 2>/dev/null || true
-          
+
           if [ ! -d android ]; then
             echo "Android project doesn't exist. Creating fresh Capacitor Android project..."
             npx cap add android
@@ -313,20 +250,21 @@ jobs:
             echo "Android project exists, cleaning build files..."
           fi
 
-           - name: Build Web App & Sync Capacitor
-             shell: bash
-              run: |
+      - name: Build Web App & Sync Capacitor
+        shell: bash
+        run: |
           set -euo pipefail
           echo "Cleaning old web build..."
           rm -rf dist
+
           echo "Building fresh web app..."
           npm run build
+
           echo "Syncing Capacitor..."
           npm run android:sync
-          
-          # Verify critical files exist
+
           cd android
-          
+
           if [ ! -f gradlew ]; then
             echo "ERROR: gradlew not found after sync! Checking directory structure..."
             ls -la
@@ -337,14 +275,13 @@ jobs:
             npm run android:sync
             cd android
           fi
-          
+
           if [ ! -f gradlew ]; then
             echo "CRITICAL ERROR: Cannot generate gradlew. Capacitor setup may be corrupted." >&2
             echo "Try deleting node_modules and running: npm install && npx cap add android" >&2
             exit 1
           fi
-          
-          # Final checks
+
           echo "Verifying Android build files..."
           [ -f gradlew ] || (echo "gradlew missing"; exit 1)
           [ -f gradle/wrapper/gradle-wrapper.jar ] || (echo "gradle-wrapper.jar missing"; exit 1)
@@ -357,19 +294,17 @@ jobs:
         run: |
           set -euo pipefail
           cd android
-          
-          # Make gradlew executable
+
           chmod +x gradlew
-          
-          # Verify it exists before running
+
           if [ ! -f gradlew ]; then
             echo "gradlew not found before build!" >&2
             exit 1
           fi
-          
+
           echo "Building Android APK and AAB..."
           ./gradlew assembleRelease bundleRelease --stacktrace
-          
+
           echo "✓ Android build completed successfully"
 
       - name: Normalize Android artifact names
@@ -377,29 +312,26 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          
-          # Find APK
+
           apk=$(find android/app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit || true)
           aab=$(find android/app/build/outputs/bundle/release -maxdepth 1 -name '*.aab' -print -quit || true)
-          
+
           if [ -z "$apk" ]; then
             echo "ERROR: No Android release APK was produced." >&2
-            echo "Build output directory contents:"
             find android/app/build/outputs -type f 2>/dev/null || echo "No outputs found"
             exit 1
           fi
-          
+
           echo "Found APK: $apk"
-          cp "$apk" "release/AnimeVault-Android.apk"
-          
+          cp "$apk" release/AnimeVault-Android.apk
+
           if [ -n "$aab" ]; then
             echo "Found AAB: $aab"
-            cp "$aab" "release/AnimeVault-Android.aab"
+            cp "$aab" release/AnimeVault-Android.aab
           else
             echo "⚠ Warning: no Android AAB found; only APK will be uploaded."
           fi
-          
-          # Verify output
+
           echo "Release artifacts:"
           ls -lh release/
 
@@ -408,33 +340,30 @@ jobs:
         run: |
           set -euo pipefail
           apk_file="release/AnimeVault-Android.apk"
-          
+
           if [ ! -f "$apk_file" ]; then
             echo "APK file not found: $apk_file" >&2
             exit 1
           fi
-          
+
           echo "Checking APK validity..."
-          file_type=$(file "$apk_file")
-          echo "File type: $file_type"
-          
-          # APK is a ZIP file
+          file "$apk_file"
+
           if ! unzip -t "$apk_file" > /dev/null 2>&1; then
-            echo "ERROR: APK file is corrupted or invalid (not a valid ZIP archive)" >&2
+            echo "ERROR: APK file is corrupted or invalid." >&2
             exit 1
           fi
-          
-          # Check for critical APK files
+
           if ! unzip -l "$apk_file" | grep -q "AndroidManifest.xml"; then
             echo "ERROR: AndroidManifest.xml not found in APK" >&2
             exit 1
           fi
-          
+
           if ! unzip -l "$apk_file" | grep -q "classes.dex"; then
             echo "ERROR: classes.dex not found in APK" >&2
             exit 1
           fi
-          
+
           echo "✓ APK structure is valid"
 
       - name: Upload Android artifacts
@@ -445,70 +374,20 @@ jobs:
             release/AnimeVault-Android.apk
             release/AnimeVault-Android.aab
           if-no-files-found: warn
-
-      - name: Resolve version tag
-        id: release
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="$(node -p "require('./package.json').version")"
-          tag="v${version}"
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
-
-      - name: Publish Android artifacts to GitHub Release
-        if: github.event_name != 'pull_request'
-        shell: bash
-        run: |
-          #!/bin/bash
-          set -euo pipefail
-          RELEASE_TAG="${{ steps.release.outputs.tag }}"
-
-          echo "Publishing Android artifacts to release ${RELEASE_TAG}"
-
-          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            echo "Release ${RELEASE_TAG} exists, uploading Android artifacts..."
-          else
-            echo "Creating new release ${RELEASE_TAG}..."
-            cat > release-notes.md <<NOTES
-          Automated AnimeVault installer release for ${RELEASE_TAG}.
-
-          Download page links use the stable latest-release URLs, for example:
-          - https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/AnimeVault-Windows-x64.exe
-          - https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/AnimeVault-Android.apk
-          - https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/AnimeVault-Android.aab
-
-          Built from commit ${GITHUB_SHA}.
-          NOTES
-
-            gh release create "${RELEASE_TAG}" \
-              --target "${GITHUB_SHA}" \
-              --title "AnimeVault ${RELEASE_TAG}" \
-              --notes-file release-notes.md \
-              --latest
-          fi
-
-          if [ -f release/AnimeVault-Android.apk ]; then
-            gh release upload "${RELEASE_TAG}" "release/AnimeVault-Android.apk" --clobber
-          fi
-          if [ -f release/AnimeVault-Android.aab ]; then
-            gh release upload "${RELEASE_TAG}" "release/AnimeVault-Android.aab" --clobber
-          fi
-
-          echo "✅ Successfully published Android artifacts to ${RELEASE_TAG}"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          retention-days: 14
 
   webos:
     name: LG webOS build
     needs: [version-bump]
     if: always()
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'push' && 'refs/heads/main' || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -524,7 +403,9 @@ jobs:
         run: |
           set -euo pipefail
           npm run webos:package
+
           mkdir -p release
+
           if [ -d dist-webos ]; then
             cd dist-webos
             zip -r "../release/AnimeVault-webos.zip" .
@@ -533,6 +414,7 @@ jobs:
             echo "No dist-webos folder produced." >&2
             exit 1
           fi
+
           ipk=$(find dist-ipk -maxdepth 1 -name '*.ipk' -print -quit || true)
           if [ -n "$ipk" ]; then
             cp "$ipk" release/AnimeVault-webos.ipk
@@ -548,6 +430,32 @@ jobs:
             release/AnimeVault-webos.zip
             release/AnimeVault-webos.ipk
           if-no-files-found: warn
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    needs: [desktop, android, webos]
+    if: >-
+      github.event_name != 'pull_request' &&
+      needs.desktop.result == 'success' &&
+      needs.android.result == 'success' &&
+      needs.webos.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'push' && 'refs/heads/main' || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       - name: Resolve version tag
         id: release
@@ -555,48 +463,87 @@ jobs:
         run: |
           set -euo pipefail
           version="$(node -p "require('./package.json').version")"
-          tag="v${version}"
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
 
-      - name: Publish webOS artifacts to GitHub Release
-        if: github.event_name != 'pull_request'
+      - name: Download desktop artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: animevault-*-installer
+          path: release
+          merge-multiple: true
+
+      - name: Download Android artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: AnimeVault-Android
+          path: release
+
+      - name: Download webOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: AnimeVault-webos
+          path: release
+
+      - name: List release assets
         shell: bash
         run: |
-          #!/bin/bash
           set -euo pipefail
-          RELEASE_TAG="${{ steps.release.outputs.tag }}"
+          echo "Release assets:"
+          find release -maxdepth 2 -type f -print | sort
 
-          echo "Publishing webOS artifacts to release ${RELEASE_TAG}"
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
 
-          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            echo "Release ${RELEASE_TAG} exists, uploading webOS artifacts..."
+          shopt -s nullglob
+          files=(
+            release/*.exe
+            release/*.dmg
+            release/*.zip
+            release/*.AppImage
+            release/*.deb
+            release/*.yml
+            release/*.blockmap
+            release/*.apk
+            release/*.aab
+            release/*.ipk
+          )
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No release files found." >&2
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists."
           else
-            echo "Creating new release ${RELEASE_TAG}..."
             cat > release-notes.md <<NOTES
-          Automated AnimeVault build for LG webOS TV.
-
-          Download page links use the stable latest-release URLs, for example:
-          - https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/AnimeVault-webos.zip
-          - https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/AnimeVault-webos.ipk
+          Automated AnimeVault installer release for v${RELEASE_VERSION}.
 
           Built from commit ${GITHUB_SHA}.
+
+          Platforms:
+          - Windows
+          - macOS
+          - Linux
+          - Android
+          - LG webOS
           NOTES
 
-            gh release create "${RELEASE_TAG}" \
-              --target "${GITHUB_SHA}" \
-              --title "AnimeVault ${RELEASE_TAG}" \
+            gh release create "$RELEASE_TAG" \
+              --target "$GITHUB_SHA" \
+              --title "AnimeVault $RELEASE_TAG" \
               --notes-file release-notes.md \
               --latest
           fi
 
-          if [ -f release/AnimeVault-webos.zip ]; then
-            gh release upload "${RELEASE_TAG}" "release/AnimeVault-webos.zip" --clobber
-          fi
-          if [ -f release/AnimeVault-webos.ipk ]; then
-            gh release upload "${RELEASE_TAG}" "release/AnimeVault-webos.ipk" --clobber
-          fi
+          echo "Uploading ${#files[@]} assets to $RELEASE_TAG..."
+          gh release upload "$RELEASE_TAG" "${files[@]}" --clobber
 
-          echo "✅ Successfully published webOS artifacts to ${RELEASE_TAG}"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "✅ Successfully published ${#files[@]} assets to ${RELEASE_TAG}"
