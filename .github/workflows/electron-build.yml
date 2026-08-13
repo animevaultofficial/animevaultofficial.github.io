@@ -954,39 +954,33 @@ jobs:
 
           fi
 
-      # ========================================================
-      # UPLOAD ALL RELEASE ASSETS
-      # ========================================================
-
-- name: Upload release assets
+      - name: Upload Release Assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
-        shell: bash
         run: |
           set -euo pipefail
-
           echo "Collecting release files..."
-
-          mapfile -t files < <(
-            find release \
-              -type f \
-              \( \
-                -name "*.exe" \
-                -o -name "*.dmg" \
-                -o -name "*.zip" \
-                -o -name "*.AppImage" \
-                -o -name "*.deb" \
-                -o -name "*.yml" \
-                -o -name "*.blockmap" \
-                -o -name "*.apk" \
-                -o -name "*.aab" \
-                -o -name "*.ipk" \
-              \) \
-              -print
-          )
+          mapfile -t files < <(find release \
+            -type f \
+            \( \
+              -name "*.exe" \
+              -o -name "*.dmg" \
+              -o -name "*.zip" \
+              -o -name "*.AppImage" \
+              -o -name "*.deb" \
+              -o -name "*.yml" \
+              -o -name "*.blockmap" \
+              -o -name "*.apk" \
+              -o -name "*.aab" \
+              -o -name "*.ipk" \
+            \) \
+            -print )
 
           if [ "${#files[@]}" -eq 0 ]; then
             echo "ERROR: No release assets found."
             exit 1
           fi
+
+          echo "Uploading assets to release ${RELEASE_TAG}..."
+          gh release upload "${RELEASE_TAG}" "${files[@]}" --clobber
