@@ -237,11 +237,6 @@ jobs:
         run: |
           set -euo pipefail
           npm run electron:build -- ${{ matrix.args }}
-        run: |
-          set -euo pipefail
-
-          npm run electron:build -- ${{ matrix.args }}
-
       # --------------------------------------------------------
       # Artifact
       # --------------------------------------------------------
