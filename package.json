@@ -6,6 +6,7 @@
   "author": "AnimeVault Team",
   "type": "module",
   "main": "electron/main.cjs",
+
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,51 +14,76 @@
     "generate-icons": "node scripts/generate-icons.js",
     "generate-dev-cert": "powershell -ExecutionPolicy Bypass -File scripts/generate-dev-cert.ps1",
     "clean": "rimraf release",
+
     "prebuild": "node -e \"try{require('child_process').execSync('taskkill /IM AnimeVault.exe /F',{stdio:'ignore'})}catch(e){console.log('No running instance')}\"",
+
     "electron:dev": "cross-env NODE_ENV=development concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+
     "electron:build": "npm run prebuild && npm run clean && cross-env NODE_OPTIONS=--max_old_space_size=8192 && npm run generate-icons && cross-env ELECTRON=1 && vite build && electron-builder --publish never",
+
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
+
     "bump-version": "npm version patch -m \"chore: bump version to %s\"",
+
     "android:build": "npm run android:sync && cd android && chmod +x gradlew && ./gradlew assembleRelease",
     "android:build:bundle": "npm run android:sync && cd android && chmod +x gradlew && ./gradlew bundleRelease",
+
     "android:build:win": "npm run android:sync && cd android && set \"JAVA_HOME=D:\\jdk-21\\jdk-21.0.11\" && set \"PATH=%JAVA_HOME%\\bin;%PATH%\" && gradlew assembleRelease",
+
     "electron:release": "npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --publish always",
+
     "electron:build:win": "npm run prebuild && npm run clean && npm run generate-icons && cross-env ELECTRON=1 && vite build && electron-builder --win --publish never",
+
     "electron:build:mac": "npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --mac --publish never",
+
     "electron:build:linux": "npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --linux --publish never",
+
     "generate-android-icons": "node scripts/generate-android-icons.js",
+
     "android:sync": "npm run generate-android-icons && vite build --config vite.mobile.config.js && npx cap sync android",
+
     "android:ensure": "npx cap add android || echo 'Android already added'",
+
     "android:mobile": "npm run generate-android-icons && vite build --config vite.mobile.config.js && npx cap sync android && cd android && chmod +x gradlew && ./gradlew assembleRelease",
+
     "webos:build": "vite build --mode webos",
     "webos:package": "node scripts/build-webos.cjs"
   },
+
   "build": {
     "appId": "com.animevault.app",
     "productName": "AnimeVault",
+
     "directories": {
       "output": "release"
     },
+
     "asar": true,
+
     "files": [
       "dist/**/*",
       "electron/**/*.cjs",
       "electron/**/*.js",
       "build/**/*"
     ],
+
     "npmRebuild": false,
+
     "extraMetadata": {
       "dependencies": {
         "bcryptjs": "2.4.3"
       }
     },
+
     "nsis": {
       "allowToChangeInstallationDirectory": true,
       "oneClick": false
     },
+
     "win": {
       "icon": "build/icon.ico",
+
       "target": [
         {
           "target": "nsis",
@@ -66,13 +92,14 @@
           ]
         }
       ],
+
       "artifactName": "AnimeVault-Windows-${arch}.${ext}",
       "publisherName": "AnimeVault",
-      "certificateFile": "animevault-code-signing.pfx",
-      "certificatePassword": "${env.CSC_KEY_PASSWORD}",
+
       "forceCodeSigning": true,
       "signAndEditExecutable": true
     },
+
     "mac": {
       "target": [
         {
@@ -90,11 +117,14 @@
           ]
         }
       ],
+
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "identity": null,
+
       "artifactName": "AnimeVault-macOS-${arch}.${ext}"
     },
+
     "linux": {
       "target": [
         {
@@ -110,11 +140,13 @@
           ]
         }
       ],
+
       "icon": "src/electron/.icon-ico/icon.png",
       "category": "AudioVideo",
       "maintainer": "AnimeVault Team",
       "artifactName": "AnimeVault-Linux-${arch}.${ext}"
     },
+
     "publish": [
       {
         "provider": "github",
@@ -124,6 +156,7 @@
       }
     ]
   },
+
   "dependencies": {
     "@capacitor/core": "^6.2.1",
     "@neondatabase/auth": "^0.3.0-beta",
@@ -132,7 +165,7 @@
     "@tanstack/react-query": "^5.101.0",
     "@vidstack/react": "^1.12.13",
     "axios": "^1.7.2",
-    "bcryptjs": "^2.4.3",
+    "bcryptjs": "^4.1.3",
     "discord-rpc": "^4.0.1",
     "dotenv": "^9.0.2",
     "electron-updater": "^6.3.9",
@@ -149,6 +182,7 @@
     "uuid": "^14.0.1",
     "vidstack": "^1.12.13"
   },
+
   "devDependencies": {
     "@capacitor/android": "^6.2.1",
     "@capacitor/cli": "^6.2.1",
@@ -164,6 +198,7 @@
     "vite": "^5.4.21",
     "wait-on": "^7.2.0"
   },
+
   "engines": {
     "node": ">=22.12.0"
   }
