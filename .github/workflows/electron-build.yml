@@ -306,7 +306,6 @@ jobs:
           echo "Cleaning old Android build artifacts..."
           rm -rf android/.gradle android/build android/app/build 2>/dev/null || true
           
-          # Only add android if it doesn't exist
           if [ ! -d android ]; then
             echo "Android project doesn't exist. Creating fresh Capacitor Android project..."
             npx cap add android
