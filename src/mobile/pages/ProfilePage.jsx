@@ -5,6 +5,7 @@ import { getUserStats as dbGetUserStats, fetchReminders, checkUser2FA } from '..
 import { getContinueWatching, getFavorites } from '../api/storage';
 import StoryAvatar from '../../components/StoryAvatar';
 import StoryUploadModal from '../../components/StoryUploadModal';
+import { assetPath } from '../../utils/assetPath';
 
 function AuthScreen() {
   const { login, signup, sendVerificationCode, loginWithGoogle } = useUser();
@@ -139,7 +140,7 @@ function AuthScreen() {
     <div className="mobile-auth-shell">
       <div className="mobile-auth-card">
         <div className="auth-brand">
-          <img src="/logo.png" alt="AnimeVault" className="mobile-auth-logo" />
+          <img src={assetPath('logo.png')} alt="AnimeVault" className="mobile-auth-logo" />
           <h2 className="mobile-auth-title">AnimeVault</h2>
           <p className="mobile-auth-sub">Sign in to sync favorites, history, reminders and watch progress on every device.</p>
         </div>

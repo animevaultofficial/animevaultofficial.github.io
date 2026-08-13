@@ -5,6 +5,7 @@ import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { log, warn } from './utils/logger.js';
 import { isTvRuntime } from './utils/tvMode.js';
+import { assetPath } from './utils/assetPath.js';
 import { init } from '@noriginmedia/norigin-spatial-navigation';
 
 init({
@@ -22,7 +23,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // Register the ad-blocking service worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(reg => {
+    navigator.serviceWorker.register(assetPath('sw.js')).then(reg => {
       log('[SW] Ad-blocker registered');
     }).catch(err => {
       warn('[SW] Registration failed:', err.message);

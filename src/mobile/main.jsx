@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppMobile from './AppMobile';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { UserProvider } from '../api/UserContext';
+import { assetPath } from '../utils/assetPath';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,7 +18,7 @@ const queryClient = new QueryClient({
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register(assetPath('sw.js')).catch(() => {});
   });
 }
 

@@ -11,6 +11,7 @@ import { fetchSiteSettings, initDatabase, getSettings } from './api/db';
 import { applyTheme, applyAccentColor } from './utils/appearance';
 import { storage } from './utils/storage';
 import { applyTvModeClass } from './utils/tvMode';
+import { assetPath } from './utils/assetPath';
 
 import { FocusableNavLink, FocusableLink, FocusableButton } from './components/FocusableWrapper';
 import RequireAuth from './components/RequireAuth';
@@ -207,7 +208,7 @@ function App() {
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
           <FocusableLink to="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <img src="/logo.png" alt="l" style={{ height: 40, width: 'auto' }} />
+            <img src={assetPath('logo.png')} alt="l" style={{ height: 40, width: 'auto' }} />
             <span>AnimeVault</span>
           </FocusableLink>
         </div>

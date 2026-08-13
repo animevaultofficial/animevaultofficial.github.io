@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Edit3, Plus, Trash2, UserPlus, X } from 'lucide-react';
 import { useUser } from '../api/UserContext';
+import { assetPath } from '../utils/assetPath';
 import AuthModal from './AuthModal';
 import {
   MAX_SUB_ACCOUNTS,
@@ -304,7 +305,7 @@ export default function SubAccountGate({ children }) {
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '32px', background: 'radial-gradient(circle at top, rgba(255,26,117,0.20), transparent 32%), linear-gradient(135deg, #050505, #16030c 55%, #09090f)', color: '#fff', textAlign: 'center' }}>
         <div style={{ display: 'grid', gap: 14, justifyItems: 'center' }}>
-          <img src="/logo.png" alt="AnimeVault" style={{ height: 70 }} />
+          <img src={assetPath('logo.png')} alt="AnimeVault" style={{ height: 70 }} />
           <h1 style={{ margin: 0, fontSize: 'clamp(2rem, 6vw, 4rem)', fontWeight: 950 }}><span style={{ color: '#ff1a75' }}>Anime</span>Vault</h1>
           <p style={{ margin: 0, color: '#fda4af', fontWeight: 800 }}>Loading your watching profiles...</p>
         </div>
@@ -319,7 +320,7 @@ export default function SubAccountGate({ children }) {
           <PosterWall />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(0,0,0,0.92), rgba(12,3,8,0.82) 48%, rgba(0,0,0,0.94)), radial-gradient(circle at center, rgba(255,26,117,0.18), transparent 42%)' }} />
           <div className="sub-account-signup-card" style={{ position: 'relative', zIndex: 1, width: 'min(520px, 100%)', padding: 'clamp(20px, 4vw, 28px)', border: '1px solid rgba(255, 26, 117, 0.28)', borderRadius: 24, background: 'rgba(10, 10, 16, 0.72)', boxShadow: '0 24px 70px rgba(0,0,0,0.52), 0 0 34px rgba(255, 26, 117, 0.14)', backdropFilter: 'blur(14px)' }}>
-            <img src="/logo.png" alt="AnimeVault" style={{ height: 'clamp(48px, 11vw, 62px)', marginBottom: 16 }} />
+            <img src={assetPath('logo.png')} alt="AnimeVault" style={{ height: 'clamp(48px, 11vw, 62px)', marginBottom: 16 }} />
             <h1 style={{ fontSize: 'clamp(1.9rem, 9vw, 3.8rem)', lineHeight: 1.02, margin: '0 0 12px', fontWeight: 950 }}>Sign up to watch AnimeVault.</h1>
             <p style={{ color: '#f8fafc', fontSize: 'clamp(0.95rem, 3vw, 1.05rem)', marginBottom: 22, textShadow: '0 2px 16px rgba(0,0,0,0.8)' }}>Create one main account with one email, then add up to five synced watching profiles for everyone in your home.</p>
             <button onClick={() => { setAuthTab('signup'); setShowAuthModal(true); }} style={{ border: 'none', borderRadius: 999, padding: '14px 28px', fontWeight: 900, background: 'linear-gradient(135deg, #ff1a75, #ef4444)', color: '#000', cursor: 'pointer', fontSize: '1rem', boxShadow: '0 0 24px rgba(255, 26, 117, 0.35)' }}>Sign Up to Watch</button>
@@ -337,7 +338,7 @@ export default function SubAccountGate({ children }) {
     return (
       <div className="sub-account-gate sub-account-gate-loading" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '24px', background: 'radial-gradient(circle at top, rgba(255,26,117,0.20), transparent 32%), linear-gradient(135deg, #050505, #16030c 55%, #09090f)', color: '#fff', textAlign: 'center' }}>
         <div style={{ display: 'grid', gap: 12, justifyItems: 'center' }}>
-          <img src="/logo.png" alt="AnimeVault" style={{ height: 56 }} />
+          <img src={assetPath('logo.png')} alt="AnimeVault" style={{ height: 56 }} />
           <h1 style={{ margin: 0, fontSize: 'clamp(1.9rem, 9vw, 3.5rem)', fontWeight: 950 }}><span style={{ color: '#ff1a75' }}>Anime</span>Vault</h1>
           <p style={{ margin: 0, color: '#fda4af', fontWeight: 800 }}>Loading your watching profile...</p>
         </div>

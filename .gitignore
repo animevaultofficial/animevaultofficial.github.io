@@ -17,3 +17,5 @@ key.pub
 # Capacitor Android native project is generated in CI
 /android/
 /dist-mobile/
+/dist-webos/
+/dist-ipk/

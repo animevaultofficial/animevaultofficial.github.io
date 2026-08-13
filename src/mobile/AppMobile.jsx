@@ -18,11 +18,12 @@ import StatsPage from './pages/StatsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import CommunityPage from './pages/CommunityPage';
 import UpdatesPage from './pages/UpdatesPage';
+import { assetPath } from '../utils/assetPath';
 
 function Splash() {
   return (
     <div className="splash">
-      <img src="/logo.png" alt="AnimeVault" className="splash-logo" />
+      <img src={assetPath('logo.png')} alt="AnimeVault" className="splash-logo" />
       <div className="splash-title">AnimeVault</div>
       <div className="splash-sub">Your ultimate anime hub</div>
     </div>
@@ -55,7 +56,7 @@ function Sidebar({ currentPage, navigate, open, close, user }) {
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <div className="sb-hdr">
           <div className="sb-col">
-            <img src="/logo.png" alt="" className="sb-logo" />
+            <img src={assetPath('logo.png')} alt="" className="sb-logo" />
             <span className="sb-title">AnimeVault</span>
           </div>
           <button className="sb-close" onClick={close}><X size={20} /></button>
@@ -91,7 +92,7 @@ function Sidebar({ currentPage, navigate, open, close, user }) {
           </button>
         </nav>
         <div className="sb-foot" onClick={() => { navigate('profile'); close(); }}>
-          <img src={user?.avatar || '/logo.png'} alt="" className="sb-av" />
+          <img src={user?.avatar || assetPath('logo.png')} alt="" className="sb-av" />
           <div style={{ flex: 1 }}>
             <div className="sb-un">{user?.username || 'Guest'}</div>
             <div style={{ fontSize: '.68rem', color: 'var(--text3)' }}>{user ? 'Signed in' : 'Tap to sign in'}</div>
@@ -169,7 +170,7 @@ export default function AppMobile() {
           <header className="header">
             <div className="header-left">
               <button className="hamburger" onClick={() => setSidebar(true)}><Menu size={20} /></button>
-              <img src="/logo.png" alt="" className="logo" />
+              <img src={assetPath('logo.png')} alt="" className="logo" />
               <span className="brand">AnimeVault</span>
             </div>
             <span className="badge">v0.2</span>

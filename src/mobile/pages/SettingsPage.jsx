@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Palette, User, Shield, Bell, Cog, RefreshCw, Save, Download, Upload, Eye, EyeOff, Check, X, Camera } from 'lucide-react';
 import { APP_VERSION } from '../../version.js';
+import { assetPath } from '../../utils/assetPath';
 
 const ACCENTS = [
   { id: 'red', color: '#e50914', label: 'Red' },
@@ -110,7 +111,7 @@ export default function SettingsPage({ goBack }) {
         <div>
           <div style={{ textAlign: 'center', marginBottom: 20 }}>
             <div className="avatar-edit">
-              <img src="/logo.png" alt="" />
+              <img src={assetPath('logo.png')} alt="" />
               <div className="avatar-overlay"><Camera size={20} /></div>
             </div>
             <p style={{ color: 'var(--text3)', fontSize: '0.75rem', marginTop: 6 }}>Tap to change avatar</p>

@@ -45,7 +45,7 @@ import {
 } from 'lucide-react';
 import { useUser } from '../api/UserContext';
 import { useNavigate } from 'react-router-dom';
-const LogoIcon = () => <img src="/logo.png" alt="logo" style={{height:18, width:18}} />;
+const LogoIcon = () => <img src={assetPath('logo.png')} alt="logo" style={{height:18, width:18}} />;
 import { Link } from 'react-router-dom';
 import { getSettings, saveSettings, resetSettings, toggle2FA, updateUsername } from '../api/db';
 import { storage } from '../utils/storage';
@@ -58,6 +58,7 @@ import {
 } from '../utils/appearance';
 import { collectBackupData, restoreBackupData, BACKUP_KEYS } from '../utils/backup';
 import { HOME_ROWS, loadHomeLayout, saveHomeLayout } from '../utils/homeLayout';
+import { assetPath } from '../utils/assetPath';
 
 const FONT_SIZES = ['small', 'medium', 'large'];
 const QUALITIES = ['auto', '480p', '720p', '1080p', '4K'];

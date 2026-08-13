@@ -47,3 +47,11 @@ In GitHub, open the repository settings and create these four Actions secrets:
 - Never upload the keystore as a GitHub Actions artifact.
 - Never paste the keystore, Base64 keystore, keystore password, or key password into workflow logs, issues, pull requests, or source files.
 - Keep a secure backup of the keystore and passwords. Losing them can prevent you from publishing updates signed with the same Android identity.
+
+## If Android says "App not installed"
+
+Android will refuse to install a release APK over an existing AnimeVault install when the installed app was signed with a different certificate, for example an older debug build or a release built with a different keystore. Uninstall the existing AnimeVault app from the phone first, then install the new `AnimeVault-Android.apk` built by GitHub Actions.
+
+Also make sure you are installing `AnimeVault-Android.apk`, not the `.aab`. The `.aab` is for app-store style distribution; phones install the APK artifact directly.
+
+The CI workflow now writes `versionName` from `package.json` and a matching numeric `versionCode` into the freshly generated Capacitor project before building, so release APK upgrades can install normally when they are signed by the same keystore.

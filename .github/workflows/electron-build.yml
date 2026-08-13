@@ -361,12 +361,20 @@ jobs:
           printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "${ANDROID_KEYSTORE_PATH}"
           chmod 600 "${ANDROID_KEYSTORE_PATH}"
 
-      - name: Configure Android release signing
+      - name: Configure Android release signing and version
         shell: bash
         run: |
           set -euo pipefail
           python3 <<'PY'
+          import json
+          import re
           from pathlib import Path
+
+          package = json.loads(Path('package.json').read_text())
+          version_name = package['version']
+          major, minor, patch = (int(part) for part in version_name.split('.')[:3])
+          version_code = major * 1000000 + minor * 1000 + patch
+
           path = Path('android/app/build.gradle')
           text = path.read_text()
           signing = '''    signingConfigs {
@@ -389,7 +397,19 @@ jobs:
               if marker not in text:
                   raise SystemExit('ERROR: android/app/build.gradle does not contain release build type.')
               text = text.replace(marker, marker + '\n            signingConfig signingConfigs.release', 1)
+
+          if re.search(r'\n\s*versionCode\s+\d+', text):
+              text = re.sub(r'(\n\s*versionCode\s+)\d+', rf'\g<1>{version_code}', text, count=1)
+          else:
+              text = text.replace('        targetSdkVersion rootProject.ext.targetSdkVersion', '        targetSdkVersion rootProject.ext.targetSdkVersion\n        versionCode ' + str(version_code), 1)
+
+          if re.search(r'\n\s*versionName\s+"[^"]+"', text):
+              text = re.sub(r'(\n\s*versionName\s+)"[^"]+"', rf'\g<1>"{version_name}"', text, count=1)
+          else:
+              text = text.replace('        versionCode ' + str(version_code), '        versionCode ' + str(version_code) + '\n        versionName "' + version_name + '"', 1)
+
           path.write_text(text)
+          print(f'Configured Android versionName {version_name} and versionCode {version_code}')
           PY
 
       - name: Verify generated Android project
