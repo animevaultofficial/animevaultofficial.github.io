@@ -1,4 +1,5 @@
 const PROXY_TOKEN_KEY = 'animevault_proxy_session_token';
+const PROXY_TIMEOUT_MS = 8000;
 
 function getProxyBaseUrl() {
   const raw = import.meta.env.VITE_AUTH_PROXY_URL || import.meta.env.VITE_RENDER_AUTH_PROXY_URL || '';
@@ -47,27 +48,44 @@ async function requestProxy(path, body = {}, { includeToken = false } = {}) {
   const token = getStoredProxyToken();
   if (includeToken && token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS) : null;
 
-  let data = {};
   try {
-    data = await res.json();
-  } catch {}
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      ...(controller ? { signal: controller.signal } : {}),
+    });
 
-  if (!res.ok) {
+    let data = {};
+    try {
+      data = await res.json();
+    } catch {}
+
+    if (!res.ok) {
+      return {
+        configured: true,
+        success: false,
+        message: data?.message || data?.error || `Auth proxy request failed (${res.status}).`,
+      };
+    }
+
+    if (data?.token || data?.sessionToken) storeProxyToken(data.token || data.sessionToken);
+    return { configured: true, success: data?.success !== false, ...data };
+  } catch (error) {
+    const timedOut = error?.name === 'AbortError';
     return {
       configured: true,
       success: false,
-      message: data?.message || data?.error || `Auth proxy request failed (${res.status}).`,
+      message: timedOut
+        ? `Auth proxy request timed out after ${PROXY_TIMEOUT_MS / 1000}s.`
+        : error?.message || 'Auth proxy request failed.',
     };
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
-
-  if (data?.token || data?.sessionToken) storeProxyToken(data.token || data.sessionToken);
-  return { configured: true, success: data?.success !== false, ...data };
 }
 
 export async function proxyLogin(email, password, captchaToken = '') {
