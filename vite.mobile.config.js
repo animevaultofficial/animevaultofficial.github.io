@@ -2,11 +2,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-// Android uses the dedicated mobile shell so the APK gets the mobile UI,
-// navigation and mobile-specific styling instead of the desktop web shell.
-// Naming the Rollup input "index" makes Vite emit dist-mobile/index.html,
-// which is required by Capacitor's webDir.
+// Build the dedicated mobile shell with src/mobile as the Vite root.
+// This guarantees the HTML entry is emitted directly as dist-mobile/index.html,
+// which is the directory Capacitor uses as its webDir.
 export default defineConfig({
+  root: path.resolve(__dirname, 'src/mobile'),
   plugins: [react()],
   base: './',
   resolve: {
@@ -15,12 +15,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist-mobile',
+    outDir: path.resolve(__dirname, 'dist-mobile'),
     emptyOutDir: true,
-    rollupOptions: {
-      input: {
-        index: path.resolve(__dirname, 'src/mobile/index.html'),
-      },
-    },
   },
 });
