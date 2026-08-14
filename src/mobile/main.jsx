@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { HashRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppMobile from './AppMobile';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -28,11 +29,13 @@ root.render(
   <React.StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <UserProvider>
-          <SubAccountGate>
-            <AppMobile />
-          </SubAccountGate>
-        </UserProvider>
+        <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <UserProvider>
+            <SubAccountGate>
+              <AppMobile />
+            </SubAccountGate>
+          </UserProvider>
+        </HashRouter>
       </QueryClientProvider>
     </ErrorBoundary>
   </React.StrictMode>
