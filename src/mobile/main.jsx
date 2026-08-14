@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppMobile from './AppMobile';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { UserProvider } from '../api/UserContext';
+import SubAccountGate from '../components/SubAccountGate';
 import { assetPath } from '../utils/assetPath';
 
 const queryClient = new QueryClient({
@@ -28,7 +29,9 @@ root.render(
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <UserProvider>
-          <AppMobile />
+          <SubAccountGate>
+            <AppMobile />
+          </SubAccountGate>
         </UserProvider>
       </QueryClientProvider>
     </ErrorBoundary>

@@ -19,6 +19,7 @@ import NotificationsPage from './pages/NotificationsPage';
 import CommunityPage from './pages/CommunityPage';
 import UpdatesPage from './pages/UpdatesPage';
 import { assetPath } from '../utils/assetPath';
+import { clearActiveSubAccount } from '../utils/subAccounts';
 
 function Splash() {
   return (
@@ -30,7 +31,7 @@ function Splash() {
   );
 }
 
-function Sidebar({ currentPage, navigate, open, close, user }) {
+function Sidebar({ currentPage, navigate, open, close, user, activeSubAccount, onSwitchAccount }) {
   const sections = [
     {
       label: 'Browse', items: [
@@ -82,6 +83,11 @@ function Sidebar({ currentPage, navigate, open, close, user }) {
             onClick={() => { navigate('profile'); close(); }}>
             <User size={18} /> Profile
           </button>
+          {user && (
+            <button className="sb-item" onClick={() => { onSwitchAccount(); close(); }}>
+              <Users size={18} /> Switch Account
+            </button>
+          )}
           <button className={`sb-item ${currentPage === 'settings' ? 'active' : ''}`}
             onClick={() => { navigate('settings'); close(); }}>
             <Settings size={18} /> Settings
@@ -91,11 +97,11 @@ function Sidebar({ currentPage, navigate, open, close, user }) {
             <RefreshCw size={18} /> Updates
           </button>
         </nav>
-        <div className="sb-foot" onClick={() => { navigate('profile'); close(); }}>
+        <div className="sb-foot" onClick={() => { if (user) onSwitchAccount(); else navigate('profile'); close(); }}>
           <img src={user?.avatar || assetPath('logo.png')} alt="" className="sb-av" />
           <div style={{ flex: 1 }}>
-            <div className="sb-un">{user?.username || 'Guest'}</div>
-            <div style={{ fontSize: '.68rem', color: 'var(--text3)' }}>{user ? 'Signed in' : 'Tap to sign in'}</div>
+            <div className="sb-un">{activeSubAccount?.name || user?.username || 'Guest'}</div>
+            <div style={{ fontSize: '.68rem', color: 'var(--text3)' }}>{user ? 'Tap to switch profile' : 'Tap to sign in'}</div>
           </div>
           <ChevronRight size={16} color="var(--text3)" />
         </div>
@@ -113,7 +119,7 @@ const NAV = [
 ];
 
 export default function AppMobile() {
-  const { user } = useUser();
+  const { user, activeSubAccount, setActiveSubAccountState } = useUser();
   const [page, setPage] = useState('home');
   const [params, setParams] = useState({});
   const [splash, setSplash] = useState(false);
@@ -138,6 +144,12 @@ export default function AppMobile() {
   }, []);
 
   const nav = (p, pr = {}) => { setPage(p); setParams(pr); setSidebar(false); };
+  const switchAccount = () => {
+    clearActiveSubAccount();
+    setActiveSubAccountState(null);
+    setPage('home');
+    setParams({});
+  };
   const back = () => { setPage('home'); setParams({}); };
 
   const render = () => {
@@ -163,7 +175,7 @@ export default function AppMobile() {
   return (
     <>
       {!splash && <Splash />}
-      <Sidebar currentPage={page} navigate={nav} open={sidebar} close={() => setSidebar(false)} user={user} />
+      <Sidebar currentPage={page} navigate={nav} open={sidebar} close={() => setSidebar(false)} user={user} activeSubAccount={activeSubAccount} onSwitchAccount={switchAccount} />
       <div className="app" style={{ opacity: splash ? 1 : 0, transition: 'opacity .4s' }}>
         {announcement && showNav && <div className="mobile-announcement">{announcement}</div>}
         {showNav && (
