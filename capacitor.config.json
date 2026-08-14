@@ -3,6 +3,7 @@
   "appName": "AnimeVault",
   "webDir": "dist-mobile",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "hostname": "animevaultofficial.github.io"
   }
 }
