@@ -1,6 +1,9 @@
 import { createAuthClient } from '@neondatabase/auth';
 
+const AUTH_TIMEOUT_MS = 8000;
+
 function getFallbackOrigin() {
+  if (typeof window === 'undefined') return 'https://animevaultofficial.github.io';
   const origin = window.location.origin;
   const isNativeShell = !origin || origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('file://');
   return !isNativeShell ? origin : 'https://localhost';
@@ -8,19 +11,64 @@ function getFallbackOrigin() {
 
 function withAuthRequestDefaults(request) {
   if (request.headers.has('Origin') || request.headers.has('origin')) return;
-
   try {
     request.headers.set('Origin', getFallbackOrigin());
   } catch {
-    // Some browser Request header guards disallow Origin changes; keep the
-    // request usable instead of breaking auth and falling back paths.
+    // Browser Request guards may reject manually setting Origin.
   }
 }
 
+function withTimeout(promise, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${AUTH_TIMEOUT_MS}ms`)), AUTH_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function createUnavailableAuthClient() {
+  const unavailable = (operation) => Promise.resolve({
+    error: { message: `Neon Auth is not configured (${operation}).` },
+    data: null,
+  });
+
+  return {
+    getSession: () => unavailable('getSession'),
+    signIn: {
+      email: (...args) => unavailable('signIn.email'),
+      emailOtp: (...args) => unavailable('signIn.emailOtp'),
+      social: (...args) => unavailable('signIn.social'),
+    },
+    signUp: {
+      email: (...args) => unavailable('signUp.email'),
+    },
+    emailOtp: {
+      sendVerificationOtp: (...args) => unavailable('emailOtp.sendVerificationOtp'),
+    },
+    signOut: () => unavailable('signOut'),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+  };
+}
+
 export function createAnimeVaultAuthClient() {
-  return createAuthClient(import.meta.env.VITE_NEON_AUTH_URL, {
+  const authUrl = import.meta.env.VITE_NEON_AUTH_URL;
+  if (!authUrl) {
+    console.warn('[AnimeVault Auth] VITE_NEON_AUTH_URL is missing. Auth features are unavailable until the deployment secret is configured.');
+    return createUnavailableAuthClient();
+  }
+
+  const client = createAuthClient(authUrl, {
     fetchOptions: {
       onRequest: withAuthRequestDefaults,
     },
   });
+
+  // A hung auth request used to keep the whole app in its loading state.
+  // Keep the UI responsive while preserving the Neon Auth client behavior.
+  if (typeof client.getSession === 'function') {
+    const getSession = client.getSession.bind(client);
+    client.getSession = (...args) => withTimeout(getSession(...args), 'Neon Auth session check');
+  }
+
+  return client;
 }
