@@ -4,6 +4,7 @@
   "webDir": "dist-mobile",
   "server": {
     "androidScheme": "https",
-    "hostname": "animevaultofficial.github.io"
+    "hostname": "animevaultofficial.github.io",
+    "cleartext": true
   }
 }
