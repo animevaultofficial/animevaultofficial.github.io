@@ -175,7 +175,9 @@ export default function SubAccountGate({ children }) {
       const validActive = savedActive
         ? nextProfiles.find(profile => profile.id === savedActive.id)
         : null;
-      const nextActive = routeRequestedProfile || validActive || null;
+      // A profile explicitly supplied by the route is safe to restore. For normal
+      // login/reload, leave the picker visible so the user always chooses who is watching.
+      const nextActive = routeRequestedProfile || null;
       if (nextActive) setActiveSubAccount(user.id, nextActive);
       setActiveSubAccountState(nextActive);
       setIsLoadingProfiles(false);
