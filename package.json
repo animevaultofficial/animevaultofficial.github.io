@@ -124,6 +124,7 @@
   },
   "dependencies": {
     "@capacitor/core": "^6.2.1",
+    "@hcaptcha/react-hcaptcha": "^2.1.0",
     "@neondatabase/auth": "^0.3.0-beta",
     "@neondatabase/serverless": "^1.1.0",
     "@noriginmedia/norigin-spatial-navigation": "^3.1.0",
