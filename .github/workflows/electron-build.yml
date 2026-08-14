@@ -1,38 +1,13 @@
 name: Automated Installer Builds & Releases
 
-# AnimeVault installer/build pipeline
-#
-# Triggers:
-#   - push to main
-#       -> bump patch version
-#       -> build all platforms
-#       -> publish GitHub Release
-#
-#   - pull_request to main
-#       -> build all platforms
-#       -> upload Actions artifacts
-#       -> NO GitHub Release
-#
-#   - workflow_dispatch
-#       -> manual build
-#
-#   - repository_dispatch
-#       -> external release signal
-
 on:
   push:
-    branches:
-      - main
-
+    branches: [main]
   pull_request:
-    branches:
-      - main
-
+    branches: [main]
   workflow_dispatch:
-
   repository_dispatch:
-    types:
-      - release
+    types: [release]
 
 permissions:
   contents: write
@@ -43,196 +18,87 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # API Configuration
   VITE_ANFIRE_API_URL: ${{ secrets.VITE_ANFIRE_API_URL || 'http://localhost:3000/api.php' }}
   VITE_ANFIRE_API_KEY: ${{ secrets.VITE_ANFIRE_API_KEY || 'default-key' }}
   VITE_ANFIRE_EPISODE_API_URL: ${{ secrets.VITE_ANFIRE_EPISODE_API_URL || 'http://localhost:3000/api.php' }}
-
-  # Database
   VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
   VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
-
-  # Auth proxy
   VITE_AUTH_PROXY_URL: ${{ secrets.VITE_AUTH_PROXY_URL || 'https://animevaultofficial-github-io.onrender.com' }}
-
-  # hCaptcha
   VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
-
-  # Cloudinary
   VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
   VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
 
 jobs:
-
-  # ============================================================
-  # VERSION BUMP
-  # ============================================================
-
   version-bump:
     name: Auto-bump version
     runs-on: ubuntu-latest
-
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "22"
-
+          node-version: '22'
       - name: Auto-increment patch version
         id: bump
         shell: bash
         run: |
           set -euo pipefail
-
           current_version="$(node -p "require('./package.json').version")"
-
           IFS='.' read -r major minor patch <<< "$current_version"
-
-          new_patch=$((patch + 1))
-          new_version="${major}.${minor}.${new_patch}"
-
-          echo "Current version: ${current_version}"
-          echo "New version:     ${new_version}"
-
-          node -e "
-            const fs = require('fs');
-            const pkg = require('./package.json');
-
-            pkg.version = '${new_version}';
-
-            fs.writeFileSync(
-              'package.json',
-              JSON.stringify(pkg, null, 2) + '\\n'
-            );
-          "
-
-          echo "version=${new_version}" >> "${GITHUB_OUTPUT}"
-
+          new_version="${major}.${minor}.$((patch + 1))"
+          node -e "const fs=require('fs');const pkg=require('./package.json');pkg.version='${new_version}';fs.writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\\n');"
+          echo "version=${new_version}" >> "$GITHUB_OUTPUT"
       - name: Commit and push version bump
-        shell: bash
         run: |
           set -euo pipefail
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           git add package.json
-
-          if git diff --cached --quiet; then
-            echo "No version change to commit."
-            exit 0
-          fi
-
-          git commit \
-            -m "chore: bump version to ${{ steps.bump.outputs.version }}"
-
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }}"
           git push origin main
-
-
-  # ============================================================
-  # DESKTOP BUILD
-  # ============================================================
 
   desktop:
     name: Desktop installer (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
-
-    needs:
-      - version-bump
-
+    needs: [version-bump]
     if: always()
-
     strategy:
       fail-fast: false
-
       matrix:
         include:
-
           - os: windows-latest
             name: Windows
             args: --win
-
           - os: macos-latest
             name: macOS
             args: --mac
-
           - os: ubuntu-latest
             name: Linux
             args: --linux
-
     steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'push' && 'refs/heads/main' || github.ref }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
           cache: npm
-
-      # --------------------------------------------------------
-      # Electron cache
-      # --------------------------------------------------------
-
-      - name: Cache Electron downloads
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/electron
-            ~/.cache/electron-builder
-            ~/Library/Caches/electron
-            ~/Library/Caches/electron-builder
-            ~/AppData/Local/electron/Cache
-            ~/AppData/Local/electron-builder/Cache
-
-          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-          restore-keys: |
-            electron-${{ runner.os }}-
-
-      # --------------------------------------------------------
-      # ImageMagick
-      # --------------------------------------------------------
-
       - name: Install ImageMagick (Ubuntu)
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y imagemagick
-
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
       - name: Install ImageMagick (Windows)
         if: runner.os == 'Windows'
-        run: |
-          choco install imagemagick --yes --no-progress
-
+        run: choco install imagemagick --yes --no-progress
       - name: Install ImageMagick (macOS)
         if: runner.os == 'macOS'
-        run: |
-          brew install imagemagick
-
-      # --------------------------------------------------------
-      # Dependencies
-      # --------------------------------------------------------
-
+        run: brew install imagemagick
       - name: Install dependencies
         run: npm ci
-
-      # --------------------------------------------------------
-      # Build
-      # --------------------------------------------------------
-
       - name: Build installer
         shell: bash
         env:
@@ -240,33 +106,19 @@ jobs:
           CSC_KEY_PASSWORD: '${{ secrets.CSC_KEY_PASSWORD }}'
           WIN_CSC_LINK: ${{ github.workspace }}/animevault-code-signing.pfx
           WIN_CSC_KEY_PASSWORD: '${{ secrets.CSC_KEY_PASSWORD }}'
-        run: |
-          set -euo pipefail
-          npm run electron:build -- ${{ matrix.args }}
-      # --------------------------------------------------------
-      # Artifact
-      # --------------------------------------------------------
-
+        run: npm run electron:build -- ${{ matrix.args }}
       - name: Verify desktop artifacts
         shell: bash
         run: |
           set -euo pipefail
-
-          echo "Release directory:"
           find release -maxdepth 1 -type f -print | sort
-
-          if ! find release -maxdepth 1 -type f | grep -q .; then
-            echo "ERROR: No desktop release files were produced."
-            exit 1
-          fi
-
+          find release -maxdepth 1 -type f | grep -q . || { echo 'ERROR: No desktop release files were produced.'; exit 1; }
       - name: Upload desktop installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: animevault-${{ matrix.name }}-installer
           retention-days: 30
           if-no-files-found: error
-
           path: |
             release/*.exe
             release/*.dmg
@@ -276,54 +128,39 @@ jobs:
             release/*.yml
             release/*.blockmap
 
-
-  # ============================================================
-  # ANDROID
-  # ============================================================
-
   android:
     name: Android APK + AAB
     runs-on: ubuntu-latest
-
-    needs:
-      - version-bump
-
+    needs: [version-bump]
     if: always()
-
     env:
       ANDROID_PLATFORM: android-34
       ANDROID_BUILD_TOOLS: 34.0.0
       ANDROID_KEYSTORE_PATH: android/animevault-release.keystore
       ANDROID_PACKAGE_NAME: com.animevault.app
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'push' && 'refs/heads/main' || github.ref }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
           cache: npm
-
-      - name: Setup Java
-        uses: actions/setup-java@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
       - name: Install Android SDK packages
         shell: bash
         run: |
           set -euo pipefail
           sdkmanager "platforms;${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}" "platform-tools"
-
+          echo "${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}" >> "${GITHUB_PATH}"
+          echo "${ANDROID_HOME}/platform-tools" >> "${GITHUB_PATH}"
+          "${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/aapt" version
+          "${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/apksigner" version
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
@@ -331,15 +168,11 @@ jobs:
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
-
+          restore-keys: gradle-${{ runner.os }}-
       - name: Install dependencies
         run: npm ci
-
       - name: Build web application
         run: npm run build
-
       - name: Generate fresh Capacitor Android project
         shell: bash
         run: |
@@ -349,7 +182,6 @@ jobs:
           npm run generate-android-icons
           npx vite build --config vite.mobile.config.js
           npx cap sync android
-
       - name: Decode Android release keystore
         shell: bash
         env:
@@ -357,76 +189,47 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${ANDROID_KEYSTORE_BASE64}" ]; then
-            echo "ERROR: ANDROID_KEYSTORE_BASE64 secret is not configured. Create the Android release keystore once and store it in GitHub Secrets."
+            echo 'ERROR: ANDROID_KEYSTORE_BASE64 secret is not configured.'
             exit 1
           fi
           printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "${ANDROID_KEYSTORE_PATH}"
           chmod 600 "${ANDROID_KEYSTORE_PATH}"
-
       - name: Configure Android release signing and version
         shell: bash
         run: |
           set -euo pipefail
           python3 <<'PY'
-          import json
-          import re
+          import json,re
           from pathlib import Path
-
-          package = json.loads(Path('package.json').read_text())
-          version_name = package['version']
-          major, minor, patch = (int(part) for part in version_name.split('.')[:3])
-          version_code = major * 1000000 + minor * 1000 + patch
-
-          path = Path('android/app/build.gradle')
-          text = path.read_text()
-          signing = '''    signingConfigs {
-              release {
-                  storeFile file("../animevault-release.keystore")
-                  storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                  keyAlias System.getenv("ANDROID_KEY_ALIAS")
-                  keyPassword System.getenv("ANDROID_KEY_PASSWORD")
-              }
-          }
-
-          '''
+          package=json.loads(Path('package.json').read_text())
+          version_name=package['version']
+          major,minor,patch=(int(part) for part in version_name.split('.')[:3])
+          version_code=major*1000000+minor*1000+patch
+          path=Path('android/app/build.gradle')
+          text=path.read_text()
+          signing='''    signingConfigs {\n        release {\n            storeFile file("../animevault-release.keystore")\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n\n'''
           if 'signingConfigs {' not in text:
-              marker = '    buildTypes {'
-              if marker not in text:
-                  raise SystemExit('ERROR: android/app/build.gradle does not contain buildTypes block.')
-              text = text.replace(marker, signing + marker, 1)
+              text=text.replace('    buildTypes {',signing+'    buildTypes {',1)
           if 'signingConfig signingConfigs.release' not in text:
-              marker = '    buildTypes {\n        release {'
-              if marker not in text:
-                  raise SystemExit('ERROR: android/app/build.gradle does not contain release build type.')
-              text = text.replace(marker, marker + '\n            signingConfig signingConfigs.release', 1)
-
-          if re.search(r'\n\s*versionCode\s+\d+', text):
-              text = re.sub(r'(\n\s*versionCode\s+)\d+', rf'\g<1>{version_code}', text, count=1)
-          else:
-              text = text.replace('        targetSdkVersion rootProject.ext.targetSdkVersion', '        targetSdkVersion rootProject.ext.targetSdkVersion\n        versionCode ' + str(version_code), 1)
-
-          if re.search(r'\n\s*versionName\s+"[^"]+"', text):
-              text = re.sub(r'(\n\s*versionName\s+)"[^"]+"', rf'\g<1>"{version_name}"', text, count=1)
-          else:
-              text = text.replace('        versionCode ' + str(version_code), '        versionCode ' + str(version_code) + '\n        versionName "' + version_name + '"', 1)
-
+              text=text.replace('    buildTypes {\n        release {','    buildTypes {\n        release {\n            signingConfig signingConfigs.release',1)
+          if re.search(r'\n\s*versionCode\s+\d+',text):
+              text=re.sub(r'(\n\s*versionCode\s+)\d+',rf'\g<1>{version_code}',text,count=1)
+          if re.search(r'\n\s*versionName\s+"[^"]+"',text):
+              text=re.sub(r'(\n\s*versionName\s+)"[^"]+"',rf'\g<1>"{version_name}"',text,count=1)
           path.write_text(text)
-          print(f'Configured Android versionName {version_name} and versionCode {version_code}')
           PY
-
       - name: Verify generated Android project
         shell: bash
         run: |
           set -euo pipefail
-          test -x android/gradlew || { echo "ERROR: android/gradlew is missing or not executable."; exit 1; }
-          test -f android/settings.gradle || { echo "ERROR: android/settings.gradle is missing."; exit 1; }
-          test -f android/build.gradle || { echo "ERROR: android/build.gradle is missing."; exit 1; }
-          test -f android/app/build.gradle || { echo "ERROR: android/app/build.gradle is missing."; exit 1; }
-          package_matches="$(find android/app -type f \( -name "*.gradle" -o -name "*.xml" -o -name "*.java" -o -name "*.kt" \) -print0 | xargs -0 grep -l "${ANDROID_PACKAGE_NAME}" | wc -l)"
+          test -x android/gradlew
+          test -f android/settings.gradle
+          test -f android/build.gradle
+          test -f android/app/build.gradle
+          package_matches="$(find android/app -type f \( -name '*.gradle' -o -name '*.xml' -o -name '*.java' -o -name '*.kt' \) -print0 | xargs -0 grep -l "${ANDROID_PACKAGE_NAME}" | wc -l)"
           [ "${package_matches}" -gt 0 ] || { echo "ERROR: Generated Android project does not reference ${ANDROID_PACKAGE_NAME}."; exit 1; }
           grep -q 'signingConfigs' android/app/build.gradle
           grep -q 'signingConfig signingConfigs.release' android/app/build.gradle
-
       - name: Build signed Android APK
         shell: bash
         env:
@@ -440,7 +243,6 @@ jobs:
           test -n "${ANDROID_KEY_PASSWORD}"
           cd android
           ./gradlew clean assembleRelease --stacktrace
-
       - name: Build signed Android App Bundle
         shell: bash
         env:
@@ -451,48 +253,42 @@ jobs:
           set -euo pipefail
           cd android
           ./gradlew bundleRelease --stacktrace
-
       - name: Locate and normalize Android artifacts
         shell: bash
         run: |
           set -euo pipefail
-          apk="android/app/build/outputs/apk/release/app-release.apk"
-          aab="android/app/build/outputs/bundle/release/app-release.aab"
-          test -f "${apk}" || { echo "ERROR: Expected APK not found at ${apk}."; exit 1; }
-          test -f "${aab}" || { echo "ERROR: Expected AAB not found at ${aab}."; exit 1; }
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          aab=android/app/build/outputs/bundle/release/app-release.aab
+          test -f "${apk}"
+          test -f "${aab}"
           min_size=$((1024 * 1024))
-          [ "$(stat -c%s "${apk}")" -gt "${min_size}" ] || { echo "ERROR: APK is suspiciously small."; exit 1; }
-          [ "$(stat -c%s "${aab}")" -gt "${min_size}" ] || { echo "ERROR: AAB is suspiciously small."; exit 1; }
+          [ "$(stat -c%s "${apk}")" -gt "${min_size}" ]
+          [ "$(stat -c%s "${aab}")" -gt "${min_size}" ]
           mkdir -p release
           cp "${apk}" release/AnimeVault-Android.apk
           cp "${aab}" release/AnimeVault-Android.aab
-          ls -lh release/AnimeVault-Android.apk release/AnimeVault-Android.aab
-
       - name: Verify Android APK
         shell: bash
         run: |
           set -euo pipefail
-          apk="release/AnimeVault-Android.apk"
+          apk=release/AnimeVault-Android.apk
           unzip -t "${apk}" >/dev/null
-          unzip -l "${apk}" | grep -q 'AndroidManifest.xml' || { echo "ERROR: AndroidManifest.xml missing from APK."; exit 1; }
-          unzip -l "${apk}" | grep -Eq '(^|[[:space:]])classes[0-9]*\.dex$' || { echo "ERROR: classes.dex missing from APK."; exit 1; }
+          unzip -l "${apk}" | grep -q 'AndroidManifest.xml' || { echo 'ERROR: AndroidManifest.xml missing from APK.'; exit 1; }
+          unzip -l "${apk}" | grep -Eq '(^|[[:space:]])classes[0-9]*\.dex$' || { echo 'ERROR: classes.dex missing from APK.'; exit 1; }
           aapt dump badging "${apk}" | grep -q "package: name='${ANDROID_PACKAGE_NAME}'" || { echo "ERROR: APK package name is not ${ANDROID_PACKAGE_NAME}."; exit 1; }
-
       - name: Verify Android APK signature
         shell: bash
         run: |
           set -euo pipefail
           apksigner verify --verbose --print-certs release/AnimeVault-Android.apk
-
       - name: Verify Android AAB
         shell: bash
         run: |
           set -euo pipefail
-          aab="release/AnimeVault-Android.aab"
+          aab=release/AnimeVault-Android.aab
           unzip -t "${aab}" >/dev/null
-          unzip -l "${aab}" | grep -q 'BundleConfig.pb' || { echo "ERROR: BundleConfig.pb missing from AAB."; exit 1; }
-          unzip -l "${aab}" | grep -q 'base/manifest/AndroidManifest.xml' || { echo "ERROR: Base module AndroidManifest.xml missing from AAB."; exit 1; }
-
+          unzip -l "${aab}" | grep -q 'BundleConfig.pb' || { echo 'ERROR: BundleConfig.pb missing from AAB.'; exit 1; }
+          unzip -l "${aab}" | grep -q 'base/manifest/AndroidManifest.xml' || { echo 'ERROR: Base module AndroidManifest.xml missing from AAB.'; exit 1; }
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -502,414 +298,136 @@ jobs:
           path: |
             release/AnimeVault-Android.apk
             release/AnimeVault-Android.aab
-
       - name: Delete Android release keystore
         if: always()
         shell: bash
-        run: |
-          rm -f "${ANDROID_KEYSTORE_PATH}"
-
-
-  # ============================================================
-  # LG WEBOS
-  # ============================================================
+        run: rm -f "${ANDROID_KEYSTORE_PATH}"
 
   webos:
     name: LG webOS build
     runs-on: ubuntu-latest
-
-    needs:
-      - version-bump
-
+    needs: [version-bump]
     if: always()
-
     steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'push' && 'refs/heads/main' || github.ref }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
-      # --------------------------------------------------------
-      # LG webOS CLI
-      # --------------------------------------------------------
-
       - name: Install LG webOS CLI
-        run: |
-          npm install --global @webos-tools/cli
-
+        run: npm install --global @webos-tools/cli
       - name: Verify LG webOS CLI
-        shell: bash
         run: |
           set -euo pipefail
-
           ares --version
-
           ares-package --version
-
-      # --------------------------------------------------------
-      # Build
-      # --------------------------------------------------------
-
       - name: Build LG webOS application
-        run: |
-          npm run webos:package
-
-      # --------------------------------------------------------
-      # Validate package
-      # --------------------------------------------------------
-
+        run: npm run webos:package
       - name: Verify webOS package
         shell: bash
         run: |
           set -euo pipefail
-
           test -f dist-webos/index.html
           test -f dist-webos/appinfo.json
           test -f dist-webos/logo.png
-
-          echo "webOS appinfo.json:"
-          cat dist-webos/appinfo.json
-
-          echo ""
-          echo "Generated IPK files:"
-
-          find dist-ipk \
-            -maxdepth 1 \
-            -type f \
-            -name "*.ipk" \
-            -print
-
-          if ! find dist-ipk \
-            -maxdepth 1 \
-            -type f \
-            -name "*.ipk" \
-            -print -quit | grep -q .; then
-
-            echo "ERROR: No IPK was produced."
-            exit 1
-          fi
-
-      # --------------------------------------------------------
-      # Prepare release artifact
-      # --------------------------------------------------------
-
+          find dist-ipk -maxdepth 1 -type f -name '*.ipk' -print
+          find dist-ipk -maxdepth 1 -type f -name '*.ipk' -print -quit | grep -q . || { echo 'ERROR: No IPK was produced.'; exit 1; }
       - name: Prepare webOS release files
         shell: bash
         run: |
           set -euo pipefail
-
           mkdir -p release
-
-          ipk="$(
-            find dist-ipk \
-              -maxdepth 1 \
-              -type f \
-              -name '*.ipk' \
-              -print \
-              -quit
-          )"
-
-          if [ -z "$ipk" ]; then
-            echo "ERROR: IPK not found."
-            exit 1
-          fi
-
-          cp "$ipk" \
-            "release/AnimeVault-webOS.ipk"
-
+          ipk="$(find dist-ipk -maxdepth 1 -type f -name '*.ipk' -print -quit)"
+          [ -n "${ipk}" ] || { echo 'ERROR: IPK not found.'; exit 1; }
+          cp "${ipk}" release/AnimeVault-webOS.ipk
           cd dist-webos
-
-          zip -r \
-            "../release/AnimeVault-webOS-source.zip" \
-            .
-
-          cd ..
-
-          echo "webOS release files:"
-          ls -lh release/
-
-      # --------------------------------------------------------
-      # Upload Actions artifact
-      # --------------------------------------------------------
-
+          zip -r ../release/AnimeVault-webOS-source.zip .
       - name: Upload webOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: AnimeVault-webos
           retention-days: 30
           if-no-files-found: error
-
           path: |
             release/AnimeVault-webOS.ipk
             release/AnimeVault-webOS-source.zip
 
-
-  # ============================================================
-  # GITHUB RELEASE
-  # ============================================================
-
   publish:
     name: Publish GitHub Release
-
-    needs:
-      - desktop
-      - android
-      - webos
-
-    # IMPORTANT:
-    # No release is created unless ALL three build groups succeed.
-    #
-    # This prevents a release from appearing "successful"
-    # without the Android assets.
-    if: >
-      github.event_name != 'pull_request' &&
-      needs.desktop.result == 'success' &&
-      needs.android.result == 'success' &&
-      needs.webos.result == 'success'
-
+    needs: [desktop, android, webos]
+    if: github.event_name != 'pull_request' && needs.desktop.result == 'success' && needs.android.result == 'success' && needs.webos.result == 'success'
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
       actions: read
-
     steps:
-
-      # --------------------------------------------------------
-      # Checkout
-      # --------------------------------------------------------
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'push' && 'refs/heads/main' || github.ref }}
-
-      # --------------------------------------------------------
-      # Node
-      # --------------------------------------------------------
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "22"
-
-      # --------------------------------------------------------
-      # Resolve version
-      # --------------------------------------------------------
-
+          node-version: '22'
       - name: Resolve release version
         id: release
         shell: bash
         run: |
           set -euo pipefail
-
           version="$(node -p "require('./package.json').version")"
-
-          tag="v${version}"
-
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
-
-          echo "Release version: ${version}"
-          echo "Release tag:     ${tag}"
-
-      # ========================================================
-      # DOWNLOAD DESKTOP
-      # ========================================================
-
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
       - name: Download Windows/macOS/Linux artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: animevault-*-installer
           path: release
           merge-multiple: true
-
-      # ========================================================
-      # DOWNLOAD ANDROID
-      # ========================================================
-
       - name: Download Android artifacts
         uses: actions/download-artifact@v4
         with:
           name: AnimeVault-Android
           path: release
-
-      # ========================================================
-      # DOWNLOAD WEBOS
-      # ========================================================
-
       - name: Download webOS artifacts
         uses: actions/download-artifact@v4
         with:
           name: AnimeVault-webos
           path: release
-
-      # ========================================================
-      # VERIFY EVERYTHING
-      # ========================================================
-
       - name: Verify release assets
         shell: bash
         run: |
           set -euo pipefail
-
-          echo ""
-          echo "======================================"
-          echo " Release assets before publishing"
-          echo "======================================"
-
-          find release \
-            -type f \
-            -print \
-            | sort
-
-          echo ""
-          echo "======================================"
-          echo " Required Android assets"
-          echo "======================================"
-
-          # Android APK MUST exist.
-          if [ ! -f "release/AnimeVault-Android.apk" ]; then
-            echo "ERROR:"
-            echo "AnimeVault-Android.apk is missing."
-            echo ""
-            echo "The GitHub Release will NOT be created."
-            exit 1
-          fi
-
-          # Android AAB MUST exist.
-          if [ ! -f "release/AnimeVault-Android.aab" ]; then
-            echo "ERROR:"
-            echo "AnimeVault-Android.aab is missing."
-            echo ""
-            echo "The GitHub Release will NOT be created."
-            exit 1
-          fi
-
-          echo "Android APK:"
-          ls -lh release/AnimeVault-Android.apk
-
-          echo ""
-          echo "Android AAB:"
-          ls -lh release/AnimeVault-Android.aab
-
-          echo ""
-          echo "======================================"
-          echo " Required webOS asset"
-          echo "======================================"
-
-          if [ ! -f "release/AnimeVault-webOS.ipk" ]; then
-            echo "ERROR:"
-            echo "AnimeVault-webOS.ipk is missing."
-            exit 1
-          fi
-
-          ls -lh release/AnimeVault-webOS.ipk
-
-          echo ""
-          echo "All required mobile/TV assets exist."
-
-      # ========================================================
-      # CREATE RELEASE
-      # ========================================================
-
+          test -f release/AnimeVault-Android.apk || { echo 'ERROR: AnimeVault-Android.apk is missing.'; exit 1; }
+          test -f release/AnimeVault-Android.aab || { echo 'ERROR: AnimeVault-Android.aab is missing.'; exit 1; }
+          test -f release/AnimeVault-webOS.ipk || { echo 'ERROR: AnimeVault-webOS.ipk is missing.'; exit 1; }
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
-
         shell: bash
         run: |
           set -euo pipefail
-
-          echo "Publishing release ${RELEASE_TAG}"
-
-          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-
-            echo "Release ${RELEASE_TAG} already exists."
-
-          else
-
+          if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
             cat > release-notes.md <<EOF
           # AnimeVault ${RELEASE_TAG}
-
           Automated AnimeVault release.
-
           Version: ${RELEASE_VERSION}
-
-          Built from commit:
-          ${GITHUB_SHA}
-
-          ## Downloads
-
-          ### Windows
-          AnimeVault-Windows-x64.exe
-
-          ### macOS
-          AnimeVault-macOS-x64.dmg
-          AnimeVault-macOS-arm64.dmg
-
-          ### Linux
-          AnimeVault-Linux-amd64.deb
-          AnimeVault-Linux-x86_64.AppImage
-
-          ### Android
-          AnimeVault-Android.apk
-          AnimeVault-Android.aab
-
-          ### LG webOS
-          AnimeVault-webOS.ipk
+          Built from commit: ${GITHUB_SHA}
           EOF
-
-            gh release create "${RELEASE_TAG}" \
-              --target "${GITHUB_SHA}" \
-              --title "AnimeVault ${RELEASE_TAG}" \
-              --notes-file release-notes.md \
-              --latest
-
+            gh release create "${RELEASE_TAG}" --target "${GITHUB_SHA}" --title "AnimeVault ${RELEASE_TAG}" --notes-file release-notes.md --latest
           fi
-
       - name: Upload Release Assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
         run: |
           set -euo pipefail
-          echo "Collecting release files..."
-          mapfile -t files < <(find release \
-            -type f \
-            \( \
-              -name "*.exe" \
-              -o -name "*.dmg" \
-              -o -name "*.zip" \
-              -o -name "*.AppImage" \
-              -o -name "*.deb" \
-              -o -name "*.yml" \
-              -o -name "*.blockmap" \
-              -o -name "*.apk" \
-              -o -name "*.aab" \
-              -o -name "*.ipk" \
-            \) \
-            -print )
-
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "ERROR: No release assets found."
-            exit 1
-          fi
-
-          echo "Uploading assets to release ${RELEASE_TAG}..."
+          mapfile -t files < <(find release -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.yml' -o -name '*.blockmap' -o -name '*.apk' -o -name '*.aab' -o -name '*.ipk' \) -print)
+          [ "${#files[@]}" -gt 0 ] || { echo 'ERROR: No release assets found.'; exit 1; }
           gh release upload "${RELEASE_TAG}" "${files[@]}" --clobber
