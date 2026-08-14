@@ -1,14 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Flame, Clock, Sparkles, Calendar, Star, Play, Info } from 'lucide-react';
 import { useUser } from '../../api/UserContext';
-import { fetchHomeData, getTitle, getImage } from '../api/anilist';
+import { fetchAnimeBySeason, fetchHomeData, getTitle, getImage } from '../api/anilist';
 import { getContinueWatching } from '../api/storage';
-
-const ANILIST_URL = 'https://graphql.anilist.co';
-const SEASONAL_QUERY = `query ($season: MediaSeason, $year: Int) { Page(page: 1, perPage: 20) { media(season: $season, seasonYear: $year, type: ANIME, isAdult: false, sort: POPULARITY_DESC) { id title { romaji english } coverImage { large extraLarge } averageScore format episodes seasonYear } } }`;
-async function fetchAnimeBySeason(season, year) {
-  try { const r = await fetch(ANILIST_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query:SEASONAL_QUERY,variables:{season,year}}) }); const j = await r.json(); return j.data?.Page?.media || []; } catch { return []; }
-}
 
 const SEASONS = ['WINTER','SPRING','SUMMER','FALL'];
 const CY = new Date().getFullYear();
