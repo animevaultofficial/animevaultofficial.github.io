@@ -63,12 +63,21 @@ export function createAnimeVaultAuthClient() {
     },
   });
 
-  // A hung auth request used to keep the whole app in its loading state.
-  // Keep the UI responsive while preserving the Neon Auth client behavior.
-  if (typeof client.getSession === 'function') {
-    const getSession = client.getSession.bind(client);
-    client.getSession = (...args) => withTimeout(getSession(...args), 'Neon Auth session check');
-  }
+  // Prevent any single Neon Auth operation from leaving the UI stuck on
+  // Processing/Checking session when the auth endpoint is unavailable.
+  const wrapOperation = (target, key) => {
+    if (typeof target?.[key] !== 'function') return;
+    const operation = target[key].bind(target);
+    target[key] = (...args) => withTimeout(operation(...args), `Neon Auth ${key}`);
+  };
+
+  wrapOperation(client, 'getSession');
+  wrapOperation(client.signIn, 'email');
+  wrapOperation(client.signIn, 'emailOtp');
+  wrapOperation(client.signIn, 'social');
+  wrapOperation(client.signUp, 'email');
+  wrapOperation(client.emailOtp, 'sendVerificationOtp');
+  wrapOperation(client, 'signOut');
 
   return client;
 }
