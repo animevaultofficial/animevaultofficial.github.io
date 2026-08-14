@@ -14,7 +14,6 @@ import {
   setActiveSubAccount
 } from '../utils/subAccounts';
 
-
 function getProfileRouteSubAccountRequest(userId) {
   if (typeof window === 'undefined' || !userId) return null;
   const prefix = `#/profile/${userId}/`;
@@ -30,6 +29,14 @@ function findRequestedProfile(profiles, request) {
   if (exact) return exact;
   const index = Number.parseInt(request, 10);
   return Number.isInteger(index) && index > 0 ? profiles[index - 1] || null : null;
+}
+
+function withTimeout(promise, timeoutMs, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 const FALLBACK_POSTERS = [
@@ -150,8 +157,8 @@ export default function SubAccountGate({ children }) {
       setIsLoadingProfiles(true);
       let nextProfiles = [];
       try {
-        await ensureMainSubAccount();
-        nextProfiles = await fetchSubAccounts();
+        await withTimeout(ensureMainSubAccount(), 8000, 'Profile setup timed out.');
+        nextProfiles = await withTimeout(fetchSubAccounts(), 8000, 'Profile loading timed out.');
       } catch {
         nextProfiles = ensureSubAccounts(user);
       }
@@ -176,7 +183,7 @@ export default function SubAccountGate({ children }) {
 
     loadProfiles();
     return () => { cancelled = true; };
-  }, [user?.id, user?.username, user?.avatar, setActiveSubAccountState]);
+  }, [user?.id, setActiveSubAccountState]);
 
   const canCreate = profiles.length < MAX_SUB_ACCOUNTS;
   const createError = useMemo(() => {
@@ -185,7 +192,6 @@ export default function SubAccountGate({ children }) {
     if (profiles.some(profile => profile.id !== editingProfile?.id && profile.name.toLowerCase() === newName.trim().toLowerCase())) return 'That profile name already exists.';
     return '';
   }, [newName, profiles, editingProfile]);
-
 
   function resetProfileForm() {
     setEditingProfile(null);
@@ -234,7 +240,6 @@ export default function SubAccountGate({ children }) {
     setActiveSubAccount(user.id, profile);
     setActiveSubAccountState(profile);
   }
-
 
   async function handleAvatarUpload(event) {
     const file = event.target.files?.[0];
@@ -323,8 +328,10 @@ export default function SubAccountGate({ children }) {
             <img src={assetPath('logo.png')} alt="AnimeVault" style={{ height: 'clamp(48px, 11vw, 62px)', marginBottom: 16 }} />
             <h1 style={{ fontSize: 'clamp(1.9rem, 9vw, 3.8rem)', lineHeight: 1.02, margin: '0 0 12px', fontWeight: 950 }}>Sign up to watch AnimeVault.</h1>
             <p style={{ color: '#f8fafc', fontSize: 'clamp(0.95rem, 3vw, 1.05rem)', marginBottom: 22, textShadow: '0 2px 16px rgba(0,0,0,0.8)' }}>Create one main account with one email, then add up to five synced watching profiles for everyone in your home.</p>
-            <button onClick={() => { setAuthTab('signup'); setShowAuthModal(true); }} style={{ border: 'none', borderRadius: 999, padding: '14px 28px', fontWeight: 900, background: 'linear-gradient(135deg, #ff1a75, #ef4444)', color: '#000', cursor: 'pointer', fontSize: '1rem', boxShadow: '0 0 24px rgba(255, 26, 117, 0.35)' }}>Sign Up to Watch</button>
-            <button onClick={() => { setAuthTab('login'); setShowAuthModal(true); }} style={{ marginLeft: 12, border: '1px solid rgba(255,26,117,0.35)', borderRadius: 999, padding: '13px 24px', fontWeight: 800, background: 'rgba(255,26,117,0.08)', color: '#fff', cursor: 'pointer' }}>Sign In</button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10 }}>
+              <button onClick={() => { setAuthTab('signup'); setShowAuthModal(true); }} style={{ border: 'none', borderRadius: 999, padding: '14px 28px', fontWeight: 900, background: 'linear-gradient(135deg, #ff1a75, #ef4444)', color: '#000', cursor: 'pointer', fontSize: '1rem', boxShadow: '0 0 24px rgba(255, 26, 117, 0.35)' }}>Sign Up to Watch</button>
+              <button onClick={() => { setAuthTab('login'); setShowAuthModal(true); }} style={{ border: '1px solid rgba(255,26,117,0.35)', borderRadius: 999, padding: '13px 24px', fontWeight: 800, background: 'rgba(255,26,117,0.08)', color: '#fff', cursor: 'pointer' }}>Sign In</button>
+            </div>
           </div>
         </div>
         <AuthModal />
@@ -353,32 +360,32 @@ export default function SubAccountGate({ children }) {
         <p style={{ color: '#f8fafc', fontSize: 'clamp(1.1rem, 4vw, 1.45rem)', margin: '0 0 clamp(34px, 8vw, 70px)' }}>Who's watching?</p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(24px, 6vw, 70px)', flexWrap: 'wrap' }}>
           {profiles.map(profile => (
-            <button key={profile.id} onClick={() => chooseProfile(profile)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', display: 'grid', gap: 18, justifyItems: 'center' }}>
+            <button key={profile.id} onClick={() => chooseProfile(profile)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', display: 'grid', gap: 18, justifyItems: 'center', minWidth: 104, touchAction: 'manipulation' }}>
               <ProfileAvatar profile={profile} size={typeof window !== 'undefined' && window.innerWidth < 520 ? 104 : 132} />
-              <span style={{ fontSize: '1.15rem', fontWeight: 800 }}>{profile.name}</span>
+              <span style={{ fontSize: '1.15rem', fontWeight: 800, overflowWrap: 'anywhere' }}>{profile.name}</span>
               {profile.ageRating === 'kids' && <span style={{ marginTop: -12, color: '#fbbf24', fontSize: '0.78rem', fontWeight: 900 }}>Kids 0-12</span>}
-              <span style={{ display: 'flex', gap: 8, marginTop: -8 }}>
-                <span onClick={(event) => { event.stopPropagation(); openEditProfile(profile); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: '0.72rem', fontWeight: 900 }}><Edit3 size={12} /> Edit</span>
-                {profiles.length > 1 && <span onClick={(event) => { event.stopPropagation(); handleDeleteProfile(profile); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 999, background: 'rgba(239,68,68,0.16)', color: '#fecaca', fontSize: '0.72rem', fontWeight: 900 }}><Trash2 size={12} /> Remove</span>}
+              <span style={{ display: 'flex', gap: 8, marginTop: -8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <span onClick={(event) => { event.stopPropagation(); openEditProfile(profile); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 12px', minHeight: 34, borderRadius: 999, background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: '0.72rem', fontWeight: 900, touchAction: 'manipulation' }}><Edit3 size={12} /> Edit</span>
+                {profiles.length > 1 && <span onClick={(event) => { event.stopPropagation(); handleDeleteProfile(profile); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 12px', minHeight: 34, borderRadius: 999, background: 'rgba(239,68,68,0.16)', color: '#fecaca', fontSize: '0.72rem', fontWeight: 900, touchAction: 'manipulation' }}><Trash2 size={12} /> Remove</span>}
               </span>
             </button>
           ))}
           {canCreate && (
-            <button onClick={openCreateProfile} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', display: 'grid', gap: 18, justifyItems: 'center' }}>
+            <button onClick={openCreateProfile} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#fff', display: 'grid', gap: 18, justifyItems: 'center', minWidth: 104, touchAction: 'manipulation' }}>
               <div style={{ width: typeof window !== 'undefined' && window.innerWidth < 520 ? 104 : 132, height: typeof window !== 'undefined' && window.innerWidth < 520 ? 104 : 132, borderRadius: '50%', background: 'rgba(17, 24, 39, 0.82)', display: 'grid', placeItems: 'center', boxShadow: '0 24px 55px rgba(255,26,117,0.16)', border: '4px solid rgba(255, 26, 117, 0.2)' }}><Plus size={44} /></div>
               <span style={{ fontSize: '1.15rem', fontWeight: 800 }}>Add Profile</span>
             </button>
           )}
         </div>
-        <p style={{ marginTop: 42, color: '#fda4af', fontSize: '0.95rem' }}>{profiles.length}/{MAX_SUB_ACCOUNTS} profiles linked to {user.username}</p>
+        <p style={{ marginTop: 42, color: '#fda4af', fontSize: '0.95rem', overflowWrap: 'anywhere' }}>{profiles.length}/{MAX_SUB_ACCOUNTS} profiles linked to {user.username}</p>
       </div>
 
       {showCreate && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)', display: 'grid', placeItems: 'center', padding: 20 }} onClick={() => { setShowCreate(false); resetProfileForm(); }}>
-          <form onSubmit={handleCreate} onClick={event => event.stopPropagation()} style={{ width: 'min(430px, 100%)', background: '#09090f', border: '1px solid rgba(255,26,117,0.28)', borderRadius: 20, padding: 24, textAlign: 'left', boxShadow: '0 30px 80px rgba(255,26,117,0.18)' }}>
-            <button type="button" onClick={() => { setShowCreate(false); resetProfileForm(); }} style={{ float: 'right', background: 'transparent', color: '#fda4af', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
+          <form onSubmit={handleCreate} onClick={event => event.stopPropagation()} style={{ width: 'min(430px, 100%)', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', background: '#09090f', border: '1px solid rgba(255,26,117,0.28)', borderRadius: 20, padding: 24, textAlign: 'left', boxShadow: '0 30px 80px rgba(255,26,117,0.18)' }}>
+            <button type="button" onClick={() => { setShowCreate(false); resetProfileForm(); }} style={{ float: 'right', background: 'transparent', color: '#fda4af', border: 'none', cursor: 'pointer', minWidth: 40, minHeight: 40 }}><X size={18} /></button>
             <h2 style={{ marginTop: 0, display: 'flex', gap: 10, alignItems: 'center' }}><UserPlus size={22} /> {editingProfile ? 'Edit Profile' : 'Add Profile'}</h2>
-            <input autoFocus value={newName} onChange={event => setNewName(event.target.value)} placeholder="Profile name" style={{ width: '100%', padding: '13px 14px', borderRadius: 12, border: '1px solid rgba(255,26,117,0.24)', background: 'rgba(255,255,255,0.06)', color: '#fff', marginBottom: 12 }} />
+            <input autoFocus value={newName} onChange={event => setNewName(event.target.value)} placeholder="Profile name" style={{ width: '100%', padding: '13px 14px', borderRadius: 12, border: '1px solid rgba(255,26,117,0.24)', background: 'rgba(255,255,255,0.06)', color: '#fff', marginBottom: 12, boxSizing: 'border-box' }} />
             <label style={{ display: 'grid', gap: 8, marginBottom: 16, color: '#f8fafc', fontWeight: 800 }}>
               Profile picture
               {newAvatar && <ProfileAvatar profile={{ name: newName || 'Profile', avatar: newAvatar, color: newColor }} size={72} />}
@@ -387,13 +394,13 @@ export default function SubAccountGate({ children }) {
             </label>
             <label style={{ display: 'grid', gap: 8, marginBottom: 16, color: '#f8fafc', fontWeight: 800 }}>
               Age rating
-              <select value={newAgeRating} onChange={event => setNewAgeRating(event.target.value)} style={{ width: '100%', padding: '13px 14px', borderRadius: 12, border: '1px solid rgba(255,26,117,0.24)', background: '#111827', color: '#fff' }}>
+              <select value={newAgeRating} onChange={event => setNewAgeRating(event.target.value)} style={{ width: '100%', padding: '13px 14px', borderRadius: 12, border: '1px solid rgba(255,26,117,0.24)', background: '#111827', color: '#fff', boxSizing: 'border-box' }}>
                 {SUB_ACCOUNT_AGE_RATINGS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
               </select>
             </label>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>{SUB_ACCOUNT_COLORS.map(color => <button key={color} type="button" onClick={() => setNewColor(color)} aria-label={`Use ${color}`} style={{ width: 34, height: 34, borderRadius: '50%', background: color, border: newColor === color ? '3px solid #fff' : '3px solid transparent', cursor: 'pointer' }} />)}</div>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>{SUB_ACCOUNT_COLORS.map(color => <button key={color} type="button" onClick={() => setNewColor(color)} aria-label={`Use ${color}`} style={{ width: 40, height: 40, flex: '0 0 40px', borderRadius: '50%', background: color, border: newColor === color ? '3px solid #fff' : '3px solid transparent', cursor: 'pointer', touchAction: 'manipulation' }} />)}</div>
             {(createError || createMessage) && <p style={{ color: '#fca5a5', fontSize: '0.85rem' }}>{createError || createMessage}</p>}
-            <button disabled={Boolean(createError)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: 'none', background: createError ? '#475569' : 'linear-gradient(135deg, #ff1a75, #ef4444)', color: '#000', fontWeight: 900, cursor: createError ? 'not-allowed' : 'pointer' }}>{editingProfile ? 'Save Profile' : 'Create Profile'}</button>
+            <button disabled={Boolean(createError)} style={{ width: '100%', padding: '13px 16px', minHeight: 46, borderRadius: 12, border: 'none', background: createError ? '#475569' : 'linear-gradient(135deg, #ff1a75, #ef4444)', color: '#000', fontWeight: 900, cursor: createError ? 'not-allowed' : 'pointer', touchAction: 'manipulation' }}>{editingProfile ? 'Save Profile' : 'Create Profile'}</button>
           </form>
         </div>
       )}
