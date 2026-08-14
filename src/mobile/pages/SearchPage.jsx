@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, TrendingUp, Filter, Sparkles, Calendar, Star, ChevronRight, Zap, Film, Heart } from 'lucide-react';
-import { getTitle, getImage } from '../api/anilist';
+import { fetchHomeData, searchAnime as searchAnimeApi, getTitle, getImage } from '../api/anilist';
 import { isFavorite, toggleFavorite } from '../api/storage';
-
-const API_URL = 'https://graphql.anilist.co';
 
 const GENRES = ['Action','Adventure','Comedy','Drama','Fantasy','Horror','Mystery','Romance','Sci-Fi','Slice of Life','Sports','Supernatural','Thriller','Psychological'];
 const SORT_OPTIONS = [
@@ -16,57 +14,16 @@ const STATUS_OPTIONS = ['All','RELEASING','FINISHED','NOT_YET_RELEASED'];
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = ['All', ...Array.from({ length: 20 }, (_, i) => CURRENT_YEAR - i)];
 
-const TRENDING_QUERY = `
-  query ($page: Int, $perPage: Int, $sort: [MediaSort]) {
-    Page(page: $page, perPage: $perPage) {
-      media(sort: $sort, type: ANIME, isAdult: false) {
-        id
-        title { romaji english }
-        coverImage { large extraLarge }
-        averageScore
-        format
-        episodes
-        genres
-        seasonYear
-        status
-      }
-    }
-  }
-`;
-
-const SEARCH_QUERY = `
-  query ($search: String, $genre: String, $sort: [MediaSort], $status: MediaStatus, $year: Int) {
-    Page(page: 1, perPage: 40) {
-      media(search: $search, genre: $genre, sort: $sort, type: ANIME, isAdult: false, status: $status, seasonYear: $year) {
-        id
-        title { romaji english }
-        coverImage { large extraLarge }
-        averageScore
-        format
-        episodes
-        genres
-        seasonYear
-        status
-      }
-    }
-  }
-`;
-
 async function searchAnime(query, genre, sort, status, year) {
-  try {
-    const variables = { search: query || null, genre: genre || null, sort: [sort || 'TRENDING_DESC'], status: status === 'All' ? null : status, year: year === 'All' ? null : year };
-    const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ query: SEARCH_QUERY, variables }) });
-    const json = await res.json();
-    return json.data?.Page?.media || [];
-  } catch { return []; }
+  return searchAnimeApi(query, genre, sort, status, year);
 }
 
 async function fetchTrending(sort = 'TRENDING_DESC') {
-  try {
-    const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ query: TRENDING_QUERY, variables: { page: 1, perPage: 20, sort } }) });
-    const json = await res.json();
-    return json.data?.Page?.media || [];
-  } catch { return []; }
+  if (sort === 'TRENDING_DESC') {
+    const data = await fetchHomeData();
+    return data?.trending?.media || [];
+  }
+  return searchAnimeApi('', null, sort, 'All', 'All');
 }
 
 function AnilistImage({ src, alt, className, fallback = '🎬' }) {
