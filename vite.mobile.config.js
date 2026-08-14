@@ -2,9 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-// Android intentionally builds the same React entry used by the web app.
-// The app's responsive CSS/mobile navigation then adapts the full feature set
-// for phones, instead of shipping the reduced legacy src/mobile shell.
+// Android uses the dedicated mobile shell so the APK gets the mobile UI,
+// navigation and mobile-specific styling instead of the desktop web shell.
 export default defineConfig({
   plugins: [react()],
   base: './',
@@ -16,5 +15,8 @@ export default defineConfig({
   build: {
     outDir: 'dist-mobile',
     emptyOutDir: true,
+    rollupOptions: {
+      input: path.resolve(__dirname, 'src/mobile/index.html'),
+    },
   },
 });
