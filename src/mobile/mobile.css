@@ -24,11 +24,21 @@
 }
 
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html { background:var(--bg); color-scheme:dark; }
-body {
-  font-family:var(--font); background:var(--bg); color:var(--text);
-  -webkit-font-smoothing:antialiased; overflow-x:hidden; line-height:1.5;
+html,
+body,
+#root {
+  min-height: 100%;
+  min-height: 100dvh;
+  background: var(--bg);
+  color-scheme: dark;
 }
+html { overflow-x:hidden; }
+body {
+  font-family:var(--font); color:var(--text);
+  -webkit-font-smoothing:antialiased; overflow-x:hidden; line-height:1.5;
+  overscroll-behavior-y: none;
+}
+#root { isolation: isolate; }
 input,textarea,button,select { font-family:var(--font); outline:none; }
 
 /* ── Splash ─────────────────────────────────────────────── */
@@ -971,6 +981,19 @@ body {
     radial-gradient(circle at 20% -10%, rgba(255,26,117,.18), transparent 34%),
     radial-gradient(circle at 80% 0%, rgba(255,77,148,.12), transparent 30%),
     linear-gradient(180deg, #031019 0%, #02070c 100%);
+}
+
+.sub-account-gate,
+.sub-account-signup,
+.sub-account-gate-loading {
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  padding-top: max(20px, env(safe-area-inset-top, 0px)) !important;
+  padding-bottom: max(20px, env(safe-area-inset-bottom, 0px)) !important;
+}
+
+.sub-account-signup {
+  margin: 0 !important;
 }
 
 .header,

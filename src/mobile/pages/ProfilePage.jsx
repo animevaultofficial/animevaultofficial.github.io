@@ -4,6 +4,7 @@ import { Heart, Clock, User, LogOut, Calendar, Camera, Edit2, Image, Sparkles, A
 import { useUser } from '../../api/UserContext';
 import { getUserStats as dbGetUserStats, fetchReminders, checkUser2FA } from '../../api/db';
 import { getContinueWatching, getFavorites } from '../api/storage';
+import { clearActiveSubAccount } from '../../utils/subAccounts';
 import StoryAvatar from '../../components/StoryAvatar';
 import StoryUploadModal from '../../components/StoryUploadModal';
 import { assetPath } from '../../utils/assetPath';
@@ -226,7 +227,7 @@ function AuthScreen() {
 }
 
 export default function ProfilePage({ navigate }) {
-  const { user, setUser, history, likes, continueWatching: syncedContinue, logout, updateProfile, activeSubAccount } = useUser();
+  const { user, setUser, history, likes, continueWatching: syncedContinue, logout, updateProfile, activeSubAccount, setActiveSubAccountState } = useUser();
   const [activeTab, setActiveTab] = useState('likes');
   const [showStoryUpload, setShowStoryUpload] = useState(false);
   const displayUser = useMemo(() => {
@@ -408,6 +409,15 @@ export default function ProfilePage({ navigate }) {
           {isEditing ? <Check size={14} /> : <Edit2 size={14} />}
           {isEditing ? 'Done' : 'Edit Profile'}
         </button>
+        <button onClick={handleSwitchAccount}
+          style={{
+            padding: '8px 12px', background: 'rgba(255,26,117,0.08)',
+            border: '1px solid rgba(255,26,117,0.28)', color: '#ff8ab7',
+            borderRadius: 10, fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6
+          }}>
+          <User size={14} /> Switch
+        </button>
         <button onClick={logout}
           style={{
             padding: '8px 16px', background: 'rgba(239,68,68,0.08)',
@@ -527,6 +537,13 @@ export default function ProfilePage({ navigate }) {
   );
 
   // Handlers defined as inner functions to access state
+
+  function handleSwitchAccount() {
+    clearActiveSubAccount();
+    setActiveSubAccountState(null);
+    if (typeof navigate === 'function') navigate('home');
+  }
+
   async function handleSaveProfile() {
     setSaveStatus('saving');
     const success = await updateProfile(editAvatar, editBanner);
