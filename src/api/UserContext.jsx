@@ -291,7 +291,7 @@ export function UserProvider({ children }) {
     }
   }, [user, activeSubAccount?.id]);
 
-  const login = async (email, password, verificationCode) => {
+  const login = async (email, password, verificationCode, captchaToken = '') => {
     try {
       if (isNativeMobileShell()) {
         return await loginWithDbCredentials(email, password);
@@ -317,7 +317,7 @@ export function UserProvider({ children }) {
 
       // Prefer the optional Render auth proxy on mobile/static hosting. It can
       // connect to Neon server-side from an allowed Render domain.
-      const proxyRes = await proxyLogin(email, password);
+      const proxyRes = await proxyLogin(email, password, captchaToken);
       if (proxyRes.success && proxyRes.user) {
         const proxyUser = normalizeProxyUser(proxyRes.user);
         setUser(proxyUser);
@@ -360,13 +360,13 @@ export function UserProvider({ children }) {
     }
   };
 
-  const signup = async (email, password) => {
+  const signup = async (email, password, captchaToken = '') => {
     try {
       if (isNativeMobileShell()) {
         return await signupWithDbCredentials(email, password);
       }
       const name = email.split('@')[0];
-      const proxyRes = await proxySignup(email, password);
+      const proxyRes = await proxySignup(email, password, captchaToken);
       if (proxyRes.success && proxyRes.user) {
         const proxyUser = normalizeProxyUser(proxyRes.user);
         setUser(proxyUser);

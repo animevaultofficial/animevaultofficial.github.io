@@ -1,10 +1,13 @@
 
 import { useState } from 'react';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { X, User, Lock, Sparkles, AlertCircle, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../api/UserContext';
 import { checkUser2FA } from '../api/db';
 
+const hcaptchaSiteKey = import.meta.env.VITE_HCAPTCHA_SITEKEY || '';
+const hcaptchaEnabled = Boolean(hcaptchaSiteKey);
 
 export default function AuthModal() {
   const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup, sendVerificationCode, loginWithGoogle } = useUser();
@@ -12,6 +15,7 @@ export default function AuthModal() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,6 +30,10 @@ export default function AuthModal() {
     setLoading(true);
     try {
       if (!username.trim() || !password) throw new Error('All fields are required.');
+      if (hcaptchaEnabled && !captchaToken) {
+        throw new Error('Please complete the security check before continuing.');
+      }
+
       if (authTab === 'login') {
         if (step === 'email_password') {
           const needs2FA = await checkUser2FA(username.trim());
@@ -39,7 +47,7 @@ export default function AuthModal() {
             }
           } else {
             // No 2FA required, login directly
-            const res = await login(username, password, null);
+            const res = await login(username, password, null, captchaToken);
             if (res.success) {
               setSuccess('Welcome back!');
               setTimeout(() => { resetForm(); }, 800);
@@ -47,14 +55,14 @@ export default function AuthModal() {
           }
         } else if (step === 'otp') {
           if (!verificationCode.trim()) throw new Error('Verification code is required.');
-          const res = await login(username, password, verificationCode.trim());
+          const res = await login(username, password, verificationCode.trim(), captchaToken);
           if (res.success) {
             setSuccess('Welcome back!');
             setTimeout(() => { resetForm(); }, 800);
           } else setError(res.message);
         }
       } else {
-        const res = await signup(username, password);
+        const res = await signup(username, password, captchaToken);
         if (res.success) {
           setSuccess('Account created!');
           setTimeout(() => { resetForm(); }, 800);
@@ -64,7 +72,7 @@ export default function AuthModal() {
     finally { setLoading(false); }
   };
 
-  const resetForm = () => { setUsername(''); setPassword(''); setVerificationCode(''); setError(''); setSuccess(''); setStep('email_password'); };
+  const resetForm = () => { setUsername(''); setPassword(''); setVerificationCode(''); setCaptchaToken(''); setError(''); setSuccess(''); setStep('email_password'); };
 
   return (
     <div className="auth-overlay" onClick={() => setShowAuthModal(false)}
@@ -158,8 +166,20 @@ export default function AuthModal() {
               </div>
             )}
           </div>
-          <button type="submit" disabled={loading}
-            style={{ width: '100%', padding: '12px', background: '#ff1a75', color: '#000', fontWeight: '900', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.85rem', transition: 'all 0.2s', marginBottom: '16px', boxShadow: '0 0 15px rgba(255,26,117,0.3)' }}>
+          {hcaptchaEnabled && (
+            <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+              <HCaptcha
+                sitekey={hcaptchaSiteKey}
+                theme="dark"
+                onVerify={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken('')}
+                onError={() => setCaptchaToken('')}
+              />
+            </div>
+          )}
+
+          <button type="submit" disabled={loading || (hcaptchaEnabled && !captchaToken)}
+            style={{ width: '100%', padding: '12px', background: '#ff1a75', color: '#000', fontWeight: '900', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '0.85rem', transition: 'all 0.2s', marginBottom: '16px', boxShadow: '0 0 15px rgba(255,26,117,0.3)', opacity: loading || (hcaptchaEnabled && !captchaToken) ? 0.65 : 1 }}>
             {loading ? 'Processing...' : (authTab === 'login' ? (step === 'otp' ? 'Verify & Sign In' : 'Sign In') : 'Create Account')}
           </button>
           

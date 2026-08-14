@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { Heart, Clock, User, LogOut, Calendar, Camera, Edit2, Image, Sparkles, Award, Settings as SettingsIcon, UploadCloud, Loader, BadgeCheck, Tv, Save, Check, Trash2, BarChart3, Bell } from 'lucide-react';
 import { useUser } from '../../api/UserContext';
 import { getUserStats as dbGetUserStats, fetchReminders, checkUser2FA } from '../../api/db';
@@ -7,23 +8,32 @@ import StoryAvatar from '../../components/StoryAvatar';
 import StoryUploadModal from '../../components/StoryUploadModal';
 import { assetPath } from '../../utils/assetPath';
 
+const hcaptchaSiteKey = import.meta.env.VITE_HCAPTCHA_SITEKEY || '';
+const hcaptchaEnabled = Boolean(hcaptchaSiteKey);
+
 function AuthScreen() {
   const { login, signup, sendVerificationCode, loginWithGoogle } = useUser();
   const [tab, setTab] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState('email_password'); // 'email_password' or 'otp'
 
-  const resetForm = () => { setEmail(''); setPassword(''); setVerificationCode(''); setError(''); setSuccess(''); setStep('email_password'); };
+  const resetForm = () => { setEmail(''); setPassword(''); setVerificationCode(''); setCaptchaToken(''); setError(''); setSuccess(''); setStep('email_password'); };
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError('');
     setSuccess('');
+
+    if (hcaptchaEnabled && !captchaToken) {
+      setError('Please complete the security check before continuing.');
+      return;
+    }
 
     if (step === 'otp') {
       if (!verificationCode.trim()) {
@@ -32,7 +42,7 @@ function AuthScreen() {
       }
       setBusy(true);
       try {
-        const result = await login(email, password, verificationCode.trim());
+        const result = await login(email, password, verificationCode.trim(), captchaToken);
         if (result.success) {
           setSuccess('Welcome back!');
           setTimeout(() => resetForm(), 800);
@@ -72,7 +82,7 @@ function AuthScreen() {
           console.warn('ProfilePage: checkUser2FA failed', error);
         }
         // No 2FA, login directly
-        const result = await login(email, password, null);
+        const result = await login(email, password, null, captchaToken);
         if (result.success) {
           setSuccess('Welcome back!');
           setTimeout(() => resetForm(), 800);
@@ -80,7 +90,7 @@ function AuthScreen() {
           setError(result.message || 'Login failed.');
         }
       } else {
-        const result = await signup(email, password);
+        const result = await signup(email, password, captchaToken);
         if (result.success) {
           setSuccess('Account created!');
           setTimeout(() => resetForm(), 800);
@@ -187,7 +197,19 @@ function AuthScreen() {
             </div>
           )}
 
-          <button type="submit" disabled={busy} className="mobile-auth-submit">
+          {hcaptchaEnabled && (
+            <div className="mobile-auth-captcha" style={{ display: 'flex', justifyContent: 'center', margin: '0 0 0.9rem' }}>
+              <HCaptcha
+                sitekey={hcaptchaSiteKey}
+                theme="dark"
+                onVerify={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken('')}
+                onError={() => setCaptchaToken('')}
+              />
+            </div>
+          )}
+
+          <button type="submit" disabled={busy || (hcaptchaEnabled && !captchaToken)} className="mobile-auth-submit" style={{ opacity: busy || (hcaptchaEnabled && !captchaToken) ? 0.65 : 1 }}>
             {busy ? 'Processing...' : tab === 'login' ? (step === 'otp' ? 'Verify & Sign In' : 'Sign In') : 'Create Account'}
           </button>
 

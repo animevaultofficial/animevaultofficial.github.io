@@ -70,12 +70,12 @@ async function requestProxy(path, body = {}, { includeToken = false } = {}) {
   return { configured: true, success: data?.success !== false, ...data };
 }
 
-export async function proxyLogin(email, password) {
-  return requestProxy('/auth/login', { email, password });
+export async function proxyLogin(email, password, captchaToken = '') {
+  return requestProxy('/auth/login', { email, password, captchaToken });
 }
 
-export async function proxySignup(email, password) {
-  return requestProxy('/auth/signup', { email, password });
+export async function proxySignup(email, password, captchaToken = '') {
+  return requestProxy('/auth/signup', { email, password, captchaToken });
 }
 
 export async function proxySyncAuthUser(authUser) {

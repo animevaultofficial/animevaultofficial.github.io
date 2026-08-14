@@ -4,6 +4,7 @@ import path from 'path';
 import mangaApiApp from './api/manga.js';
 import allAnimeApiApp from './api/allanime.js';
 import vidPlusApiApp from './api/vidplus.js';
+import hcaptchaApiApp from './api/hcaptcha.js';
 
 export default defineConfig(({ command, mode }) => {
   const isWebOSBuild = !!process.env.WEBOS || mode === 'webos' || process.env.npm_lifecycle_event === 'webos:package';
@@ -41,6 +42,9 @@ export default defineConfig(({ command, mode }) => {
             if (req.url && req.url.startsWith('/api/vidplus')) {
               return vidPlusApiApp(req, res, next);
             }
+            if (req.url && req.url.startsWith('/api/hcaptcha')) {
+              return hcaptchaApiApp(req, res, next);
+            }
             next();
           });
         }
@@ -61,7 +65,7 @@ export default defineConfig(({ command, mode }) => {
           changeOrigin: true,
           bypass: (req) => {
             // Do not proxy /api/manga, /api/allanime or /api/vidplus requests to port 3000
-            if (req.url && (req.url.startsWith('/api/manga') || req.url.startsWith('/api/allanime') || req.url.startsWith('/api/vidplus'))) {
+            if (req.url && (req.url.startsWith('/api/manga') || req.url.startsWith('/api/allanime') || req.url.startsWith('/api/vidplus') || req.url.startsWith('/api/hcaptcha'))) {
               return req.url;
             }
           },
