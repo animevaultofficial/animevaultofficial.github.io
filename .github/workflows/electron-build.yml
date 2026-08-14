@@ -318,6 +318,13 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Add Android SDK tools to PATH
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "${ANDROID_HOME:-${ANDROID_SDK_ROOT}}/build-tools/${ANDROID_BUILD_TOOLS}" >> "$GITHUB_PATH"
+          echo "${ANDROID_HOME:-${ANDROID_SDK_ROOT}}/platform-tools" >> "$GITHUB_PATH"
+
       - name: Install Android SDK packages
         shell: bash
         run: |
@@ -473,10 +480,13 @@ jobs:
         run: |
           set -euo pipefail
           apk="release/AnimeVault-Android.apk"
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT}}"
+          aapt_bin="${sdk_root}/build-tools/${ANDROID_BUILD_TOOLS}/aapt"
+          test -x "${aapt_bin}" || { echo "ERROR: aapt not found at ${aapt_bin}."; exit 1; }
           unzip -t "${apk}" >/dev/null
           unzip -l "${apk}" | grep -q 'AndroidManifest.xml' || { echo "ERROR: AndroidManifest.xml missing from APK."; exit 1; }
           unzip -l "${apk}" | grep -Eq '(^|[[:space:]])classes[0-9]*\.dex$' || { echo "ERROR: classes.dex missing from APK."; exit 1; }
-          aapt dump badging "${apk}" | grep -q "package: name='${ANDROID_PACKAGE_NAME}'" || { echo "ERROR: APK package name is not ${ANDROID_PACKAGE_NAME}."; exit 1; }
+          "${aapt_bin}" dump badging "${apk}" | grep -q "package: name='${ANDROID_PACKAGE_NAME}'" || { echo "ERROR: APK package name is not ${ANDROID_PACKAGE_NAME}."; exit 1; }
 
       - name: Verify Android APK signature
         shell: bash
