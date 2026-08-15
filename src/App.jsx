@@ -180,15 +180,22 @@ function App() {
     <div className={`app-shell ${isTvMode ? 'tv-app-shell' : ''}`}>
       {announcement && (
         <div style={{
-          background: 'linear-gradient(90deg, #ff1a75, #ffaa00)',
-          color: '#000', fontSize: '0.8rem', fontWeight: '900',
-          padding: '8px 20px', textAlign: 'center', letterSpacing: '0.5px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.3)', textShadow: '0 1px 2px rgba(255,255,255,0.3)',
-          display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px'
+          background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+          color: '#e2e8f0',
+          fontSize: '0.85rem',
+          fontWeight: '500',
+          padding: '12px 24px',
+          textAlign: 'center',
+          letterSpacing: '0.3px',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.4)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          position: 'relative',
+          overflow: 'hidden'
         }}>
-          <Sparkles size={14} style={{ animation: 'bannerPulse 1.5s infinite alternate' }} />
-          <span>{announcement}</span>
-          <style>{`@keyframes bannerPulse { from { transform: scale(1); } to { transform: scale(1.2); } }`}</style>
+          <span style={{ position: 'relative', zIndex: 1 }}>{announcement}</span>
         </div>
       )}
 
