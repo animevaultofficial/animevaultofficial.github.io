@@ -36,7 +36,7 @@ const UserContext = createContext(null);
 const CACHED_USER_KEY = 'animevault_cached_user';
 
 function getAuthCallbackURL() {
-  const webFallback = 'https://animevaultofficial.github.io/';
+  const webFallback = 'https://animevaultofficial.fun/';
   const mobileFallback = 'https://localhost/';
   try {
     const origin = window.location.origin;

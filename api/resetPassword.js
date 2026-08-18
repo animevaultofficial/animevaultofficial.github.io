@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     if (!result.length) return res.status(404).json({ error: 'User not found' });
     const user = result[0];
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    const resetLink = `${process.env.RESET_URL || 'https://animevaultofficial.github.io'}/set-new-password?token=${token}`;
+    const resetLink = `${process.env.RESET_URL || 'https://animevaultofficial.fun'}/set-new-password?token=${token}`;
     const msg = {
       to: email,
       from: process.env.SENDGRID_FROM || 'no-reply@animevault.com',
