@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchAnimeById, stripHtml } from '../api/anilist';
-import { buildAnimeStreamUrlFromAniList } from '../utils/animeStreamingServer';
+import {
+  buildAnimeStreamUrlFromAniList,
+  buildAnimeStreamUrlFromMal,
+  buildMegaPlayUrlFromAnikotoEpisode,
+  fetchAnikotoSeries,
+} from '../utils/animeStreamingServer';
 import VideoPlayer from '../components/VideoPlayer';
 import CommentsSection from '../components/CommentsSection';
 import { useUser } from '../api/UserContext';
@@ -107,6 +112,7 @@ function AnimeDetails() {
   const [error, setError] = useState('');
   const [episodes, setEpisodes] = useState([]);
   const [currentEpisode, setCurrentEpisode] = useState(null);
+  const [anikotoEpisodes, setAnikotoEpisodes] = useState([]);
   const [progress, setProgress] = useState(() =>
     JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}')
   );
@@ -127,6 +133,7 @@ function AnimeDetails() {
     setAnime(null);
     setEpisodes([]);
     setCurrentEpisode(null);
+    setAnikotoEpisodes([]);
     setLanguage(DEFAULT_LANGUAGE);
     setEpPage(0);
 
@@ -151,8 +158,26 @@ function AnimeDetails() {
 
         setAnime(media);
 
-        // ── Instantly build episode list from AniList metadata ──
-        const epList = buildEpisodeList(media);
+        let anikotoEpList = [];
+        if (media.idMal) {
+          try {
+            const anikotoSeries = await fetchAnikotoSeries(media.idMal);
+            anikotoEpList = Array.isArray(anikotoSeries?.episodes) ? anikotoSeries.episodes : [];
+            setAnikotoEpisodes(anikotoEpList);
+          } catch (anikotoError) {
+            console.warn('[Anikoto] Unable to fetch episode embed IDs; falling back to MegaPlay AniList/MAL routes.', anikotoError);
+          }
+        }
+
+        // Prefer Anikoto episode metadata when available, then fall back to AniList's count.
+        const epList = anikotoEpList.length
+          ? anikotoEpList.map((ep, index) => ({
+              id: ep.id || ep.episode_id || `anikoto-${media.id}-${index + 1}`,
+              number: Number(ep.number || ep.episode || index + 1),
+              title: ep.title || `Episode ${Number(ep.number || ep.episode || index + 1)}`,
+              image: ep.image || ep.thumbnail,
+            }))
+          : buildEpisodeList(media);
         setEpisodes(epList);
 
         // Always set default episode (episode 1 or last watched)
@@ -237,12 +262,29 @@ function AnimeDetails() {
   }, [currentEpisode, episodes]);
 
   const playerSources = currentEpisode
-    ? [{
-        url: buildAnimeStreamUrlFromAniList(anime.id, currentEpisode.number, language),
-        type: 'iframe',
-        serverName: 'MegaFlix',
-        priority: 1000,
-      }]
+    ? [
+        {
+          url: buildMegaPlayUrlFromAnikotoEpisode(
+            anikotoEpisodes.find((ep, index) => Number(ep.number || ep.episode || index + 1) === currentEpisode.number),
+            language,
+          ),
+          type: 'iframe',
+          serverName: 'MegaPlay Anikoto',
+          priority: 1000,
+        },
+        {
+          url: buildAnimeStreamUrlFromAniList(anime.id, currentEpisode.number, language),
+          type: 'iframe',
+          serverName: 'MegaPlay AniList',
+          priority: 900,
+        },
+        {
+          url: buildAnimeStreamUrlFromMal(anime.idMal, currentEpisode.number, language),
+          type: 'iframe',
+          serverName: 'MegaPlay MAL',
+          priority: 800,
+        },
+      ].filter(source => source.url)
     : [];
 
   // ───── Episode pagination ─────

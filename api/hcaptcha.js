@@ -33,12 +33,11 @@ export default async function handler(req, res) {
     const payload = await verifyRes.json().catch(() => ({}));
     const isValid = Boolean(payload?.success);
 
-    const errorCodes = Array.isArray(payload?.['error-codes']) ? payload['error-codes'] : [];
-
     if (!verifyRes.ok || !isValid) {
+      console.warn('[hCaptcha] validation rejected:', payload?.['error-codes'] || verifyRes.status);
       return res.status(400).json({
         success: false,
-        message: errorCodes.length ? `Captcha validation failed: ${errorCodes.join(', ')}` : 'Captcha validation failed.',
+        message: 'Captcha validation failed.',
       });
     }
 

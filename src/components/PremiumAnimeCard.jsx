@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, BookOpen, Bell, Share2, PlayCircle } from 'lucide-react';
 
+function getYouTubeEmbedUrl(trailer) {
+  if (trailer?.site !== 'youtube' || !trailer?.id) return null;
+  const id = String(trailer.id).trim();
+  if (!/^[A-Za-z0-9_-]{6,32}$/.test(id)) return null;
+  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1`;
+}
+
 export default function PremiumAnimeCard({ anime, isFavorite, onToggleFavorite, linkPrefix = '/anime/' }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
@@ -13,11 +20,7 @@ export default function PremiumAnimeCard({ anime, isFavorite, onToggleFavorite, 
   const genres = anime?.genres || [];
   const trailer = anime?.trailer || null;
   
-  // Determine trailer URL
-  let trailerUrl = null;
-  if (trailer?.site === 'youtube' && trailer?.id) {
-    trailerUrl = `https://www.youtube.com/embed/${trailer.id}?autoplay=1&mute=1`;
-  }
+  const trailerUrl = getYouTubeEmbedUrl(trailer);
 
   return (
     <Link
@@ -48,8 +51,10 @@ export default function PremiumAnimeCard({ anime, isFavorite, onToggleFavorite, 
             <iframe
               src={trailerUrl}
               frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allow="autoplay; encrypted-media; picture-in-picture"
               allowFullScreen
+              sandbox="allow-scripts allow-same-origin allow-presentation"
+              referrerPolicy="strict-origin-when-cross-origin"
               title={`${title} trailer`}
               className="premium-card-trailer"
             ></iframe>
