@@ -81,7 +81,7 @@ export default function HomePage({ navigate }) {
     <div className="page">
       {/* Flashcard Hero Carousel (matching web version) */}
       {slides.length > 0 && (
-        <div style={{ marginBottom: '1.25rem', position: 'relative', overflow: 'hidden', borderRadius: 'var(--radius-lg)', height: 280 }}>
+        <div className="mobile-hero-carousel">
           {slides.map((anime, index) => {
             const isActive = index === slide;
             return (
@@ -97,7 +97,7 @@ export default function HomePage({ navigate }) {
               >
                 <div style={{ width: '100%', height: '100%', position: 'relative' }}>
                   {getBanner(anime) ? (
-                    <img src={getBanner(anime)} alt={getTitle(anime)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
+                    <img src={getBanner(anime)} alt={getTitle(anime)} className="mobile-hero-image" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                   ) : (
                     <div style={{ width: '100%', height: '100%', background: 'var(--surface2)' }} />
                   )}

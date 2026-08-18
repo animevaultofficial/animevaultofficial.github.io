@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, CalendarClock, Check, Heart, Info, ListVideo, Play, Star, SkipBack, SkipForward, Shield } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Check, Heart, Info, ListVideo, Play, Star, SkipBack, SkipForward } from 'lucide-react';
 import { useUser } from '../../api/UserContext';
 import { fetchAnimeDetail, getImage, getTitle, stripHtml } from '../api/anilist';
 import { addContinueWatching, isFavorite, toggleFavorite } from '../api/storage';
@@ -61,7 +61,6 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
 
   useEffect(() => {
     if (!id) return;
-    enrichedRef.current = false;
     setLoading(true);
     setError('');
     setMedia(null);
