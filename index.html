@@ -4,11 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="no-referrer" />
-    <title>Anime Vault</title>
-    <meta property="og:title" content="AnimeVault">
-    <meta property="og:description" content="Anime Vault, An Anime Streaming , Movies , TV Shows streaming platform">
-    <meta property="og:image" content="https://animevaultofficial.fun/logo.png">
-    <meta property="og:url" content="https://animevaultofficial.fun/">
+    <meta name="theme-color" content="#030f16" />
+
+    <title>AnimeVault — Watch Anime Online</title>
+    <meta name="description" content="AnimeVault — discover and watch your favorite anime, movies, and TV shows online." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://animevaultofficial.fun/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AnimeVault" />
+    <meta property="og:title" content="AnimeVault — Watch Anime Online" />
+    <meta property="og:description" content="Discover and watch your favorite anime, movies, and TV shows on AnimeVault." />
+    <meta property="og:image" content="https://animevaultofficial.fun/logo.png" />
+    <meta property="og:url" content="https://animevaultofficial.fun/" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="AnimeVault — Watch Anime Online" />
+    <meta name="twitter:description" content="Discover and watch your favorite anime, movies, and TV shows on AnimeVault." />
+    <meta name="twitter:image" content="https://animevaultofficial.fun/logo.png" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600;700&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -23,8 +37,6 @@
         var redirect = sessionStorage.getItem('spa-redirect');
         if (redirect) {
           sessionStorage.removeItem('spa-redirect');
-          // Replace the current "/" URL with the original route so React Router
-          // sees the correct path (e.g. /set-new-password?token=abc)
           window.history.replaceState(null, '', redirect);
         }
       })();
