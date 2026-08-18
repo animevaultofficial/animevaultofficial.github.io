@@ -14,18 +14,20 @@ function getProxyUrl(path) {
 function getCookie(name) {
   if (typeof document === 'undefined') return '';
   const cookie = document.cookie.split('; ').find(row => row.startsWith(`${name}=`));
-  return cookie ? cookie.split('=')[1] : '';
+  return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : '';
 }
 
 function setCookie(name, value, days = 30) {
   if (typeof document === 'undefined') return;
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `${name}=${value}; expires=${expires}; path=/; samesite=lax`;
+  const secure = window.location.protocol === 'https:' ? '; secure' : '';
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; samesite=strict${secure}`;
 }
 
 function deleteCookie(name) {
   if (typeof document === 'undefined') return;
-  document.cookie = `${name}=; max-age=0; path=/; samesite=lax`;
+  const secure = window.location.protocol === 'https:' ? '; secure' : '';
+  document.cookie = `${name}=; max-age=0; path=/; samesite=strict${secure}`;
 }
 
 export function getStoredProxyToken() {
