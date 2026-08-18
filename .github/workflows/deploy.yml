@@ -1,7 +1,8 @@
 name: Deploy to GitHub Pages
 
-# Pushes the built Vite bundle to the `gh-pages` branch of the repository,
-# which GitHub Pages is configured to serve.
+# Builds the Vite app and publishes the generated dist directory to gh-pages.
+# The custom-domain CNAME is explicitly copied into dist so every deployment
+# keeps animevaultofficial.fun connected to GitHub Pages.
 
 on:
   push:
@@ -12,7 +13,6 @@ on:
 permissions:
   contents: write
 
-# Avoid deploying multiple concurrent jobs; cancel in-progress ones
 concurrency:
   group: gh-pages
   cancel-in-progress: false
@@ -48,8 +48,10 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: npm run build
 
-      - name: Make sure no Jekyll processing runs on the published site
-        run: touch dist/.nojekyll
+      - name: Preserve GitHub Pages custom domain
+        run: |
+          printf '%s\n' 'animevaultofficial.fun' > dist/CNAME
+          touch dist/.nojekyll
 
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
