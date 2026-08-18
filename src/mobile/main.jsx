@@ -12,15 +12,20 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000,
-      refetchInterval: 2 * 60 * 1000,
-      refetchOnWindowFocus: true,
+      refetchInterval: false,
+      refetchOnWindowFocus: false,
+      retry: 1,
     },
   },
 });
 
+// Remove any previously installed AnimeVault service worker. The old worker
+// used broad URL keyword matching and could block legitimate mobile requests.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register(assetPath('sw.js')).catch(() => {});
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      registrations.forEach(registration => registration.unregister());
+    }).catch(() => {});
   });
 }
 
