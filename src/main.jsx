@@ -3,40 +3,48 @@ import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
-import { log, warn } from './utils/logger.js';
 import { isTvRuntime } from './utils/tvMode.js';
-import { assetPath } from './utils/assetPath.js';
 import { init } from '@noriginmedia/norigin-spatial-navigation';
+import './styles.css';
+import { UserProvider } from './api/UserContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// Spatial navigation is useful for TV/keyboard navigation, but it should not
+// install its TV-oriented behaviour on ordinary touch devices.
+const isTouchDevice =
+  typeof window !== 'undefined' &&
+  (navigator.maxTouchPoints > 0 || 'ontouchstart' in window);
 
 init({
   debug: false,
   visualDebug: false,
-  nativeMode: isTvRuntime(),
+  nativeMode: !isTouchDevice && isTvRuntime(),
   throttle: 70,
 });
-import './styles.css';
 
-import { UserProvider } from './api/UserContext';
-
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-
-// Register the ad-blocking service worker
+// Do not install the ad-blocking service worker in the web app.
+// It intercepted arbitrary URL paths containing words such as "stats",
+// "track", "target", and "ad", which can break legitimate API/media
+// requests and is especially disruptive on mobile browsers. Existing
+// registrations are removed once so an older deployed worker cannot keep
+// intercepting requests after an update.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register(assetPath('sw.js')).then(reg => {
-      log('[SW] Ad-blocker registered');
-    }).catch(err => {
-      warn('[SW] Registration failed:', err.message);
-    });
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      registrations.forEach(registration => registration.unregister());
+    }).catch(() => {});
   });
 }
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      refetchInterval: 2 * 60 * 1000, // 2 minutes
-      refetchOnWindowFocus: true,
+      staleTime: 5 * 60 * 1000,
+      // Mobile connections are frequently suspended/resumed. Avoid an
+      // unconditional polling loop and refetch only when the app requests it.
+      refetchInterval: false,
+      refetchOnWindowFocus: false,
+      retry: 1,
     },
   },
 });
