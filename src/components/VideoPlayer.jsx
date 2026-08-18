@@ -20,10 +20,36 @@ import {
 import '@vidstack/react/player/styles/default/theme.css';
 import electronBridge from '../utils/electronBridge';
 import { stripAdParams } from '../utils/adProxy';
+import { MEGAPLAY_ORIGIN } from '../utils/animeStreamingServer';
 
 const isElectron = typeof window !== 'undefined' && window.electronAPI !== undefined;
 
 let lastUpdateTime = 0;
+
+function parsePlayerMessage(data) {
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
+  }
+  return data && typeof data === 'object' ? data : null;
+}
+
+function getPlayerProgress(data) {
+  if (!data) return null;
+  if (data.channel === 'megacloud' && data.type === 'time') {
+    return { currentTime: data.currentTime ?? data.current_time ?? data.time, duration: data.duration };
+  }
+  if (data.type === 'watching-log') {
+    return { currentTime: data.currentTime ?? data.current_time ?? data.time, duration: data.duration };
+  }
+  if (data.type === 'timeupdate' || data.type === 'progress') {
+    return { currentTime: data.currentTime, duration: data.duration };
+  }
+  return null;
+}
 
 function getSafeEmbedUrl(url) {
   if (!url) return '';
@@ -46,6 +72,7 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
   const playerRef = useRef(null);
   const iframeRef = useRef(null);
   const wrapperRef = useRef(null);
+  const trustedEmbedOriginRef = useRef(MEGAPLAY_ORIGIN);
   const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
   const swipeThreshold = 80;
 
@@ -57,14 +84,15 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
 
   useEffect(() => {
     const handleMessage = (event) => {
-      if (event.data && typeof event.data === 'object') {
-        const { type, currentTime, duration } = event.data;
-        if ((type === 'timeupdate' || type === 'progress') && currentTime && duration) {
-          const now = Date.now();
-          if (now - lastUpdateTime > 5000) {
-            electronBridge.updateAnimeActivityTime(currentTime, duration);
-            lastUpdateTime = now;
-          }
+      if (event.origin !== trustedEmbedOriginRef.current) return;
+      const progressData = getPlayerProgress(parsePlayerMessage(event.data));
+      const currentTime = Number(progressData?.currentTime || 0);
+      const duration = Number(progressData?.duration || 0);
+      if (currentTime > 0 && duration > 0) {
+        const now = Date.now();
+        if (now - lastUpdateTime > 5000) {
+          electronBridge.updateAnimeActivityTime(currentTime, duration);
+          lastUpdateTime = now;
         }
       }
     };
@@ -189,6 +217,7 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
   const isIframeSource = activeSource?.type === 'iframe' || (!activeSource?.url.includes('.m3u8') && activeSource?.type !== 'hls');
   const targetUrl = activeSource?.url || embedUrl;
   const cleanUrl = getSafeEmbedUrl(isZen ? stripAdParams(targetUrl) : targetUrl);
+  if (cleanUrl) trustedEmbedOriginRef.current = new URL(cleanUrl).origin;
 
   // ── IFRAME EMBED PLAYER (Fallback/Mirror) ──
   if (isIframeSource && !cleanUrl) {
