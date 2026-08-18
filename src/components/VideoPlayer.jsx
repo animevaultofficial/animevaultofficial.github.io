@@ -4,26 +4,84 @@ import { AlertTriangle, RefreshCw, SkipBack, SkipForward, ChevronLeft, ChevronRi
 import '@vidstack/react/player/styles/default/theme.css';
 import electronBridge from '../utils/electronBridge';
 
-const isBrowser = typeof window !== 'undefined';
 let lastUpdateTime = 0;
 
-function normalizeSource(source) {
-  if (!source) return null;
-  const url = typeof source === 'string' ? source : source.url || source.src || source.file;
+function normalizeMediaUrl(url) {
   if (!url || typeof url !== 'string') return null;
   try {
     const parsed = new URL(url, window.location.origin);
     if (!['https:', 'http:'].includes(parsed.protocol)) return null;
-    const lower = parsed.pathname.toLowerCase();
-    const type = source.type || (lower.includes('.m3u8') ? 'application/x-mpegURL' : lower.includes('.mp4') ? 'video/mp4' : undefined);
-    return { ...source, url: parsed.href, type };
+    return parsed.href;
   } catch {
     return null;
   }
 }
 
+function extractDirectSources(payload) {
+  const candidates = [];
+  const collect = (value) => {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach(collect);
+      return;
+    }
+    if (typeof value === 'string') {
+      if (/^https?:\/\//i.test(value) && /\.(m3u8|mp4|webm)(\?|$)/i.test(value)) candidates.push({ url: value });
+      return;
+    }
+    if (typeof value !== 'object') return;
+    const url = value.url || value.file || value.src || value.source;
+    if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+      const type = value.type || (/\.m3u8(\?|$)/i.test(url) ? 'application/x-mpegURL' : /\.mp4(\?|$)/i.test(url) ? 'video/mp4' : undefined);
+      if (type || /\.(m3u8|mp4|webm)(\?|$)/i.test(url)) candidates.push({ url, type, serverName: value.server || value.name });
+    }
+    collect(value.sources);
+    collect(value.data);
+    collect(value.playlist);
+    collect(value.files);
+  };
+  collect(payload);
+  return candidates.filter((item, index, arr) => arr.findIndex(x => x.url === item.url) === index);
+}
+
+function streamApiUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.pathname.includes('/stream/')) return null;
+    parsed.pathname = parsed.pathname.replace('/stream/', '/api/');
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+async function resolveSource(source, signal) {
+  if (!source?.url) return [];
+  const original = normalizeMediaUrl(source.url);
+  if (!original) return [];
+
+  const apiUrl = streamApiUrl(original);
+  if (apiUrl) {
+    try {
+      const response = await fetch(apiUrl, { signal, headers: { Accept: 'application/json' } });
+      if (response.ok) {
+        const payload = await response.json();
+        const direct = extractDirectSources(payload);
+        if (direct.length) return direct.map(item => ({ ...item, serverName: source.serverName || item.serverName }));
+      }
+    } catch (error) {
+      if (error?.name !== 'AbortError') console.warn('[AnimeVault Player] Direct source resolution failed:', error);
+    }
+  }
+
+  if (/\.(m3u8|mp4|webm)(\?|$)/i.test(original)) return [{ ...source, url: original }];
+  return [];
+}
+
 function VideoPlayer({ sources = [], poster, title, onNextEpisode, onPrevEpisode }) {
   const [activeSourceIndex, setActiveSourceIndex] = useState(0);
+  const [resolvedSources, setResolvedSources] = useState([]);
+  const [isResolving, setIsResolving] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [failoverMsg, setFailoverMsg] = useState('');
   const [showSwipeHint, setShowSwipeHint] = useState(null);
@@ -32,11 +90,27 @@ function VideoPlayer({ sources = [], poster, title, onNextEpisode, onPrevEpisode
   const wrapperRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
 
-  const usableSources = sources.map(normalizeSource).filter(Boolean);
-
   useEffect(() => {
+    const controller = new AbortController();
+    setResolvedSources([]);
     setActiveSourceIndex(0);
     setFailoverMsg('');
+    setIsResolving(true);
+
+    (async () => {
+      const resolved = [];
+      for (const source of sources) {
+        const items = await resolveSource(source, controller.signal);
+        resolved.push(...items);
+        if (resolved.length >= 4) break;
+      }
+      if (!controller.signal.aborted) {
+        setResolvedSources(resolved.filter((item, index, arr) => arr.findIndex(x => x.url === item.url) === index));
+        setIsResolving(false);
+      }
+    })();
+
+    return () => controller.abort();
   }, [sources]);
 
   useEffect(() => {
@@ -55,15 +129,15 @@ function VideoPlayer({ sources = [], poster, title, onNextEpisode, onPrevEpisode
   }, []);
 
   const failover = useCallback(() => {
-    if (usableSources.length <= 1) {
-      setFailoverMsg('This stream has no additional direct fallback source.');
+    if (resolvedSources.length <= 1) {
+      setFailoverMsg('No additional direct stream source is available.');
       return;
     }
-    const next = (activeSourceIndex + 1) % usableSources.length;
-    setFailoverMsg(`Switching from ${usableSources[activeSourceIndex]?.serverName || 'current server'}…`);
+    const next = (activeSourceIndex + 1) % resolvedSources.length;
+    setFailoverMsg(`Switching to ${resolvedSources[next]?.serverName || 'fallback source'}…`);
     setActiveSourceIndex(next);
     window.setTimeout(() => setFailoverMsg(''), 2500);
-  }, [activeSourceIndex, usableSources]);
+  }, [activeSourceIndex, resolvedSources]);
 
   const handleTouchStart = useCallback((event) => {
     const touch = event.touches[0];
@@ -98,7 +172,7 @@ function VideoPlayer({ sources = [], poster, title, onNextEpisode, onPrevEpisode
     const detail = event.detail || {};
     const currentTime = Number(detail.currentTime || 0);
     const duration = Number(detail.duration || 0);
-    if (duration > 0 && currentTime >= 0) {
+    if (duration > 0) {
       const now = Date.now();
       if (now - lastUpdateTime > 5000) {
         electronBridge.updateAnimeActivityTime(currentTime, duration);
@@ -107,7 +181,11 @@ function VideoPlayer({ sources = [], poster, title, onNextEpisode, onPrevEpisode
     }
   }, []);
 
-  if (!usableSources.length) {
+  if (isResolving) {
+    return <div className="video-player-error"><RefreshCw size={38} className="spin" /><p>Preparing direct stream…</p></div>;
+  }
+
+  if (!resolvedSources.length) {
     return (
       <div className="video-player-error" role="alert">
         <AlertTriangle size={42} />
@@ -117,50 +195,21 @@ function VideoPlayer({ sources = [], poster, title, onNextEpisode, onPrevEpisode
     );
   }
 
-  const activeSource = usableSources[Math.min(activeSourceIndex, usableSources.length - 1)];
+  const activeSource = resolvedSources[Math.min(activeSourceIndex, resolvedSources.length - 1)];
   const playerSrc = activeSource.type ? { src: activeSource.url, type: activeSource.type } : activeSource.url;
 
   return (
-    <div
-      ref={wrapperRef}
-      className={`av-player-shell ${isFullscreen ? 'av-fullscreen' : ''}`}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {showSwipeHint && (
-        <div className={`av-swipe-hint av-swipe-${showSwipeHint}`} style={{ opacity: swipeProgress }}>
-          {showSwipeHint === 'prev' ? <SkipBack size={30} /> : <SkipForward size={30} />}
-          <span>{showSwipeHint === 'prev' ? 'Previous Episode' : 'Next Episode'}</span>
-        </div>
-      )}
-
+    <div ref={wrapperRef} className={`av-player-shell ${isFullscreen ? 'av-fullscreen' : ''}`} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+      {showSwipeHint && <div className={`av-swipe-hint av-swipe-${showSwipeHint}`} style={{ opacity: swipeProgress }}>{showSwipeHint === 'prev' ? <SkipBack size={30} /> : <SkipForward size={30} />}<span>{showSwipeHint === 'prev' ? 'Previous Episode' : 'Next Episode'}</span></div>}
       {failoverMsg && <div className="av-player-status">{failoverMsg}</div>}
 
       <div className="video-player-wrapper-v2">
-        <MediaPlayer
-          ref={playerRef}
-          title={title}
-          src={playerSrc}
-          playsInline
-          aspectRatio="16/9"
-          crossOrigin="anonymous"
-          autoPlay
-          onTimeUpdate={handleTimeUpdate}
-          onError={failover}
-          className="av-custom-player"
-        >
-          <MediaProvider>
-            {poster && <Poster className="vds-poster" src={poster} alt={title} />}
-          </MediaProvider>
-
+        <MediaPlayer ref={playerRef} title={title} src={playerSrc} playsInline aspectRatio="16/9" crossOrigin="anonymous" autoPlay onTimeUpdate={handleTimeUpdate} onError={failover} className="av-custom-player">
+          <MediaProvider>{poster && <Poster className="vds-poster" src={poster} alt={title} />}</MediaProvider>
           <Gesture className="vds-gesture" event="dblpointerup" action="seek:-10" />
           <Gesture className="vds-gesture" event="dblpointerup" action="seek:10" />
-
           <Controls.Root className="av-controls">
-            <Controls.Group className="av-controls-top">
-              <h3 className="av-player-title">{title}</h3>
-            </Controls.Group>
+            <Controls.Group className="av-controls-top"><h3 className="av-player-title">{title}</h3></Controls.Group>
             <Controls.Group className="av-controls-center">
               {onPrevEpisode && <button className="av-center-btn" onClick={onPrevEpisode} aria-label="Previous episode"><SkipBack size={28} /></button>}
               <PlayButton className="av-center-btn av-play-center" />
@@ -173,7 +222,7 @@ function VideoPlayer({ sources = [], poster, title, onNextEpisode, onPrevEpisode
                 <VolumeSlider className="av-volume-slider" />
                 <Time className="av-time" />
                 <div className="av-controls-spacer" />
-                {usableSources.length > 1 && <button className="av-control-btn" onClick={failover} title="Switch direct source"><RefreshCw size={18} /></button>}
+                {resolvedSources.length > 1 && <button className="av-control-btn" onClick={failover} title="Switch direct source"><RefreshCw size={18} /></button>}
                 <button className="av-control-btn" onClick={toggleFullscreen} title="Fullscreen">{isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}</button>
               </div>
             </Controls.Group>
@@ -181,15 +230,7 @@ function VideoPlayer({ sources = [], poster, title, onNextEpisode, onPrevEpisode
         </MediaPlayer>
       </div>
 
-      {usableSources.length > 1 && (
-        <div className="av-source-bar" role="list" aria-label="Direct stream sources">
-          {usableSources.map((source, index) => (
-            <button key={`${source.url}-${index}`} className={index === activeSourceIndex ? 'active' : ''} onClick={() => setActiveSourceIndex(index)}>
-              {source.serverName || `Source ${index + 1}`}
-            </button>
-          ))}
-        </div>
-      )}
+      {resolvedSources.length > 1 && <div className="av-source-bar" role="list" aria-label="Direct stream sources">{resolvedSources.map((source, index) => <button key={`${source.url}-${index}`} className={index === activeSourceIndex ? 'active' : ''} onClick={() => setActiveSourceIndex(index)}>{source.serverName || `Source ${index + 1}`}</button>)}</div>}
 
       <div className="av-embed-bottombar">
         {onPrevEpisode && <button className="av-embed-nav-btn" onClick={onPrevEpisode}><ChevronLeft size={16} /> Prev</button>}
