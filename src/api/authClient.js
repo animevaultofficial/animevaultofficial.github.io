@@ -3,7 +3,7 @@ import { createAuthClient } from '@neondatabase/auth';
 const AUTH_TIMEOUT_MS = 8000;
 
 function getFallbackOrigin() {
-  if (typeof window === 'undefined') return 'https://animevaultofficial.github.io';
+  if (typeof window === 'undefined') return 'https://animevaultofficial.fun';
   const origin = window.location.origin;
   const isNativeShell = !origin || origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('file://');
   return !isNativeShell ? origin : 'https://localhost';

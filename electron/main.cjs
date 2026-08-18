@@ -262,7 +262,7 @@ function createWindow() {
     { urls: ["*://*.neon.tech/*", "*://*.supabase.co/*"] },
     (details, callback) => {
       const requestHeaders = { ...details.requestHeaders };
-      requestHeaders["Origin"] = "https://animevaultofficial.github.io";
+      requestHeaders["Origin"] = "https://animevaultofficial.fun";
       callback({ requestHeaders });
     }
   );

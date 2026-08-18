@@ -51,7 +51,7 @@ async function getSql() {
         if (!newOptions.headers['Origin'] && !newOptions.headers['origin']) {
           newOptions.headers['Origin'] = (window.location.origin && window.location.origin !== 'null')
             ? window.location.origin
-            : 'https://animevaultofficial.github.io';
+            : 'https://animevaultofficial.fun';
         }
         return fetch(url, newOptions);
       };
