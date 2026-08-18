@@ -22,7 +22,7 @@
 ## ✨ Features
 
 * **⚡ Fast Streaming:** Ultra-low latency video player with modern controls and smooth playback.
-* **📦 Massive Library:** Dive into a sprawling catalog of [Animes](https://animevaultofficial.github.io/#/search?type=ANIME), live-action [Dramas & Movies](https://animevaultofficial.github.io/#/dramas-movies), and [Mangas](https://animevaultofficial.github.io/#/search?type=MANGA) all in one place.
+* **📦 Massive Library:** Dive into a sprawling catalog of [Animes](https://animevaultofficial.fun/#/search?type=ANIME), live-action [Dramas & Movies](https://animevaultofficial.fun/#/dramas-movies), and [Mangas](https://animevaultofficial.fun/#/search?type=MANGA) all in one place.
 * **📊 Progress Tracking:** Automatically save your watch history and pick up right where you left off across sessions.
 * **💻 Cross-Platform & Desktop First:** Native desktop installers for Windows, macOS, and Linux featuring Discord Rich Presence support, plus a dedicated Android APK.
 * **🔍 Instant Search:** Quick-launch search functionality powered by keyboard shortcuts ($\text{Cmd/Ctrl + K}$).
