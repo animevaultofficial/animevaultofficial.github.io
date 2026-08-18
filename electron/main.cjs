@@ -236,6 +236,7 @@ function createWindow() {
       webviewTag: true,
       backgroundThrottling: true,
       spellcheck: false,
+      sandbox: false,
       // Caps the renderer's V8 heap + exposes gc() for manual GC hints after navigation
       additionalArguments: ["--js-flags=--max-old-space-size=256 --expose-gc"],
     },
