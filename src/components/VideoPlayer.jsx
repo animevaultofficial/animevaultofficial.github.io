@@ -25,6 +25,17 @@ const isElectron = typeof window !== 'undefined' && window.electronAPI !== undef
 
 let lastUpdateTime = 0;
 
+function getSafeEmbedUrl(url) {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url, window.location.origin);
+    if (!['https:', 'http:'].includes(parsed.protocol)) return '';
+    return parsed.href;
+  } catch {
+    return '';
+  }
+}
+
 function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpisode, onPrevEpisode }) {
   const [activeSourceIndex, setActiveSourceIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -177,9 +188,18 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
 
   const isIframeSource = activeSource?.type === 'iframe' || (!activeSource?.url.includes('.m3u8') && activeSource?.type !== 'hls');
   const targetUrl = activeSource?.url || embedUrl;
-  const cleanUrl = isZen ? stripAdParams(targetUrl) : targetUrl;
+  const cleanUrl = getSafeEmbedUrl(isZen ? stripAdParams(targetUrl) : targetUrl);
 
   // ── IFRAME EMBED PLAYER (Fallback/Mirror) ──
+  if (isIframeSource && !cleanUrl) {
+    return (
+      <div className="video-player-error">
+        <AlertTriangle size={48} />
+        <p>Blocked an unsafe stream URL.</p>
+      </div>
+    );
+  }
+
   if (isIframeSource) {
     return (
       <div 
@@ -252,6 +272,7 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
               src={cleanUrl}
               className="embed-iframe"
               allow={isZen ? "autoplay; fullscreen; picture-in-picture; encrypted-media" : "autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-popups-to-escape-sandbox"
               title={title}
               referrerPolicy="no-referrer"
               loading="lazy"
