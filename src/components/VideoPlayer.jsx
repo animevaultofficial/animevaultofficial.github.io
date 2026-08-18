@@ -33,7 +33,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
   const [failoverMsg, setFailoverMsg] = useState('');
 
   const playerRef = useRef(null);
-  const iframeRef = useRef(null);
   const wrapperRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
   const swipeThreshold = 80;
@@ -154,16 +153,8 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
     }
   };
 
-  const handleIframeError = useCallback(() => {
-    if (!sources || sources.length <= 1) {
-      setFailoverMsg('Failed to load stream source. No fallback servers available.');
-      return;
-    }
-    handleFailover();
-  }, [handleFailover, sources]);
-
-  // Determine active source object or fallback
-  const activeSource = sources[activeSourceIndex] || (embedUrl ? { url: embedUrl, type: 'iframe', serverName: 'AllAnime Direct' } : null);
+  // Determine active source object
+  const activeSource = sources[activeSourceIndex] || null;
 
   // ── LOADING STATE ──
   if (!activeSource && (!sources || sources.length === 0)) {
@@ -175,129 +166,7 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
     );
   }
 
-  const isIframeSource = activeSource?.type === 'iframe' || (!activeSource?.url.includes('.m3u8') && activeSource?.type !== 'hls');
-  const targetUrl = activeSource?.url || embedUrl;
-  const cleanUrl = isZen ? stripAdParams(targetUrl) : targetUrl;
 
-  // ── IFRAME EMBED PLAYER (Fallback/Mirror) ──
-  if (isIframeSource) {
-    return (
-      <div 
-        ref={wrapperRef}
-        className={`av-player-shell ${isFullscreen ? 'av-fullscreen' : ''}`}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        {/* Swipe Hint Overlays */}
-        {showSwipeHint === 'prev' && (
-          <div className="av-swipe-hint av-swipe-left" style={{ opacity: swipeProgress }}>
-            <SkipBack size={32} />
-            <span>Previous Episode</span>
-          </div>
-        )}
-        {showSwipeHint === 'next' && (
-          <div className="av-swipe-hint av-swipe-right" style={{ opacity: swipeProgress }}>
-            <SkipForward size={32} />
-            <span>Next Episode</span>
-          </div>
-        )}
-
-        {/* Title Bar */}
-        <div className="av-embed-topbar">
-          <span className="av-embed-title">{title}</span>
-          <div className="av-embed-actions">
-            {sources.length > 1 && (
-              <button className="av-embed-btn" onClick={handleFailover} title="Switch/Failover Server">
-                <RefreshCw size={18} /> Switch Server
-              </button>
-            )}
-            {onPrevEpisode && (
-              <button className="av-embed-btn" onClick={onPrevEpisode} title="Previous Episode">
-                <SkipBack size={18} />
-              </button>
-            )}
-            {onNextEpisode && (
-              <button className="av-embed-btn" onClick={onNextEpisode} title="Next Episode">
-                <SkipForward size={18} />
-              </button>
-            )}
-            <button className="av-embed-btn" onClick={toggleFullscreen} title="Fullscreen">
-              {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-            </button>
-          </div>
-        </div>
-
-        {failoverMsg && (
-          <div style={{ background: '#e53e3e', color: '#fff', padding: '6px 12px', fontSize: '0.85rem', textAlign: 'center' }}>
-            {failoverMsg}
-          </div>
-        )}
-
-        {/* Embed iframe */}
-        <div className={`player-wrap embed-container ${isZen ? 'zen-active' : ''}`}>
-          {isElectron ? (
-            <webview
-              src={cleanUrl}
-              className="embed-iframe"
-              style={{ width: '100%', height: '100%', border: 'none' }}
-              partition="persist:player"
-              allowpopups="false"
-              allowfullscreen
-              title={title}
-            />
-          ) : (
-            <iframe
-              ref={iframeRef}
-              src={cleanUrl}
-              className="embed-iframe"
-              allow={isZen ? "autoplay; fullscreen; picture-in-picture; encrypted-media" : "autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"}
-              title={title}
-              referrerPolicy="no-referrer"
-              loading="lazy"
-              onError={handleIframeError}
-            />
-          )}
-          {isZen && (
-            <div className="zen-mode-badge">🛡️</div>
-          )}
-        </div>
-
-        {/* Server selector pill bar */}
-        {sources.length > 1 && (
-          <div style={{ display: 'flex', gap: '8px', padding: '8px 12px', background: 'rgba(0,0,0,0.8)', overflowX: 'auto' }}>
-            {sources.map((s, idx) => (
-              <button
-                key={idx}
-                className={`quality-badge ${idx === activeSourceIndex ? 'active' : ''}`}
-                onClick={() => setActiveSourceIndex(idx)}
-                style={{ whiteSpace: 'nowrap', cursor: 'pointer' }}
-              >
-                {s.serverName || `Server ${idx + 1}`}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Bottom Bar */}
-        <div className="av-embed-bottombar">
-          {onPrevEpisode && (
-            <button className="av-embed-nav-btn" onClick={onPrevEpisode}>
-              <ChevronLeft size={16} /> Prev
-            </button>
-          )}
-          <div className="av-embed-bottombar-center">
-            <span className="av-swipe-instruction">Swipe to change episode</span>
-          </div>
-          {onNextEpisode && (
-            <button className="av-embed-nav-btn" onClick={onNextEpisode}>
-              Next <ChevronRight size={16} />
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
 
   // ── DIRECT HLS STREAM PLAYER (Vidstack / HLS.js) ──
   return (

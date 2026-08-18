@@ -227,13 +227,12 @@ export async function getDecodedEpisodeSources(showId, translationType = 'sub', 
     }
 
     const isHls = decoded.includes('.m3u8') || item.type === 'hls';
-    const isIframe = !isHls && (decoded.includes('embed') || decoded.includes('player') || item.type === 'iframe' || !decoded.includes('.mp4'));
 
     parsedSources.push({
       url: decoded,
       quality: item.quality || '720p',
-      type: isHls ? 'hls' : (isIframe ? 'iframe' : 'hls'),
-      serverName: `${serverName} (${isHls ? 'HLS' : 'Embed'})`,
+      type: 'hls',
+      serverName: `${serverName}`,
       priority,
     });
   }

@@ -253,28 +253,29 @@ export async function getDecodedEpisodeSources(showId, translationType = 'sub', 
         clockLinks.forEach(cl => {
           if (cl.link) {
             const isHls = cl.hls || cl.link.includes('.m3u8') || cl.link.includes('hls');
-            parsedSources.push({
-              url: cl.link,
-              quality: cl.resolutionStr || '1080p',
-              type: isHls ? 'hls' : 'iframe',
-              serverName: `${serverName} (${cl.resolutionStr || 'HLS'})`,
-              priority,
-            });
+            if (isHls) {
+              parsedSources.push({
+                url: cl.link,
+                quality: cl.resolutionStr || '1080p',
+                type: 'hls',
+                serverName: `${serverName} (${cl.resolutionStr || 'HLS'})`,
+                priority,
+              });
+            }
           }
         });
         continue;
       }
     }
 
-    // Direct stream link or iframe embed link
+    // Direct stream link only - skip embed/iframe links
     const isHls = decoded.includes('.m3u8') || item.type === 'hls';
-    const isIframe = !isHls && (decoded.includes('embed') || decoded.includes('player') || item.type === 'iframe' || !decoded.includes('.mp4'));
 
     parsedSources.push({
       url: decoded,
       quality: item.quality || '720p',
-      type: isHls ? 'hls' : (isIframe ? 'iframe' : 'hls'),
-      serverName: `${serverName} (${isHls ? 'HLS' : 'Embed'})`,
+      type: 'hls',
+      serverName: `${serverName} (HLS)`,
       priority,
     });
   }

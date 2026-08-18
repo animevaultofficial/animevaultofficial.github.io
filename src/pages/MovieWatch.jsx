@@ -46,8 +46,8 @@ function MovieWatch() {
   const [activeSeason, setActiveSeason] = useState(null);
   const [activeEpisode, setActiveEpisode] = useState(null);
   const [activeSourceId, setActiveSourceId] = useState(() => storage.get("playerSource") || PLAYER_SOURCES[0].id);
-  const [iframeLoaded, setIframeLoaded] = useState(false);
-  const [showFallbackHint, setShowFallbackHint] = useState(false);
+
+
   const [accentColor] = useState(() => storage.get("accentColor") || "ff1a75");
   const [playing, setPlaying] = useState(false);
   
@@ -456,7 +456,6 @@ function MovieWatch() {
                 className={`lang-btn-v2 ${activeSourceId === src.id ? 'active' : ''}`}
                 onClick={() => {
                   setActiveSourceId(src.id);
-                  setIframeLoaded(false);
                 }}
               >
                 <Server size={14} />

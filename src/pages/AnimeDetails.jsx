@@ -239,7 +239,7 @@ function AnimeDetails() {
   const playerSources = currentEpisode
     ? [{
         url: buildAnimeStreamUrlFromAniList(anime.id, currentEpisode.number, language),
-        type: 'iframe',
+        type: 'hls',
         serverName: 'MegaFlix',
         priority: 1000,
       }]

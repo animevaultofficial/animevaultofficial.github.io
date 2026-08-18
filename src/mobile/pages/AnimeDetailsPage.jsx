@@ -156,7 +156,7 @@ export default function AnimeDetailsPage({ params, goBack, navigate }) {
 
     const playbackSources = currentEpisode ? [{
       url: buildAnimeStreamUrlFromAniList(media.id, currentEpisode.number, language),
-      type: 'iframe',
+      type: 'hls',
       serverName: 'MegaFlix',
       priority: 1000,
     }] : [];

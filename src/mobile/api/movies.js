@@ -55,8 +55,8 @@ export const EMBED_SERVERS = [
   },
   {
     name: 'VidSrc',
-    movie: (id) => `https://vsembed.su/embed/movie/${id}`,
-    tv: (id, s, e) => `https://vsembed.su/embed/tv/${id}/${s}/${e}`,
+    movie: (id) => `https://vidsrc.sbs/embed/movie/${id}`,
+    tv: (id, s, e) => `https://vidsrc.sbs/embed/tv/${id}/${s}/${e}`,
   },
   {
     name: 'VidKing',

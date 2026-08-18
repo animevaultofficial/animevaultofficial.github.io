@@ -156,15 +156,9 @@ export default function DramaDetailPage({ params, goBack, navigate }) {
               </button>
             </div>
           )}
-          <iframe
-            key={`${selectedEpisode}-${embedServer}`}
-            src={embedUrl}
-            className="player-frame"
-            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-            allowFullScreen
-            title={title}
-            onLoad={() => setPlayerLoading(false)}
-          />
+        <div style={{ width: '100%', textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+          <p>Iframe playback has been removed. Please use HLS streaming sources.</p>
+        </div>
         </div>
 
         {/* Episode rail + server selector */}

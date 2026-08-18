@@ -14,7 +14,7 @@ export function getMobileStreamSources(animeId, episodeNumber, language = 'sub')
   return [
     {
       url,
-      type: 'iframe',
+      type: 'hls',
       serverName: 'MegaFlix',
       priority: 1000,
     },
