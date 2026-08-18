@@ -1,491 +1,200 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { 
-  MediaPlayer, 
-  MediaProvider, 
-  Poster,
-  Controls,
-  PlayButton,
-  MuteButton,
-  TimeSlider,
-  VolumeSlider,
-  FullscreenButton,
-  Time,
-  Gesture
-} from '@vidstack/react';
-import { 
-  Settings, Play, Pause, Volume2, VolumeX, Maximize, Minimize, 
-  SkipForward, SkipBack, ChevronLeft, ChevronRight, AlertTriangle, RefreshCw
-} from 'lucide-react';
-
+import { MediaPlayer, MediaProvider, Poster, Controls, PlayButton, MuteButton, TimeSlider, VolumeSlider, FullscreenButton, Time, Gesture } from '@vidstack/react';
+import { AlertTriangle, RefreshCw, SkipBack, SkipForward, ChevronLeft, ChevronRight, Volume2, Maximize, Minimize } from 'lucide-react';
 import '@vidstack/react/player/styles/default/theme.css';
 import electronBridge from '../utils/electronBridge';
-import { stripAdParams } from '../utils/adProxy';
-import { MEGAPLAY_ORIGIN } from '../utils/animeStreamingServer';
 
-const isElectron = typeof window !== 'undefined' && window.electronAPI !== undefined;
-
+const isBrowser = typeof window !== 'undefined';
 let lastUpdateTime = 0;
 
-function parsePlayerMessage(data) {
-  if (typeof data === 'string') {
-    try {
-      return JSON.parse(data);
-    } catch {
-      return null;
-    }
-  }
-  return data && typeof data === 'object' ? data : null;
-}
-
-function getPlayerProgress(data) {
-  if (!data) return null;
-  if (data.channel === 'megacloud' && data.type === 'time') {
-    return { currentTime: data.currentTime ?? data.current_time ?? data.time, duration: data.duration };
-  }
-  if (data.type === 'watching-log') {
-    return { currentTime: data.currentTime ?? data.current_time ?? data.time, duration: data.duration };
-  }
-  if (data.type === 'timeupdate' || data.type === 'progress') {
-    return { currentTime: data.currentTime, duration: data.duration };
-  }
-  return null;
-}
-
-function getSafeEmbedUrl(url) {
-  if (!url) return '';
+function normalizeSource(source) {
+  if (!source) return null;
+  const url = typeof source === 'string' ? source : source.url || source.src || source.file;
+  if (!url || typeof url !== 'string') return null;
   try {
     const parsed = new URL(url, window.location.origin);
-    if (!['https:', 'http:'].includes(parsed.protocol)) return '';
-    return parsed.href;
+    if (!['https:', 'http:'].includes(parsed.protocol)) return null;
+    const lower = parsed.pathname.toLowerCase();
+    const type = source.type || (lower.includes('.m3u8') ? 'application/x-mpegURL' : lower.includes('.mp4') ? 'video/mp4' : undefined);
+    return { ...source, url: parsed.href, type };
   } catch {
-    return '';
+    return null;
   }
 }
 
-function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpisode, onPrevEpisode }) {
+function VideoPlayer({ sources = [], poster, title, onNextEpisode, onPrevEpisode }) {
   const [activeSourceIndex, setActiveSourceIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showSwipeHint, setShowSwipeHint] = useState(null); // 'next' | 'prev' | null
-  const [swipeProgress, setSwipeProgress] = useState(0);
   const [failoverMsg, setFailoverMsg] = useState('');
-
+  const [showSwipeHint, setShowSwipeHint] = useState(null);
+  const [swipeProgress, setSwipeProgress] = useState(0);
   const playerRef = useRef(null);
-  const iframeRef = useRef(null);
   const wrapperRef = useRef(null);
-  const trustedEmbedOriginRef = useRef(MEGAPLAY_ORIGIN);
   const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
-  const swipeThreshold = 80;
 
-  // Reset active source when sources prop changes
+  const usableSources = sources.map(normalizeSource).filter(Boolean);
+
   useEffect(() => {
     setActiveSourceIndex(0);
     setFailoverMsg('');
   }, [sources]);
 
   useEffect(() => {
-    const handleMessage = (event) => {
-      if (event.origin !== trustedEmbedOriginRef.current) return;
-      const progressData = getPlayerProgress(parsePlayerMessage(event.data));
-      const currentTime = Number(progressData?.currentTime || 0);
-      const duration = Number(progressData?.duration || 0);
-      if (currentTime > 0 && duration > 0) {
-        const now = Date.now();
-        if (now - lastUpdateTime > 5000) {
-          electronBridge.updateAnimeActivityTime(currentTime, duration);
-          lastUpdateTime = now;
-        }
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, []);
 
-  // Fullscreen change listener
-  useEffect(() => {
-    const handleFSChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener('fullscreenchange', handleFSChange);
-    return () => document.removeEventListener('fullscreenchange', handleFSChange);
-  }, []);
-
-  const toggleFullscreen = useCallback(() => {
-    if (!wrapperRef.current) return;
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      wrapperRef.current.requestFullscreen();
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await wrapperRef.current?.requestFullscreen();
+    } catch (error) {
+      console.warn('[AnimeVault Player] Fullscreen unavailable:', error);
     }
   }, []);
 
-  // Automatic failover logic to next working source
-  const handleFailover = useCallback(() => {
-    if (!sources || sources.length <= 1) {
-      setFailoverMsg('All available stream sources exhausted.');
+  const failover = useCallback(() => {
+    if (usableSources.length <= 1) {
+      setFailoverMsg('This stream has no additional direct fallback source.');
       return;
     }
+    const next = (activeSourceIndex + 1) % usableSources.length;
+    setFailoverMsg(`Switching from ${usableSources[activeSourceIndex]?.serverName || 'current server'}…`);
+    setActiveSourceIndex(next);
+    window.setTimeout(() => setFailoverMsg(''), 2500);
+  }, [activeSourceIndex, usableSources]);
 
-    const nextIdx = (activeSourceIndex + 1) % sources.length;
-    const failedServer = sources[activeSourceIndex]?.serverName || `Server ${activeSourceIndex + 1}`;
-    const nextServer = sources[nextIdx]?.serverName || `Server ${nextIdx + 1}`;
-
-    console.warn(`[AllAnime Player] ${failedServer} failed. Failing over to ${nextServer}...`);
-    setFailoverMsg(`Stream error on ${failedServer}. Auto-switching to ${nextServer}...`);
-    setActiveSourceIndex(nextIdx);
-
-    setTimeout(() => {
-      setFailoverMsg('');
-    }, 4000);
-  }, [activeSourceIndex, sources]);
-
-  // Touch / Swipe Gesture Handling
-  const handleTouchStart = useCallback((e) => {
-    const touch = e.touches[0];
+  const handleTouchStart = useCallback((event) => {
+    const touch = event.touches[0];
     touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
     setSwipeProgress(0);
     setShowSwipeHint(null);
   }, []);
 
-  const handleTouchMove = useCallback((e) => {
-    const touch = e.touches[0];
-    const deltaX = touch.clientX - touchStartRef.current.x;
-    const deltaY = touch.clientY - touchStartRef.current.y;
-
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
-      e.preventDefault();
-      const progress = Math.min(Math.abs(deltaX) / swipeThreshold, 1);
-      setSwipeProgress(progress);
-      
-      if (deltaX > 30 && onPrevEpisode) {
-        setShowSwipeHint('prev');
-      } else if (deltaX < -30 && onNextEpisode) {
-        setShowSwipeHint('next');
-      } else {
-        setShowSwipeHint(null);
-      }
+  const handleTouchMove = useCallback((event) => {
+    const touch = event.touches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 20) {
+      event.preventDefault();
+      setSwipeProgress(Math.min(Math.abs(dx) / 80, 1));
+      setShowSwipeHint(dx > 0 ? (onPrevEpisode ? 'prev' : null) : (onNextEpisode ? 'next' : null));
     }
   }, [onNextEpisode, onPrevEpisode]);
 
-  const handleTouchEnd = useCallback((e) => {
-    const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
-    const deltaTime = Date.now() - touchStartRef.current.time;
-    
-    if (Math.abs(deltaX) > swipeThreshold || (Math.abs(deltaX) > 40 && deltaTime < 300)) {
-      if (deltaX > 0 && onPrevEpisode) {
-        onPrevEpisode();
-      } else if (deltaX < 0 && onNextEpisode) {
-        onNextEpisode();
-      }
+  const handleTouchEnd = useCallback((event) => {
+    const dx = event.changedTouches[0].clientX - touchStartRef.current.x;
+    const elapsed = Date.now() - touchStartRef.current.time;
+    if (Math.abs(dx) > 80 || (Math.abs(dx) > 40 && elapsed < 300)) {
+      if (dx > 0) onPrevEpisode?.();
+      else onNextEpisode?.();
     }
-
     setShowSwipeHint(null);
     setSwipeProgress(0);
   }, [onNextEpisode, onPrevEpisode]);
 
-  const handleTimeUpdate = (event) => {
-    const { currentTime, duration } = event.detail;
-    if (duration > 0) {
+  const handleTimeUpdate = useCallback((event) => {
+    const detail = event.detail || {};
+    const currentTime = Number(detail.currentTime || 0);
+    const duration = Number(detail.duration || 0);
+    if (duration > 0 && currentTime >= 0) {
       const now = Date.now();
       if (now - lastUpdateTime > 5000) {
         electronBridge.updateAnimeActivityTime(currentTime, duration);
         lastUpdateTime = now;
       }
     }
-  };
+  }, []);
 
-  const handleIframeError = useCallback(() => {
-    if (!sources || sources.length <= 1) {
-      setFailoverMsg('Failed to load stream source. No fallback servers available.');
-      return;
-    }
-    handleFailover();
-  }, [handleFailover, sources]);
-
-  // Determine active source object or fallback
-  const activeSource = sources[activeSourceIndex] || (embedUrl ? { url: embedUrl, type: 'iframe', serverName: 'AllAnime Direct' } : null);
-
-  // ── LOADING STATE ──
-  if (!activeSource && (!sources || sources.length === 0)) {
+  if (!usableSources.length) {
     return (
-      <div className="video-player-error">
-        <Settings size={48} className="spin" />
-        <p>Fetching AllAnime video streams...</p>
+      <div className="video-player-error" role="alert">
+        <AlertTriangle size={42} />
+        <p>No direct browser-compatible stream is available for this episode.</p>
+        <small>AnimeVault no longer loads third-party iframe players in the browser.</small>
       </div>
     );
   }
 
-  const isIframeSource = activeSource?.type === 'iframe' || (!activeSource?.url.includes('.m3u8') && activeSource?.type !== 'hls');
-  const targetUrl = activeSource?.url || embedUrl;
-  const cleanUrl = getSafeEmbedUrl(isZen ? stripAdParams(targetUrl) : targetUrl);
-  if (cleanUrl) trustedEmbedOriginRef.current = new URL(cleanUrl).origin;
+  const activeSource = usableSources[Math.min(activeSourceIndex, usableSources.length - 1)];
+  const playerSrc = activeSource.type ? { src: activeSource.url, type: activeSource.type } : activeSource.url;
 
-  // ── IFRAME EMBED PLAYER (Fallback/Mirror) ──
-  if (isIframeSource && !cleanUrl) {
-    return (
-      <div className="video-player-error">
-        <AlertTriangle size={48} />
-        <p>Blocked an unsafe stream URL.</p>
-      </div>
-    );
-  }
-
-  if (isIframeSource) {
-    return (
-      <div 
-        ref={wrapperRef}
-        className={`av-player-shell ${isFullscreen ? 'av-fullscreen' : ''}`}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        {/* Swipe Hint Overlays */}
-        {showSwipeHint === 'prev' && (
-          <div className="av-swipe-hint av-swipe-left" style={{ opacity: swipeProgress }}>
-            <SkipBack size={32} />
-            <span>Previous Episode</span>
-          </div>
-        )}
-        {showSwipeHint === 'next' && (
-          <div className="av-swipe-hint av-swipe-right" style={{ opacity: swipeProgress }}>
-            <SkipForward size={32} />
-            <span>Next Episode</span>
-          </div>
-        )}
-
-        {/* Title Bar */}
-        <div className="av-embed-topbar">
-          <span className="av-embed-title">{title}</span>
-          <div className="av-embed-actions">
-            {sources.length > 1 && (
-              <button className="av-embed-btn" onClick={handleFailover} title="Switch/Failover Server">
-                <RefreshCw size={18} /> Switch Server
-              </button>
-            )}
-            {onPrevEpisode && (
-              <button className="av-embed-btn" onClick={onPrevEpisode} title="Previous Episode">
-                <SkipBack size={18} />
-              </button>
-            )}
-            {onNextEpisode && (
-              <button className="av-embed-btn" onClick={onNextEpisode} title="Next Episode">
-                <SkipForward size={18} />
-              </button>
-            )}
-            <button className="av-embed-btn" onClick={toggleFullscreen} title="Fullscreen">
-              {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-            </button>
-          </div>
-        </div>
-
-        {failoverMsg && (
-          <div style={{ background: '#e53e3e', color: '#fff', padding: '6px 12px', fontSize: '0.85rem', textAlign: 'center' }}>
-            {failoverMsg}
-          </div>
-        )}
-
-        {/* Embed iframe */}
-        <div className={`player-wrap embed-container ${isZen ? 'zen-active' : ''}`}>
-          {isElectron ? (
-            <webview
-              src={cleanUrl}
-              className="embed-iframe"
-              style={{ width: '100%', height: '100%', border: 'none' }}
-              partition="persist:player"
-              allowpopups="false"
-              allowfullscreen
-              title={title}
-            />
-          ) : (
-            <iframe
-              ref={iframeRef}
-              src={cleanUrl}
-              className="embed-iframe"
-              allow={isZen ? "autoplay; fullscreen; picture-in-picture; encrypted-media" : "autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-popups-to-escape-sandbox"
-              title={title}
-              referrerPolicy="no-referrer"
-              loading="lazy"
-              onError={handleIframeError}
-            />
-          )}
-          {isZen && (
-            <div className="zen-mode-badge">🛡️</div>
-          )}
-        </div>
-
-        {/* Server selector pill bar */}
-        {sources.length > 1 && (
-          <div style={{ display: 'flex', gap: '8px', padding: '8px 12px', background: 'rgba(0,0,0,0.8)', overflowX: 'auto' }}>
-            {sources.map((s, idx) => (
-              <button
-                key={idx}
-                className={`quality-badge ${idx === activeSourceIndex ? 'active' : ''}`}
-                onClick={() => setActiveSourceIndex(idx)}
-                style={{ whiteSpace: 'nowrap', cursor: 'pointer' }}
-              >
-                {s.serverName || `Server ${idx + 1}`}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Bottom Bar */}
-        <div className="av-embed-bottombar">
-          {onPrevEpisode && (
-            <button className="av-embed-nav-btn" onClick={onPrevEpisode}>
-              <ChevronLeft size={16} /> Prev
-            </button>
-          )}
-          <div className="av-embed-bottombar-center">
-            <span className="av-swipe-instruction">Swipe to change episode</span>
-          </div>
-          {onNextEpisode && (
-            <button className="av-embed-nav-btn" onClick={onNextEpisode}>
-              Next <ChevronRight size={16} />
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ── DIRECT HLS STREAM PLAYER (Vidstack / HLS.js) ──
   return (
-    <div 
+    <div
       ref={wrapperRef}
-      className="av-player-shell"
+      className={`av-player-shell ${isFullscreen ? 'av-fullscreen' : ''}`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Swipe Hints */}
-      {showSwipeHint === 'prev' && (
-        <div className="av-swipe-hint av-swipe-left" style={{ opacity: swipeProgress }}>
-          <SkipBack size={32} />
-          <span>Previous Episode</span>
-        </div>
-      )}
-      {showSwipeHint === 'next' && (
-        <div className="av-swipe-hint av-swipe-right" style={{ opacity: swipeProgress }}>
-          <SkipForward size={32} />
-          <span>Next Episode</span>
+      {showSwipeHint && (
+        <div className={`av-swipe-hint av-swipe-${showSwipeHint}`} style={{ opacity: swipeProgress }}>
+          {showSwipeHint === 'prev' ? <SkipBack size={30} /> : <SkipForward size={30} />}
+          <span>{showSwipeHint === 'prev' ? 'Previous Episode' : 'Next Episode'}</span>
         </div>
       )}
 
-      {failoverMsg && (
-        <div style={{ background: 'var(--brand-color, #ff4757)', color: '#fff', padding: '6px 12px', fontSize: '0.85rem', textAlign: 'center' }}>
-          {failoverMsg}
-        </div>
-      )}
+      {failoverMsg && <div className="av-player-status">{failoverMsg}</div>}
 
       <div className="video-player-wrapper-v2">
         <MediaPlayer
           ref={playerRef}
           title={title}
-          src={activeSource.url}
+          src={playerSrc}
           playsInline
           aspectRatio="16/9"
-          crossOrigin
+          crossOrigin="anonymous"
           autoPlay
           onTimeUpdate={handleTimeUpdate}
-          onError={handleFailover}
+          onError={failover}
           className="av-custom-player"
         >
           <MediaProvider>
-            <Poster className="vds-poster" src={poster} alt={title} />
+            {poster && <Poster className="vds-poster" src={poster} alt={title} />}
           </MediaProvider>
 
-          {/* Gestures */}
           <Gesture className="vds-gesture" event="dblpointerup" action="seek:-10" />
           <Gesture className="vds-gesture" event="dblpointerup" action="seek:10" />
-          <Gesture className="vds-gesture" event="pointerup" action="toggle:paused" />
-          <Gesture className="vds-gesture" event="dblpointerup" action="toggle:fullscreen" />
 
-          {/* Custom Controls UI */}
           <Controls.Root className="av-controls">
-            <div className="av-controls-scrim" />
-            
             <Controls.Group className="av-controls-top">
               <h3 className="av-player-title">{title}</h3>
             </Controls.Group>
-
             <Controls.Group className="av-controls-center">
-              {onPrevEpisode && (
-                <button className="av-center-btn" onClick={onPrevEpisode}>
-                  <SkipBack size={28} />
-                </button>
-              )}
-              <PlayButton className="av-center-btn av-play-center">
-                <Play className="vds-icon-play" fill="currentColor" size={36} />
-                <Pause className="vds-icon-pause" fill="currentColor" size={36} />
-              </PlayButton>
-              {onNextEpisode && (
-                <button className="av-center-btn" onClick={onNextEpisode}>
-                  <SkipForward size={28} />
-                </button>
-              )}
+              {onPrevEpisode && <button className="av-center-btn" onClick={onPrevEpisode} aria-label="Previous episode"><SkipBack size={28} /></button>}
+              <PlayButton className="av-center-btn av-play-center" />
+              {onNextEpisode && <button className="av-center-btn" onClick={onNextEpisode} aria-label="Next episode"><SkipForward size={28} /></button>}
             </Controls.Group>
-
             <Controls.Group className="av-controls-bottom">
-              <TimeSlider.Root className="av-slider">
-                <TimeSlider.Track className="av-slider-track">
-                  <TimeSlider.TrackFill className="av-slider-fill" />
-                  <TimeSlider.Progress className="av-slider-progress" />
-                </TimeSlider.Track>
-                <TimeSlider.Thumb className="av-slider-thumb" />
-              </TimeSlider.Root>
-
-              <div className="av-controls-toolbar">
-                <div className="av-toolbar-left">
-                  <PlayButton className="av-btn">
-                    <Play className="vds-icon-play" fill="currentColor" size={24} />
-                    <Pause className="vds-icon-pause" fill="currentColor" size={24} />
-                  </PlayButton>
-                  
-                  <MuteButton className="av-btn">
-                    <Volume2 className="vds-icon-volume" size={20} />
-                    <VolumeX className="vds-icon-mute" size={20} />
-                  </MuteButton>
-
-                  <VolumeSlider.Root className="av-slider av-volume-slider">
-                    <VolumeSlider.Track className="av-slider-track">
-                      <VolumeSlider.TrackFill className="av-slider-fill" />
-                    </VolumeSlider.Track>
-                    <VolumeSlider.Thumb className="av-slider-thumb" />
-                  </VolumeSlider.Root>
-
-                  <div className="av-time-display">
-                    <Time type="current" className="av-time" />
-                    <span className="av-time-sep">/</span>
-                    <Time type="duration" className="av-time" />
-                  </div>
-                </div>
-
-                <div className="av-toolbar-right">
-                  <FullscreenButton className="av-btn">
-                    <Maximize className="vds-icon-enter" size={20} />
-                    <Minimize className="vds-icon-exit" size={20} />
-                  </FullscreenButton>
-                </div>
+              <TimeSlider className="av-time-slider" />
+              <div className="av-controls-row">
+                <MuteButton className="av-control-btn"><Volume2 /></MuteButton>
+                <VolumeSlider className="av-volume-slider" />
+                <Time className="av-time" />
+                <div className="av-controls-spacer" />
+                {usableSources.length > 1 && <button className="av-control-btn" onClick={failover} title="Switch direct source"><RefreshCw size={18} /></button>}
+                <button className="av-control-btn" onClick={toggleFullscreen} title="Fullscreen">{isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}</button>
               </div>
             </Controls.Group>
           </Controls.Root>
         </MediaPlayer>
-        
-        {/* Server & Quality selector overlay */}
-        {sources.length > 0 && (
-          <div className="quality-overlay custom-quality">
-            {sources.map((s, i) => (
-              <button
-                key={i}
-                className={`quality-badge ${i === activeSourceIndex ? 'active' : ''}`}
-                onClick={() => setActiveSourceIndex(i)}
-              >
-                {s.serverName || s.quality || `Server ${i + 1}`}
-              </button>
-            ))}
-          </div>
-        )}
+      </div>
+
+      {usableSources.length > 1 && (
+        <div className="av-source-bar" role="list" aria-label="Direct stream sources">
+          {usableSources.map((source, index) => (
+            <button key={`${source.url}-${index}`} className={index === activeSourceIndex ? 'active' : ''} onClick={() => setActiveSourceIndex(index)}>
+              {source.serverName || `Source ${index + 1}`}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="av-embed-bottombar">
+        {onPrevEpisode && <button className="av-embed-nav-btn" onClick={onPrevEpisode}><ChevronLeft size={16} /> Prev</button>}
+        <span className="av-swipe-instruction">Swipe to change episode</span>
+        {onNextEpisode && <button className="av-embed-nav-btn" onClick={onNextEpisode}>Next <ChevronRight size={16} /></button>}
       </div>
     </div>
   );
