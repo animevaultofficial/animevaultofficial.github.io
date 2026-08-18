@@ -27,7 +27,6 @@ body {
   flex: 1 1 auto;
 }
 
-/* Horizontal rails must not become the page's vertical scroller. */
 .hscroll,
 .horizontal-scroll,
 .ply-rail-scroll,
@@ -38,7 +37,6 @@ body {
   touch-action: pan-x;
 }
 
-/* Never let a full-screen player create a second document-height page. */
 .player-screen,
 .player-screen-v2 {
   width: 100%;
@@ -85,12 +83,6 @@ body {
   color-scheme: dark;
 }
 
-/* Do not lazy-load the actual player on a phone. Lazy iframe loading can
-   leave a black/white empty frame after a route transition. */
-.embed-iframe {
-  content-visibility: auto;
-}
-
 .video-player-wrapper-v2,
 .av-player-shell {
   width: 100%;
@@ -100,16 +92,43 @@ body {
 }
 
 .av-player-shell {
-  height: 100%;
+  height: auto;
   display: flex;
   flex-direction: column;
   background: #000;
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+.av-player-shell .video-player-wrapper-v2 {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 0;
+  flex: 0 0 auto;
   overflow: hidden;
 }
 
-.av-player-shell .embed-container {
-  flex: 1 1 auto;
+.av-player-shell media-player,
+.av-player-shell video {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
 }
+
+.av-source-bar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 0 0 auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-width: none;
+}
+
+.av-source-bar::-webkit-scrollbar { display: none; }
+.av-source-bar button { white-space: nowrap; flex: 0 0 auto; }
 
 .player-episode-rail {
   flex: 0 0 auto;
@@ -126,17 +145,43 @@ body {
   flex: 1 1 auto;
 }
 
-/* Fullscreen API is not consistently available on mobile browsers. Keep the
-   player usable even when requestFullscreen() is rejected. */
-@media (max-width: 700px) {
-  .player-frame-wrap-v2,
-  .embed-container {
-    min-height: 0;
+/* Browser scrolling is owned by the document. Never globally lock it from
+   the player, modal, or route shell on a touch device. */
+@media (pointer: coarse) {
+  html,
+  body,
+  #root,
+  .app,
+  .area {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: auto !important;
+    min-height: 100dvh;
+    max-height: none !important;
   }
 
-  .av-embed-topbar {
-    min-height: 44px;
-    padding: 4px 8px;
+  body.av-scroll-locked,
+  body.modal-open,
+  body.no-scroll,
+  html.no-scroll {
+    overflow-y: auto !important;
+    position: static !important;
+    height: auto !important;
+    touch-action: pan-y !important;
+  }
+
+  .overlay {
+    touch-action: none;
+  }
+
+  .sidebar {
+    max-height: 100dvh;
+  }
+}
+
+@media (max-width: 700px) {
+  .av-embed-bottombar {
+    min-height: 42px;
   }
 
   .av-embed-title {
@@ -146,13 +191,11 @@ body {
     white-space: nowrap;
   }
 
-  .av-embed-btn {
+  .av-embed-btn,
+  .av-control-btn,
+  .av-center-btn {
     min-width: 34px;
     min-height: 34px;
-  }
-
-  .av-embed-bottombar {
-    min-height: 42px;
   }
 
   .player-title strong,
@@ -164,19 +207,10 @@ body {
     display: block;
   }
 
-  /* Prevent fixed/sticky UI from expanding the page horizontally. */
   .header,
   .bnav,
   .sidebar,
   .overlay {
     max-width: 100vw;
-  }
-}
-
-/* Defensive fallback for old pages that accidentally set a scroll lock. */
-@media (pointer: coarse) {
-  body.av-scroll-locked,
-  body.modal-open {
-    overflow-y: auto !important;
   }
 }
