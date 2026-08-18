@@ -205,3 +205,162 @@ img, video, iframe { max-width:100%; }
   .g4 { grid-template-columns:repeat(3,minmax(0,1fr)); }
   .bnav-item { padding-left:3px; padding-right:3px; }
 }
+
+/* ── Mobile web hardening / legacy class aliases ──────────── */
+:root { --brand-color: var(--brand); }
+
+.mobile-content {
+  width:100%; max-width:100%; min-width:0;
+  padding:.75rem;
+  overflow-x:clip;
+}
+.mobile-announcement {
+  position:sticky; top:0; z-index:110;
+  padding:.45rem .75rem;
+  background:linear-gradient(135deg,var(--brand),var(--brand2));
+  color:#fff; font-size:.75rem; font-weight:800; text-align:center;
+}
+
+.mobile-hero-carousel {
+  position:relative;
+  width:calc(100% + 1.5rem);
+  margin:0 -.75rem 1.25rem;
+  height:clamp(320px, 62vh, 520px);
+  min-height:320px;
+  overflow:hidden;
+  border-radius:0 0 var(--radius-lg) var(--radius-lg);
+  background:var(--surface2);
+  touch-action:pan-y;
+}
+.mobile-hero-image {
+  width:100%; height:100%; display:block;
+  object-fit:cover; object-position:center center;
+}
+
+.search-bar,
+.select-input,
+.setting-row,
+.setting-label,
+.section,
+.section-header,
+.section-title,
+.section-link,
+.empty-state,
+.empty,
+.grid-3,
+.grid-card,
+.grid-card-img,
+.grid-card-title,
+.horizontal-scroll,
+.anime-card,
+.anime-card-image,
+.anime-card-title,
+.anime-card-sub,
+.stat-pill,
+.loading-shimmer,
+.detail-skeleton,
+.btn-primary,
+.icon-action,
+.language-row,
+.tag-row,
+.tab-bar,
+.tab-item,
+.episode-grid,
+.info-list,
+.info-card,
+.external-link,
+.detail-page,
+.detail-hero,
+.detail-back,
+.detail-poster,
+.detail-copy,
+.detail-meta,
+.player-screen,
+.player-topbar,
+.player-icon-btn,
+.player-title,
+.player-language,
+.player-frame-wrap,
+.player-frame,
+.player-episode-rail,
+.ply-rail-scroll,
+.ply-rail-nav,
+.ply-server-pills,
+.grid-scroll { min-width:0; max-width:100%; }
+
+.search-bar { display:flex; align-items:center; gap:.5rem; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:.6rem .75rem; margin-bottom:1rem; }
+.search-bar input { flex:1; min-width:0; background:none; border:0; color:var(--text); font-size:.9rem; }
+.select-input { background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-sm); padding:.45rem .65rem; }
+.setting-row { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.55rem 0; border-bottom:1px solid var(--border); }
+.setting-label { color:var(--text2); font-size:.78rem; font-weight:700; }
+.section { margin-bottom:1.25rem; }
+.section-header { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.6rem; }
+.section-title { display:flex; align-items:center; gap:6px; font-size:.95rem; font-weight:800; }
+.section-link { display:inline-flex; align-items:center; gap:4px; color:var(--brand); font-size:.72rem; font-weight:800; }
+.grid-3 { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; }
+.grid-card, .anime-card { display:block; width:100%; overflow:hidden; text-align:left; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); text-decoration:none; }
+.grid-card-img, .anime-card-image { width:100%; aspect-ratio:2/3; object-fit:cover; display:block; background:var(--surface2); }
+.grid-card-title, .anime-card-title { display:block; padding:.35rem .4rem .15rem; font-size:.68rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.anime-card-sub { display:block; padding:0 .4rem .4rem; color:var(--text3); font-size:.6rem; }
+.horizontal-scroll { display:flex; gap:.6rem; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:.25rem; }
+.horizontal-scroll::-webkit-scrollbar { display:none; }
+.horizontal-scroll > * { flex:0 0 118px; }
+.empty, .empty-state { display:grid; place-items:center; min-height:150px; padding:1rem; color:var(--text3); text-align:center; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); }
+.loading-shimmer, .detail-skeleton { background:linear-gradient(90deg,var(--surface) 25%,rgba(255,255,255,.04) 50%,var(--surface) 75%); background-size:200% 100%; animation:shim 1.5s infinite; }
+.hero-skeleton { height:260px; border-radius:var(--radius-lg); margin-bottom:1rem; }
+.title-skeleton { height:30px; width:70%; border-radius:8px; margin-bottom:.75rem; }
+.copy-skeleton { height:90px; border-radius:8px; }
+
+.detail-page { overflow-x:clip; padding-bottom:1rem; }
+.detail-back { position:sticky; top:0; z-index:20; display:flex; align-items:center; gap:6px; padding:.7rem .75rem; width:100%; background:rgba(3,15,22,.92); color:#fff; border:0; backdrop-filter:blur(16px); font-weight:800; }
+.detail-hero { min-height:360px; display:flex; align-items:flex-end; gap:1rem; padding:5rem .75rem 1rem; background-size:cover; background-position:center; }
+.detail-poster { width:34%; max-width:130px; aspect-ratio:2/3; border-radius:var(--radius); overflow:hidden; flex-shrink:0; background:var(--surface2); display:grid; place-items:center; font-weight:900; }
+.detail-poster img { width:100%; height:100%; object-fit:cover; display:block; }
+.detail-copy { flex:1; color:#fff; text-shadow:0 2px 14px rgba(0,0,0,.55); }
+.detail-copy h1 { font-size:1.45rem; line-height:1.1; margin-bottom:.25rem; overflow-wrap:anywhere; }
+.native-title, .synopsis { color:var(--text2); font-size:.85rem; line-height:1.55; }
+.detail-meta, .tag-row, .language-row, .detail-actions, .tab-bar { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+.detail-meta span, .tag-row span { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:999px; background:rgba(255,255,255,.1); color:var(--text2); font-size:.7rem; font-weight:700; }
+.detail-content { display:grid; gap:.9rem; }
+.airing-banner { display:flex; align-items:center; gap:8px; padding:.65rem .75rem; border-radius:var(--radius); color:#ffdbe9; background:var(--brand-dim); border:1px solid rgba(255,26,117,.2); font-size:.8rem; font-weight:700; }
+.btn-primary { display:inline-flex; align-items:center; justify-content:center; gap:7px; flex:1; border:0; border-radius:var(--radius); padding:.78rem 1rem; background:var(--brand); color:#fff; font-weight:900; }
+.btn-primary.wide { width:100%; margin-top:.75rem; }
+.icon-action { width:44px; height:44px; border-radius:var(--radius); border:1px solid var(--border); background:var(--surface); color:var(--text2); }
+.icon-action.active { color:var(--brand); background:var(--brand-dim); }
+.language-row button, .tab-item, .episode-grid button, .ply-rail-scroll button, .ply-server-pills button { border:0; border-radius:var(--radius-sm); background:var(--border); color:var(--text2); font-weight:800; }
+.language-row button, .tab-item { padding:.55rem .8rem; }
+.language-row button.active, .tab-item.active, .episode-grid button.active, .ply-rail-scroll button.active, .ply-server-pills button.active { background:var(--brand); color:#fff; }
+.tab-bar { background:var(--border); padding:3px; border-radius:var(--radius); }
+.tab-item { flex:1; justify-content:center; display:inline-flex; align-items:center; gap:5px; background:transparent; }
+.episode-grid, .grid-scroll { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.45rem; }
+.episode-grid button { padding:.62rem .2rem; }
+.info-list { display:grid; gap:.55rem; }
+.info-card { display:flex; justify-content:space-between; gap:1rem; padding:.75rem; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); color:var(--text2); }
+.external-link { display:flex; align-items:center; gap:6px; color:var(--brand); text-decoration:none; font-weight:800; }
+
+.player-screen { position:fixed; inset:0; z-index:500; display:flex; flex-direction:column; background:#000; color:#fff; }
+.player-topbar { display:flex; align-items:center; gap:.7rem; padding:max(.6rem, env(safe-area-inset-top)) .75rem .6rem; background:rgba(0,0,0,.86); }
+.player-icon-btn { width:38px; height:38px; display:grid; place-items:center; border:0; border-radius:999px; background:rgba(255,255,255,.1); color:#fff; flex-shrink:0; }
+.player-title { flex:1; display:grid; line-height:1.2; overflow:hidden; }
+.player-title strong, .player-title span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.player-title span { color:var(--text3); font-size:.75rem; }
+.player-language button { padding:.45rem .6rem; border:0; border-radius:8px; background:var(--brand); color:#fff; font-weight:900; }
+.player-frame-wrap { position:relative; flex:1; min-height:0; background:#000; }
+.player-frame { width:100%; height:100%; border:0; display:block; }
+.player-episode-rail { display:flex; align-items:center; gap:.45rem; padding:.55rem .65rem max(.55rem, env(safe-area-inset-bottom)); background:rgba(3,15,22,.96); border-top:1px solid var(--border); }
+.ply-rail-scroll, .ply-server-pills { display:flex; gap:.35rem; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+.ply-rail-scroll::-webkit-scrollbar, .ply-server-pills::-webkit-scrollbar { display:none; }
+.ply-rail-scroll { flex:1; }
+.ply-rail-scroll button, .ply-server-pills button { flex:0 0 auto; min-width:34px; padding:.45rem .6rem; }
+.ply-rail-nav { width:34px; height:34px; flex-shrink:0; }
+.player-loading { position:absolute; inset:0; z-index:2; display:grid; place-items:center; background:#000; }
+.ply-zen-badge { position:absolute; top:.75rem; right:.75rem; z-index:3; display:flex; align-items:center; gap:4px; padding:.35rem .55rem; border-radius:999px; background:rgba(0,0,0,.7); color:#fff; font-size:.7rem; }
+.ply-center-nav { position:absolute; inset:0; z-index:4; pointer-events:none; display:flex; align-items:center; justify-content:space-between; padding:0 .5rem; }
+.ply-nav-overlay, .ply-fs-overlay { pointer-events:auto; border:0; border-radius:999px; background:rgba(0,0,0,.45); color:#fff; padding:.5rem; }
+.ply-fs-overlay { position:absolute; right:.7rem; bottom:.7rem; }
+
+@media (max-width:380px) {
+  .mobile-hero-carousel { height:clamp(300px, 58vh, 460px); }
+  .grid-3 { gap:.4rem; }
+  .episode-grid, .grid-scroll { grid-template-columns:repeat(4,minmax(0,1fr)); }
+}
