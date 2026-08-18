@@ -9,21 +9,16 @@ function getFallbackOrigin() {
   return !isNativeShell ? origin : 'https://localhost';
 }
 
-function withAuthRequestDefaults(request) {
-  if (request.headers.has('Origin') || request.headers.has('origin')) return;
-  try {
-    request.headers.set('Origin', getFallbackOrigin());
-  } catch {
-    // Browser Request guards may reject manually setting Origin.
+function withAuthRequestDefaults(context) {
+  const headers = context?.headers instanceof Headers ? context.headers : new Headers(context?.headers);
+  if (!headers.has('Origin') && !headers.has('origin')) {
+    try {
+      headers.set('Origin', getFallbackOrigin());
+    } catch {
+      // Browser Request guards may reject manually setting Origin.
+    }
   }
-}
-
-function withTimeout(promise, label) {
-  let timer;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label} timed out after ${AUTH_TIMEOUT_MS}ms`)), AUTH_TIMEOUT_MS);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+  return { ...context, headers };
 }
 
 function createUnavailableAuthClient() {
@@ -45,6 +40,8 @@ function createUnavailableAuthClient() {
     emailOtp: {
       sendVerificationOtp: (...args) => unavailable('emailOtp.sendVerificationOtp'),
     },
+    requestPasswordReset: (...args) => unavailable('requestPasswordReset'),
+    resetPassword: (...args) => unavailable('resetPassword'),
     signOut: () => unavailable('signOut'),
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   };
@@ -57,27 +54,10 @@ export function createAnimeVaultAuthClient() {
     return createUnavailableAuthClient();
   }
 
-  const client = createAuthClient(authUrl, {
+  return createAuthClient(authUrl, {
     fetchOptions: {
+      timeout: AUTH_TIMEOUT_MS,
       onRequest: withAuthRequestDefaults,
     },
   });
-
-  // Prevent any single Neon Auth operation from leaving the UI stuck on
-  // Processing/Checking session when the auth endpoint is unavailable.
-  const wrapOperation = (target, key) => {
-    if (typeof target?.[key] !== 'function') return;
-    const operation = target[key].bind(target);
-    target[key] = (...args) => withTimeout(operation(...args), `Neon Auth ${key}`);
-  };
-
-  wrapOperation(client, 'getSession');
-  wrapOperation(client.signIn, 'email');
-  wrapOperation(client.signIn, 'emailOtp');
-  wrapOperation(client.signIn, 'social');
-  wrapOperation(client.signUp, 'email');
-  wrapOperation(client.emailOtp, 'sendVerificationOtp');
-  wrapOperation(client, 'signOut');
-
-  return client;
 }
