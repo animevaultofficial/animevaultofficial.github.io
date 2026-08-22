@@ -288,7 +288,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
             />
           ) : (
             <iframe
-              ref={iframeRef}
               src={cleanUrl}
               className="embed-iframe"
               allow={isZen ? "autoplay; fullscreen; picture-in-picture; encrypted-media" : "autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"}
