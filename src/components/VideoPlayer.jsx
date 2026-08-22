@@ -70,7 +70,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
   const [failoverMsg, setFailoverMsg] = useState('');
 
   const playerRef = useRef(null);
-  const iframeRef = useRef(null);
   const wrapperRef = useRef(null);
   const trustedEmbedOriginRef = useRef(MEGAPLAY_ORIGIN);
   const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
@@ -297,11 +296,9 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
             />
           ) : (
             <iframe
-              ref={iframeRef}
               src={cleanUrl}
               className="embed-iframe"
               allow={isZen ? "autoplay; fullscreen; picture-in-picture; encrypted-media" : "autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-popups-to-escape-sandbox"
               title={title}
               referrerPolicy="no-referrer"
               loading="lazy"
