@@ -14,7 +14,7 @@ import {
 } from '@vidstack/react';
 import { 
   Settings, Play, Pause, Volume2, VolumeX, Maximize, Minimize, 
-  SkipForward, SkipBack, ChevronLeft, ChevronRight, AlertTriangle, RefreshCw
+  SkipForward, SkipBack, ChevronLeft, ChevronRight, AlertTriangle, RefreshCw, ExternalLink
 } from 'lucide-react';
 
 import '@vidstack/react/player/styles/default/theme.css';
@@ -70,7 +70,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
   const [failoverMsg, setFailoverMsg] = useState('');
 
   const playerRef = useRef(null);
-  const iframeRef = useRef(null);
   const wrapperRef = useRef(null);
   const trustedEmbedOriginRef = useRef(MEGAPLAY_ORIGIN);
   const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
@@ -193,14 +192,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
     }
   };
 
-  const handleIframeError = useCallback(() => {
-    if (!sources || sources.length <= 1) {
-      setFailoverMsg('Failed to load stream source. No fallback servers available.');
-      return;
-    }
-    handleFailover();
-  }, [handleFailover, sources]);
-
   // Determine active source object or fallback
   const activeSource = sources[activeSourceIndex] || (embedUrl ? { url: embedUrl, type: 'iframe', serverName: 'AllAnime Direct' } : null);
 
@@ -219,7 +210,7 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
   const cleanUrl = getSafeEmbedUrl(isZen ? stripAdParams(targetUrl) : targetUrl);
   if (cleanUrl) trustedEmbedOriginRef.current = new URL(cleanUrl).origin;
 
-  // ── IFRAME EMBED PLAYER (Fallback/Mirror) ──
+  // ── EXTERNAL EMBED PLAYER (Fallback/Mirror) ──
   if (isIframeSource && !cleanUrl) {
     return (
       <div className="video-player-error">
@@ -283,12 +274,12 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
           </div>
         )}
 
-        {/* Embed iframe */}
+        {/* External embed launcher */}
         <div className={`player-wrap embed-container ${isZen ? 'zen-active' : ''}`}>
           {isElectron ? (
             <webview
               src={cleanUrl}
-              className="embed-iframe"
+              className="embed-webview"
               style={{ width: '100%', height: '100%', border: 'none' }}
               partition="persist:player"
               allowpopups="false"
@@ -296,17 +287,20 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
               title={title}
             />
           ) : (
-            <iframe
-              ref={iframeRef}
-              src={cleanUrl}
-              className="embed-iframe"
-              allow={isZen ? "autoplay; fullscreen; picture-in-picture; encrypted-media" : "autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-popups-to-escape-sandbox"
-              title={title}
-              referrerPolicy="no-referrer"
-              loading="lazy"
-              onError={handleIframeError}
-            />
+            <div className="external-player-launcher">
+              <AlertTriangle size={42} />
+              <h3>External player required</h3>
+              <p>This stream source is an embed-only server, so it has been removed from the in-app iframe player.</p>
+              <a
+                className="external-player-link"
+                href={cleanUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ExternalLink size={18} />
+                Open player in new tab
+              </a>
+            </div>
           )}
           {isZen && (
             <div className="zen-mode-badge">🛡️</div>
