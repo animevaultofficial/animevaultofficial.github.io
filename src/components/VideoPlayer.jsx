@@ -287,20 +287,16 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
               title={title}
             />
           ) : (
-            <div className="external-player-launcher">
-              <AlertTriangle size={42} />
-              <h3>External player required</h3>
-              <p>This stream source is an embed-only server, so it has been removed from the in-app iframe player.</p>
-              <a
-                className="external-player-link"
-                href={cleanUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <ExternalLink size={18} />
-                Open player in new tab
-              </a>
-            </div>
+            <iframe
+              ref={iframeRef}
+              src={cleanUrl}
+              className="embed-iframe"
+              allow={isZen ? "autoplay; fullscreen; picture-in-picture; encrypted-media" : "autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"}
+              title={title}
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              onError={handleIframeError}
+            />
           )}
           {isZen && (
             <div className="zen-mode-badge">🛡️</div>
