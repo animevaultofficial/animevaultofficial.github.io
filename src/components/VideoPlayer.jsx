@@ -294,7 +294,7 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
               title={title}
               referrerPolicy="no-referrer"
               loading="lazy"
-              onError={handleIframeError}
+              onError={handleFailover}
             />
           )}
           {isZen && (
