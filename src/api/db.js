@@ -1,5 +1,6 @@
 // src/api/db.js
 // Simple DB wrapper with Neon fallback
+import bcrypt from 'bcryptjs';
 import { log, warn, error } from "../utils/logger.js";
 // For self-hosting: set VITE_DATABASE_URL env var for Neon PostgreSQL
 

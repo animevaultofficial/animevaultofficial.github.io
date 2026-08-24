@@ -332,7 +332,8 @@ function createWindow() {
   ipcMain.handle('download:start', async (_event, { url, filename }) => {
     try {
       const saveDir = app.getPath('downloads') || app.getPath('userData');
-      const safeName = filename || path.basename(new URL(url).pathname) || `download-${Date.now()}`;
+      const rawName = filename ? path.basename(filename) : path.basename(new URL(url).pathname);
+      const safeName = rawName || `download-${Date.now()}`;
       const outPath = path.join(saveDir, safeName);
       const proto = url.startsWith('https') ? https : http;
       const id = uuidv4();

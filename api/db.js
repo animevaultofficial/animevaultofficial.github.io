@@ -36,18 +36,16 @@ export default async function handler(req, res) {
       const trimmed = String(username).trim().toLowerCase().split('@')[0];
       const db = await getSql();
       try {
-       const existing = await db`SELECT id, username, avatar, banner, is_admin FROM users WHERE LOWER(username) = LOWER(${trimmed})`;
-if (existing.length) {
-  return json(res, 200, { success: true, user: existing[0] });
-}
+        const existing = await db`SELECT id FROM users WHERE LOWER(username) = LOWER(${trimmed})`;
+        if (existing.length) {
+          return json(res, 400, { success: false, message: 'Username is already taken.' });
+        }
         const hashed = await bcrypt.hash(password, 12);
-     const result = await db`
-  INSERT INTO users (username, password, is_admin)
-  VALUES (${trimmed}, ${hashed}, false)
-  ON CONFLICT (username)
-  DO UPDATE SET username = EXCLUDED.username
-  RETURNING id, username, avatar, banner, is_admin
-`;
+        const result = await db`
+          INSERT INTO users (username, password, is_admin)
+          VALUES (${trimmed}, ${hashed}, false)
+          RETURNING id, username, avatar, banner, is_admin
+        `;
         const user = result[0];
         return json(res, 200, { success: true, user });
       } catch (e) {
