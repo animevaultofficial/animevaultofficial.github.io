@@ -13,6 +13,7 @@ import '../styles.css';
 import '../styles/mobile-fixes.css';
 import './mobile-v2.css';
 import './mobile-v2-shell.css';
+import './mobile-v2-details.css';
 
 installChunkRecovery();
 installMobileNavigationGuard();
