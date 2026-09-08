@@ -9,13 +9,13 @@ const SEASONS = ['WINTER', 'SPRING', 'SUMMER', 'FALL'];
 const YEARS = [2026, 2025, 2024, 2023, 2022];
 const FEATURED_SLIDE_FALLBACKS = [
   { id: 1535, title: { english: 'Death Note' }, description: 'A genius student discovers a notebook with deadly power and begins a cat-and-mouse war against the world’s greatest detective.', bannerImage: 'https://animeblog.github.io/images/death-note-banner.jpg', coverImage: { extraLarge: 'https://cdn.europosters.eu/image/hp/60720.jpg' }, seasonYear: 2006, averageScore: 84, format: 'TV' },
-  { id: 999999, title: { english: 'Spider-Man: Brand New Day' }, description: 'Spider-Man faces a brand new day of crime-fighting while balancing school, friends, and a new era of heroes.', bannerImage: 'https://i.imgur.com/7Y3aZgE.jpg', coverImage: { extraLarge: 'https://i.imgur.com/7Y3aZgE.jpg' }, seasonYear: 2026, averageScore: 88, format: 'MOVIE' },
   { id: 180745, title: { english: 'Solo Leveling' }, description: 'A weak hunter discovers the power to grow stronger with every battle, changing his fate forever.', bannerImage: 'https://i.imgur.com/8qTm0XE.jpg', coverImage: { extraLarge: 'https://i.imgur.com/8qTm0XE.jpg' }, seasonYear: 2024, averageScore: 89, format: 'TV' },
-  { id: 888888, title: { english: 'When I Fly Towards You' }, description: 'A romantic drama about first love, dreams, and the courage to follow your heart as two people grow closer.', bannerImage: 'https://i.imgur.com/3KX9iLz.jpg', coverImage: { extraLarge: 'https://i.imgur.com/3KX9iLz.jpg' }, seasonYear: 2024, averageScore: 86, format: 'DRAMA' },
+  { id: 5114, title: { english: 'Fullmetal Alchemist: Brotherhood' }, description: 'Two brothers search for the Philosopher’s Stone after a forbidden ritual changes their lives forever.', bannerImage: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRSo32Teh6AEGe5IwXO3EFDefYi89gXy9z50Q&s', coverImage: { extraLarge: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRSo32Teh6AEGe5IwXO3EFDefYi89gXy9z50Q&s' }, seasonYear: 2009, averageScore: 91, format: 'TV' },
+  { id: 1, title: { english: 'Cowboy Bebop' }, description: 'A crew of bounty hunters chases criminals across space while their pasts slowly catch up with them.', bannerImage: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFKyfoTGfnUGfst-p3uNe3DzlnCBKoEDY37A&s', coverImage: { extraLarge: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFKyfoTGfnUGfst-p3uNe3DzlnCBKoEDY37A&s' }, seasonYear: 1998, averageScore: 86, format: 'TV' },
 ];
 
 const HOME_CACHE_KEY = 'animevault_home_v3';
-const HOME_CACHE_TTL = 5 * 60 * 1000;
+const HOME_CACHE_TTL = 30 * 60 * 1000;
 
 function getTitle(a) { return a?.title?.english || a?.title?.romaji || a?.title?.native || 'Unknown Title'; }
 function getImage(a) { return a?.coverImage?.extraLarge || a?.coverImage?.large || a?.coverImage?.medium || '/logo.png'; }
@@ -43,14 +43,21 @@ function runWhenIdle(task, delay = 1200) {
     else window.clearTimeout(idleId);
   };
 }
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => window.setTimeout(() => reject(new Error('Homepage request timeout')), ms)),
+  ]);
+}
 
 export default function MixedHome() {
   const navigate = useNavigate();
-  const [animeList, setAnimeList] = useState(() => readHomeCache()?.anime || []);
-  const [featuredSlides, setFeaturedSlides] = useState(FEATURED_SLIDE_FALLBACKS);
+  const cachedHome = readHomeCache();
+  const [animeList, setAnimeList] = useState(() => cachedHome?.anime || []);
+  const [featuredSlides, setFeaturedSlides] = useState(() => cachedHome?.featured?.length ? cachedHome.featured : FEATURED_SLIDE_FALLBACKS);
   const [seasonalList, setSeasonalList] = useState([]);
-  const [movies, setMovies] = useState([]);
-  const [tvShows, setTvShows] = useState([]);
+  const [movies, setMovies] = useState(() => cachedHome?.movies || []);
+  const [tvShows, setTvShows] = useState(() => cachedHome?.tvShows || []);
   const [seasonalLoading, setSeasonalLoading] = useState(false);
   const [selectedSeason, setSelectedSeason] = useState('SPRING');
   const [selectedYear, setSelectedYear] = useState(2026);
@@ -67,25 +74,32 @@ export default function MixedHome() {
     let cancelled = false;
     const cached = readHomeCache();
     if (cached?.anime?.length) setAnimeList(cached.anime);
+    if (cached?.featured?.length) setFeaturedSlides(cached.featured);
+    if (cached?.movies?.length) setMovies(cached.movies);
+    if (cached?.tvShows?.length) setTvShows(cached.tvShows);
 
-    fetchTrendingMedia('ANIME', 1, 12).then(data => {
+    withTimeout(fetchTrendingMedia('ANIME', 1, 12), 8000).then(data => {
       if (cancelled) return;
       const anime = Array.isArray(data) ? data : [];
+      if (!anime.length) return;
       setAnimeList(anime);
-      writeHomeCache({ ...(readHomeCache() || {}), anime });
-      if (anime.length) {
-        setFeaturedSlides(anime.slice(0, 5));
-        setActiveSlide(0);
-      }
+      setFeaturedSlides(anime.slice(0, 5));
+      setActiveSlide(0);
+      const existing = readHomeCache() || {};
+      writeHomeCache({ ...existing, anime, featured: anime.slice(0, 5) });
     }).catch(() => {});
 
     const cancelIdle = runWhenIdle(() => {
-      Promise.allSettled([fetchLatestMovies(1), fetchLatestTVShows(1)]).then(results => {
+      Promise.allSettled([withTimeout(fetchLatestMovies(1), 8000), withTimeout(fetchLatestTVShows(1), 8000)]).then(results => {
         if (cancelled) return;
         const movieResult = results[0]?.status === 'fulfilled' ? results[0].value : [];
         const tvResult = results[1]?.status === 'fulfilled' ? results[1].value : [];
-        setMovies(Array.isArray(movieResult) ? movieResult : []);
-        setTvShows(Array.isArray(tvResult) ? tvResult : []);
+        const nextMovies = Array.isArray(movieResult) ? movieResult : [];
+        const nextTv = Array.isArray(tvResult) ? tvResult : [];
+        setMovies(nextMovies);
+        setTvShows(nextTv);
+        const existing = readHomeCache() || {};
+        writeHomeCache({ ...existing, movies: nextMovies, tvShows: nextTv });
       });
     }, 1800);
     return () => { cancelled = true; cancelIdle(); };
@@ -93,14 +107,14 @@ export default function MixedHome() {
 
   useEffect(() => {
     let cancelled = false;
-    setSeasonalLoading(true);
     const cancelIdle = runWhenIdle(() => {
-      fetchAnimeBySeason(selectedSeason, selectedYear).then(data => {
+      setSeasonalLoading(true);
+      withTimeout(fetchAnimeBySeason(selectedSeason, selectedYear), 8000).then(data => {
         if (!cancelled) setSeasonalList(Array.isArray(data) ? data.slice(0, 12) : []);
       }).catch(() => {
         if (!cancelled) setSeasonalList([]);
       }).finally(() => { if (!cancelled) setSeasonalLoading(false); });
-    }, 900);
+    }, 1200);
     return () => { cancelled = true; cancelIdle(); };
   }, [selectedSeason, selectedYear]);
 
