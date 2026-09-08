@@ -54,6 +54,41 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* Some pages/components use their own viewport-sized root. Those roots
+     must not become a second, locked scroll container on phones. */
+  .content > * {
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    touch-action: auto !important;
+  }
+
+  /* Catch inline viewport locks used by individual pages without touching
+     fixed-position modals/menus that live outside .content. */
+  .content [style*="100vh"],
+  .content [style*="100dvh"] {
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Settings has a desktop-only fixed viewport layout. On mobile it should
+     participate in the normal document flow instead of trapping the page. */
+  .content .discord-settings-layout {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100dvh;
+    overflow: visible !important;
+  }
+
+  .content .discord-settings-main,
+  .content .discord-settings-sidebar {
+    overflow-y: visible !important;
+    max-height: none !important;
+  }
+
   .bottom-nav,
   .mobile-menu,
   .mobile-menu-links {
