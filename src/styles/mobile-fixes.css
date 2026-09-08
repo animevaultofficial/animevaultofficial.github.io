@@ -1,0 +1,80 @@
+/* AnimeVault mobile scroll hardening.
+ * Keep the document as the primary vertical scroll container. Component-level
+ * overflow:hidden is fine for clipping cards/media; it must not be applied to
+ * html, body, or #root.
+ */
+@media (max-width: 1180px) {
+  html {
+    height: 100%;
+    min-height: 100%;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: auto;
+    touch-action: pan-y;
+  }
+
+  body {
+    height: auto !important;
+    min-height: 100%;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: auto;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #root {
+    width: 100%;
+    height: auto !important;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: visible !important;
+    touch-action: pan-y;
+  }
+
+  .app-shell {
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: auto !important;
+    overflow-x: clip;
+    overflow-y: visible !important;
+    touch-action: pan-y;
+  }
+
+  .content,
+  main.content,
+  [role="main"] {
+    height: auto !important;
+    min-height: 0;
+    overflow: visible !important;
+    touch-action: pan-y;
+  }
+
+  /* The fixed bottom navigation must not become a scroll container. */
+  .bottom-nav {
+    touch-action: pan-y;
+  }
+
+  /* Drawer scrolling stays isolated while the page itself remains scrollable. */
+  .mobile-menu {
+    touch-action: pan-y;
+  }
+
+  .mobile-menu-links {
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Never let an accidental global touch-action:none declaration disable page
+ * gestures. Interactive controls can still use their own pointer behavior. */
+@media (hover: none) and (pointer: coarse) {
+  html,
+  body,
+  #root {
+    touch-action: pan-y !important;
+  }
+}
