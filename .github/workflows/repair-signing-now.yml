@@ -1,0 +1,75 @@
+name: Repair signing now
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Repair workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('.github/workflows/electron-build.yml')
+          s = p.read_text()
+          marker = '      - name: Build installer\n'
+          start = s.index(marker)
+          end = s.index('      - name: Verify desktop artifacts', start)
+          dollar = '$'
+          old_section = s[start:end]
+          new_section = '''      - name: Prepare Windows code-signing certificate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          PFX_PASSWORD: ''' + dollar + '''{{ secrets.CSC_KEY_PASSWORD }}
+          PFX_BASE64: ''' + dollar + '''{{ secrets.WINDOWS_CODE_SIGNING_PFX_BASE64 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pfx = Join-Path $env:GITHUB_WORKSPACE 'animevault-code-signing.pfx'
+          if (-not [string]::IsNullOrWhiteSpace($env:PFX_BASE64)) {
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_BASE64.Trim()))
+          } else {
+            if ([string]::IsNullOrWhiteSpace($env:PFX_PASSWORD)) { throw 'CSC_KEY_PASSWORD is required.' }
+            $secure = ConvertTo-SecureString $env:PFX_PASSWORD -AsPlainText -Force
+            $cert = New-SelfSignedCertificate -Subject 'CN=AnimeVault' -KeyExportPolicy Exportable -KeyLength 2048 -CertStoreLocation 'Cert:\CurrentUser\My' -KeyUsage DigitalSignature -Type CodeSigningCert
+            Export-PfxCertificate -Cert "Cert:\CurrentUser\My\$($cert.Thumbprint)" -FilePath $pfx -Password $secure -ChainOption BuildChain | Out-Null
+            Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -Force -ErrorAction SilentlyContinue
+          }
+          if (-not (Test-Path $pfx)) { throw 'Code-signing PFX was not created.' }
+      - name: Build installer
+        shell: bash
+        env:
+          CSC_LINK: ''' + dollar + '''{{ runner.os == 'Windows' && format('{0}/animevault-code-signing.pfx', github.workspace) || secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ''' + dollar + '''{{ secrets.CSC_KEY_PASSWORD }}
+          WIN_CSC_LINK: ''' + dollar + '''{{ runner.os == 'Windows' && format('{0}/animevault-code-signing.pfx', github.workspace) || secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ''' + dollar + '''{{ secrets.CSC_KEY_PASSWORD }}
+        run: npm run electron:build -- ''' + dollar + '''{{ matrix.args }}
+'''
+          if 'Prepare Windows code-signing certificate' in old_section:
+              pass
+          elif 'animevault-code-signing.pfx' not in old_section:
+              raise SystemExit('Unexpected signing block; refusing to patch.')
+          p.write_text(s[:start] + new_section + s[end:])
+          PY
+      - name: Remove patch workflows and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/fix-windows-signing.yml .github/workflows/apply-signing-fix.yml .github/workflows/repair-signing-now.yml
+          git add .github/workflows/electron-build.yml
+          git add -u .github/workflows
+          git commit -m 'fix: repair desktop code-signing certificate setup'
+          git push origin main
