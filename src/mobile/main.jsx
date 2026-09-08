@@ -14,6 +14,7 @@ import '../styles/mobile-fixes.css';
 import './mobile-v2.css';
 import './mobile-v2-shell.css';
 import './mobile-v2-details.css';
+import './mobile-v2-manga.css';
 
 installChunkRecovery();
 installMobileNavigationGuard();
@@ -22,11 +23,7 @@ try {
   const key = 'animevault_favorites';
   const raw = localStorage.getItem(key);
   const parsed = raw ? JSON.parse(raw) : null;
-  localStorage.setItem(key, JSON.stringify({
-    animes: Array.isArray(parsed?.animes) ? parsed.animes : [],
-    studios: Array.isArray(parsed?.studios) ? parsed.studios : [],
-    characters: Array.isArray(parsed?.characters) ? parsed.characters : [],
-  }));
+  localStorage.setItem(key, JSON.stringify({ animes: Array.isArray(parsed?.animes) ? parsed.animes : [], studios: Array.isArray(parsed?.studios) ? parsed.studios : [], characters: Array.isArray(parsed?.characters) ? parsed.characters : [] }));
 } catch {
   try { localStorage.setItem('animevault_favorites', JSON.stringify({ animes: [], studios: [], characters: [] })); } catch {}
 }
