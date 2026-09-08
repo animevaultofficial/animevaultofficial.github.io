@@ -1,18 +1,13 @@
-
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Search as SearchIcon, Info, Home as HomeIcon, Tv as TvIcon,
-  AlertTriangle, User, Sparkles, Menu, X, Bell, Download as DownloadIcon, Users, Award, BookOpen
-} from 'lucide-react';
+import { Search as SearchIcon, Info, Home as HomeIcon, Tv as TvIcon, AlertTriangle, User, Sparkles, Menu, X, Bell, Download as DownloadIcon, Users, Award, BookOpen } from 'lucide-react';
 import './styles/designTokens.css';
 import { useUser } from './api/UserContext';
-import { fetchSiteSettings, initDatabase, getSettings } from './api/db';
+import { fetchSiteSettings, initDatabase } from './api/db';
 import { applyTheme, applyAccentColor } from './utils/appearance';
 import { storage } from './utils/storage';
 import { applyTvModeClass } from './utils/tvMode';
 import { assetPath } from './utils/assetPath';
-
 import { FocusableNavLink, FocusableLink, FocusableButton } from './components/FocusableWrapper';
 import RequireAuth from './components/RequireAuth';
 import Home from './pages/Home';
@@ -49,557 +44,56 @@ import { useReminderNotifications } from './hooks/useReminderNotifications';
 function App() {
   useReminderNotifications();
   const { user, authLoading, activeSubAccount, subAccounts, setShowAuthModal, setAuthTab } = useUser();
-  const activeSubAccountIndex = activeSubAccount
-    ? subAccounts.findIndex(profile => profile.id === activeSubAccount.id)
-    : -1;
-  const activeSubAccountRouteId = activeSubAccount
-    ? activeSubAccountIndex >= 0
-      ? String(activeSubAccountIndex + 1)
-      : encodeURIComponent(activeSubAccount.id)
-    : null;
-  const ownProfilePath = user
-    ? `/profile/${user.id}${activeSubAccountRouteId ? `/sub=${activeSubAccountRouteId}` : ''}`
-    : '/profile';
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [announcement, setAnnouncement] = useState('');
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [topbarQuery, setTopbarQuery] = useState('');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isTvMode, setIsTvMode] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
+  const activeSubAccountIndex = activeSubAccount ? subAccounts.findIndex(profile => profile.id === activeSubAccount.id) : -1;
+  const activeSubAccountRouteId = activeSubAccount ? (activeSubAccountIndex >= 0 ? String(activeSubAccountIndex + 1) : encodeURIComponent(activeSubAccount.id)) : null;
+  const ownProfilePath = user ? `/profile/${user.id}${activeSubAccountRouteId ? `/sub=${activeSubAccountRouteId}` : ''}` : '/profile';
+  const [isProfileOpen, setIsProfileOpen] = useState(false), [announcement, setAnnouncement] = useState(''), [maintenanceMode, setMaintenanceMode] = useState(false), [topbarQuery, setTopbarQuery] = useState(''), [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false), [isSearchOpen, setIsSearchOpen] = useState(false), [isTvMode, setIsTvMode] = useState(false);
+  const navigate = useNavigate(), location = useLocation();
 
-  const [isReady, setIsReady] = useState(true); // Skip loading screen
-
+  useEffect(() => { setIsTvMode(applyTvModeClass()); }, []);
   useEffect(() => {
-    setIsTvMode(applyTvModeClass());
-  }, []);
-
-  useEffect(() => {
+    let cancelled = false;
     async function loadSettings() {
       try {
-        try { await initDatabase(); } catch (dbErr) { console.warn('Neon init skipped:', dbErr?.message); }
-        const settings = await fetchSiteSettings();
+        const settings = await fetchSiteSettings().catch(() => null);
+        if (cancelled) return;
         if (settings?.announcement) setAnnouncement(settings.announcement);
         if (settings?.maintenance === 'true') setMaintenanceMode(true);
-
-        const savedAccent = storage.get('accentColor') || 'red';
-        const savedTheme = storage.get('theme') || 'dark';
-        const savedCustomVars = storage.get('customThemeVars');
-        applyAccentColor(savedAccent);
-        applyTheme(savedTheme, savedCustomVars);
-
-      } catch (err) {
-        console.error('Failed to load global site settings:', err);
-      } finally {
-        setIsReady(true);
-      }
+        applyAccentColor(storage.get('accentColor') || 'red');
+        applyTheme(storage.get('theme') || 'dark', storage.get('customThemeVars'));
+        // Database schema initialization is maintenance work, never a render prerequisite.
+        void initDatabase().catch(() => {});
+      } catch (err) { if (!cancelled) console.warn('Global settings load skipped:', err?.message); }
     }
     loadSettings();
+    return () => { cancelled = true; };
   }, []);
-
-  // Handle responsive base font size scaling to zoom out slightly on mobile
   useEffect(() => {
-    function adjustFontSize() {
-      const savedFontSizeSetting = storage.get('fontSize') || 'medium';
-      const isMobile = window.innerWidth <= 768;
-      const sizeMap = isMobile
-        ? { small: '12px', medium: '14px', large: '16px' }
-        : { small: '14px', medium: '16px', large: '18px' };
-      document.documentElement.style.fontSize = sizeMap[savedFontSizeSetting];
-    }
-    adjustFontSize();
-    window.addEventListener('resize', adjustFontSize);
-    return () => window.removeEventListener('resize', adjustFontSize);
-  }, []);
-
-  // Redirect token from root to SetNewPassword page
-  useEffect(() => {
-    // HashRouter's location.search only looks *after* the hash (#/?token=...).
-    // But emails send links like /?token=... (before the hash).
-    // So we must check window.location.search directly.
-    const windowParams = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(location.search);
+    const windowParams = new URLSearchParams(window.location.search), hashParams = new URLSearchParams(location.search);
     const token = windowParams.get('token') || hashParams.get('token');
-
-    if (token && location.pathname !== '/set-new-password') {
-      navigate(`/set-new-password?token=${encodeURIComponent(token)}`, { replace: true });
-    }
-
-    // Also check for login=true to open the modal
-    if (hashParams.get('login') === 'true') {
-      setAuthTab('login');
-      setShowAuthModal(true);
-      // Remove it from the URL so it doesn't reopen on refresh
-      navigate(location.pathname, { replace: true });
-    }
+    if (token && location.pathname !== '/set-new-password') navigate(`/set-new-password?token=${encodeURIComponent(token)}`, { replace: true });
+    if (hashParams.get('login') === 'true') { setAuthTab('login'); setShowAuthModal(true); navigate(location.pathname, { replace: true }); }
   }, [location.search, location.pathname, navigate, setAuthTab, setShowAuthModal]);
+  useEffect(() => { const handleKeyDown = e => { if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setIsSearchOpen(true); } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, []);
+  useEffect(() => { if (location.pathname !== '/search') return; const params = new URLSearchParams(location.search); setTopbarQuery(params.get('q') || ''); }, [location.pathname, location.search]);
+  function handleTopbarSearch(event) { event.preventDefault(); const trimmedQuery = topbarQuery.trim(), params = new URLSearchParams(); params.set('type', 'ANIME'); if (trimmedQuery) params.set('q', trimmedQuery); navigate(`/search?${params.toString()}`); }
 
-  // Keyboard shortcut for search
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsSearchOpen(true);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-
-
-  useEffect(() => {
-    if (location.pathname !== '/search') return;
-    const params = new URLSearchParams(location.search);
-    setTopbarQuery(params.get('q') || '');
-  }, [location.pathname, location.search]);
-
-  function handleTopbarSearch(event) {
-    event.preventDefault();
-    const trimmedQuery = topbarQuery.trim();
-    const params = new URLSearchParams();
-    params.set('type', 'ANIME');
-    if (trimmedQuery) params.set('q', trimmedQuery);
-    navigate(`/search?${params.toString()}`);
-  }
-
-  // Loading screen removed; app renders immediately.
-
-
-
-  if (maintenanceMode && (!user || !user.is_admin)) {
-    console.warn('Maintenance mode active - displaying site normally');
-    // Optionally show a banner or notification here
-  }
-
-
-  return (
-    <SubAccountGate>
-    <div className={`app-shell ${isTvMode ? 'tv-app-shell' : ''}`}>
-      {announcement && (
-        <div style={{
-          background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-          color: '#e2e8f0',
-          fontSize: '0.85rem',
-          fontWeight: '500',
-          padding: '12px 24px',
-          textAlign: 'center',
-          letterSpacing: '0.3px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.4)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-          <span style={{ position: 'relative', zIndex: 1 }}>{announcement}</span>
-        </div>
-      )}
-
-      {isTvMode && (
-        <div className="tv-welcome-strip">
-          <span>LG webOS TV mode</span>
-          <strong>Use the Magic Remote pointer or arrow keys to browse. Press OK/Enter to select.</strong>
-        </div>
-      )}
-
-      {/* ... header with hamburger menu ... */}
-      <header className="topbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button className="hamburger-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} style={{
-            background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', display: 'flex'
-          }}>
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-          <FocusableLink to="/" className="brand" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <img src={assetPath('logo.png')} alt="l" style={{ height: 40, width: 'auto' }} />
-            <span>AnimeVault</span>
-          </FocusableLink>
-        </div>
-
-        <nav className="topnav">
-          <FocusableNavLink
-            to="/"
-            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-          >
-            Home
-          </FocusableNavLink>
-          <FocusableNavLink
-            to="/anime"
-            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-          >
-            Anime
-          </FocusableNavLink>
-          <FocusableNavLink
-            to="/manga"
-            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-          >
-            Manga
-          </FocusableNavLink>
-          <FocusableNavLink
-            to="/dramas-movies"
-            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-          >
-            Dramas & Movies
-          </FocusableNavLink>
-          <FocusableNavLink
-            to="/schedule"
-            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-          >
-            Schedule
-          </FocusableNavLink>
-          <FocusableNavLink
-            to="/collections"
-            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-          >
-            Collections
-          </FocusableNavLink>
-          <FocusableNavLink
-            to="/community"
-            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-          >
-            Community
-          </FocusableNavLink>
-          <FocusableNavLink
-            to="/stats"
-            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-          >
-            Stats
-          </FocusableNavLink>
-          <FocusableNavLink
-            to="/notifications"
-            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-              <Bell size={16} />
-              Notifications
-            </div>
-          </FocusableNavLink>
-          <FocusableNavLink
-            to="/download"
-            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-              <DownloadIcon size={16} />
-              Download
-            </div>
-          </FocusableNavLink>
-          {user?.is_admin && (
-            <FocusableNavLink
-              to="/admin/dashboard"
-              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-              style={{ color: '#ffd700' }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                <Award size={16} />
-                Admin
-              </div>
-            </FocusableNavLink>
-          )}
-        </nav>
-        <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button
-            className="topbar-search-form"
-            onClick={() => setIsSearchOpen(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              padding: '0.5rem 1rem',
-              background: 'var(--glass)',
-              border: '1px solid var(--glass-border)',
-              borderRadius: '8px',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand-color)'; e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--glass-border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-          >
-            <SearchIcon size={18} aria-hidden="true" />
-            <span style={{ fontSize: '0.9rem' }}>{isTvMode ? 'Search AnimeVault' : 'Search anime...'}</span>
-            {!isTvMode && <kbd style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              fontSize: '0.75rem',
-              marginLeft: 'auto'
-            }}>⌘K</kbd>}
-          </button>
-          {user ? (
-            <FocusableLink to={ownProfilePath} style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              padding: '6px 12px', fontSize: '0.8rem', fontWeight: '800', borderRadius: '8px',
-              border: '1px solid rgba(255, 26, 117, 0.3)', textDecoration: 'none',
-              background: 'rgba(255, 26, 117, 0.08)', color: 'var(--brand-color)',
-              cursor: 'pointer', transition: 'all 0.2s ease',
-              boxShadow: '0 0 10px rgba(255, 26, 117, 0.1)'
-            }} onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 26, 117, 0.18)'; e.currentTarget.style.boxShadow = '0 0 15px rgba(255, 26, 117, 0.3)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 26, 117, 0.08)'; e.currentTarget.style.boxShadow = '0 0 10px rgba(255, 26, 117, 0.1)'; }}>
-              <User size={14} />
-              <span>{user.username}</span>
-            </FocusableLink>
-          ) : authLoading ? (
-            <div style={{ padding: '8px 14px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Checking session...</div>
-          ) : (
-            <FocusableButton onClick={() => { setAuthTab('login'); setShowAuthModal(true); }} style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              padding: '6px 12px', fontSize: '0.8rem', fontWeight: '800', borderRadius: '8px',
-              border: '1px solid var(--glass-border)',
-              background: 'var(--glass)', color: 'var(--text-secondary)',
-              cursor: 'pointer', transition: 'all 0.2s ease'
-            }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand-color)'; e.currentTarget.style.color = '#fff'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--glass-border)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
-              <User size={14} />
-              <span>Sign In</span>
-            </FocusableButton>
-          )}
-        </div>
-      </header>
-
-      {/* Mobile Side Menu */}
-      {isMobileMenuOpen && (
-        <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}>
-          <div className="mobile-menu" onClick={(e) => e.stopPropagation()}>
-            <FocusableNavLink
-              to="/"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
-            >
-              <HomeIcon size={18} />
-              <span>Home</span>
-            </FocusableNavLink>
-            <FocusableNavLink
-              to="/anime"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
-            >
-              Anime
-            </FocusableNavLink>
-            <FocusableNavLink
-              to="/manga"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
-            >
-              <BookOpen size={18} />
-              <span>Manga</span>
-            </FocusableNavLink>
-            <FocusableNavLink
-              to="/dramas-movies"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
-            >
-              <TvIcon size={18} />
-              <span>Dramas & Movies</span>
-            </FocusableNavLink>
-            <FocusableNavLink
-              to="/schedule"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
-            >
-              Schedule
-            </FocusableNavLink>
-            <FocusableNavLink
-              to="/collections"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
-            >
-              Collections
-            </FocusableNavLink>
-            <FocusableNavLink
-              to="/community"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
-            >
-              <Users size={18} />
-              <span>Community</span>
-            </FocusableNavLink>
-            <FocusableNavLink
-              to="/stats"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
-            >
-              Stats
-            </FocusableNavLink>
-            <FocusableNavLink
-              to="/notifications"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <Bell size={18} />
-                <span>Notifications</span>
-              </div>
-            </FocusableNavLink>
-            <FocusableNavLink
-              to="/download"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <DownloadIcon size={18} />
-                <span>Download</span>
-              </div>
-            </FocusableNavLink>
-            <FocusableNavLink
-              to="/about"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
-            >
-              <Info size={18} />
-              <span>About</span>
-            </FocusableNavLink>
-            {user && (
-              <FocusableNavLink
-                to={ownProfilePath}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={({ isActive }) => (isActive ? 'mobile-nav-link active' : 'mobile-nav-link')}
-              >
-                <User size={18} />
-                <span>Profile</span>
-              </FocusableNavLink>
-            )}
-          </div>
-        </div>
-      )}
-
-      <main className="content">
-        <Routes>
-          <Route path="/" element={<MixedHome />} />
-          <Route path="/search" element={<Search />} />
-          <Route path="/anime" element={<Home />} />
-          <Route path="/anime/:id" element={<AnimeDetails />} />
-          <Route path="/manga" element={<MangaHome />} />
-          <Route path="/manga/:id" element={<MangaDetails />} />
-          <Route path="/dramas-movies" element={<DramasMovies />} />
-          <Route path="/watch/:type/:id" element={<RequireAuth><MovieWatch /></RequireAuth>} />
-          <Route path="/schedule" element={<Schedule />} />
-          <Route path="/collections" element={<RequireAuth><Collections /></RequireAuth>} />
-          <Route path="/community" element={<Community />} />
-          <Route path="/stats" element={<RequireAuth><Stats /></RequireAuth>} />
-          <Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/faq" element={<FAQ />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/dmca" element={<DMCA />} />
-          <Route path="/request" element={<RequestAnime />} />
-          <Route path="/profile/:userid/*" element={<Profile />} />
-          <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/set-new-password" element={<SetNewPassword />} />
-          <Route path="/download" element={<Download />} />
-          <Route path="/admin/*" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </main>
-
-      <Footer />
-
-      {/* Premium Bottom Navigation for Mobile Devices */}
-      <nav className="bottom-nav">
-        <NavLink
-          to="/"
-          end
-          className={({ isActive }) => (isActive ? 'bottom-nav-link active' : 'bottom-nav-link')}
-        >
-          <HomeIcon size={20} />
-          <span>Home</span>
-        </NavLink>
-        <NavLink
-          to="/anime"
-          className={({ isActive }) => (isActive ? 'bottom-nav-link active' : 'bottom-nav-link')}
-        >
-          <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>アニメ</span>
-          <span>Anime</span>
-        </NavLink>
-        <NavLink
-          to="/dramas-movies"
-          className={({ isActive }) => (isActive ? 'bottom-nav-link active' : 'bottom-nav-link')}
-        >
-          <TvIcon size={20} />
-          <span>Dramas</span>
-        </NavLink>
-        <NavLink
-          to="/search"
-          className={({ isActive }) => (isActive ? 'bottom-nav-link active' : 'bottom-nav-link')}
-        >
-          <SearchIcon size={20} />
-          <span>Search</span>
-        </NavLink>
+  return <SubAccountGate><div className={`app-shell ${isTvMode ? 'tv-app-shell' : ''}`}>
+    {announcement && <div className="site-announcement"><span>{announcement}</span></div>}
+    {isTvMode && <div className="tv-welcome-strip"><span>LG webOS TV mode</span><strong>Use the Magic Remote pointer or arrow keys to browse. Press OK/Enter to select.</strong></div>}
+    <header className="topbar">
+      <div style={{display:'flex',alignItems:'center',gap:'1rem'}}><button className="hamburger-btn" aria-label="Open menu" aria-expanded={isMobileMenuOpen} onClick={()=>setIsMobileMenuOpen(v=>!v)} style={{background:'transparent',border:'none',color:'white',cursor:'pointer',display:'flex'}}>{isMobileMenuOpen?<X size={24}/>:<Menu size={24}/>}</button><FocusableLink to="/" className="brand" style={{display:'flex',alignItems:'center',gap:'.75rem'}}><img src={assetPath('logo.png')} alt="AnimeVault" style={{height:40,width:'auto'}}/><span>AnimeVault</span></FocusableLink></div>
+      <nav className="topnav">
+        {[["/","Home",HomeIcon],["/anime","Anime",null],["/manga","Manga",BookOpen],["/dramas-movies","Dramas & Movies",TvIcon],["/schedule","Schedule",null],["/collections","Collections",null],["/community","Community",Users],["/stats","Stats",null],["/notifications","Notifications",Bell],["/download","Download",DownloadIcon]].map(([to,label,Icon])=><FocusableNavLink key={to} to={to} className={({isActive})=>isActive?'nav-link active':'nav-link'}>{Icon&&<Icon size={16}/>} {label}</FocusableNavLink>)}
+        {user?.is_admin&&<FocusableNavLink to="/admin/dashboard" className={({isActive})=>isActive?'nav-link active':'nav-link'} style={{color:'#ffd700'}}><Award size={16}/> Admin</FocusableNavLink>}
       </nav>
-
-      {/* Postgres Neon Modals */}
-      <AuthModal />
-      <UpdateCenter />
-      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
-      {isSearchOpen && <SearchModal onClose={() => setIsSearchOpen(false)} />}
-
-      <style>{`
-        .mobile-menu-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.7);
-          z-index: 1000;
-          display: flex;
-          justify-content: flex-start;
-        }
-        .mobile-menu {
-          width: 75%;
-          max-width: 300px;
-          background: rgba(15, 23, 42, 0.98);
-          padding: 2rem 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-          border-right: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .mobile-nav-link {
-          padding: 0.75rem 1rem;
-          border-radius: 8px;
-          color: #94a3b8;
-          text-decoration: none;
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          transition: all 0.2s ease;
-          font-weight: 600;
-        }
-        .mobile-nav-link:hover {
-          background: rgba(255, 255, 255, 0.05);
-          color: white;
-        }
-        .mobile-nav-link.active {
-          background: rgba(255, 26, 117, 0.15);
-          border: 1px solid rgba(255, 26, 117, 0.3);
-          color: #ff1a75;
-        }
-        .hamburger-btn {
-          display: none;
-        }
-        @media (max-width: 1024px) {
-          .hamburger-btn {
-            display: block;
-          }
-          .topnav {
-            display: none !important;
-          }
-          .topbar-search-form input {
-            display: none;
-          }
-          .topbar-search-form {
-            padding: 8px;
-          }
-        }
-      `}</style>
-    </div>
-    </SubAccountGate>
-  );
+      <div className="topbar-actions"><button className="topbar-search-form" aria-label="Search" onClick={()=>setIsSearchOpen(true)}><SearchIcon size={18}/><span>Search anime...</span><kbd>⌘K</kbd></button>{user?<FocusableLink to={ownProfilePath}><User size={14}/><span>{user.username}</span></FocusableLink>:authLoading?<div>Checking session...</div>:<FocusableButton onClick={()=>{setAuthTab('login');setShowAuthModal(true)}}><User size={14}/><span>Sign In</span></FocusableButton>}</div>
+    </header>
+    {isMobileMenuOpen&&<div className="mobile-menu-overlay" onClick={()=>setIsMobileMenuOpen(false)}><div className="mobile-menu" onClick={e=>e.stopPropagation()}>{[['/','Home'],['/anime','Anime'],['/manga','Manga'],['/dramas-movies','Dramas & Movies'],['/schedule','Schedule'],['/collections','Collections'],['/community','Community'],['/stats','Stats'],['/notifications','Notifications'],['/download','Download'],['/about','About']].map(([to,label])=><FocusableNavLink key={to} to={to} onClick={()=>setIsMobileMenuOpen(false)} className={({isActive})=>isActive?'mobile-nav-link active':'mobile-nav-link'}>{label}</FocusableNavLink>)}</div></div>}
+    <main className="content"><Routes><Route path="/" element={<MixedHome/>}/><Route path="/search" element={<Search/>}/><Route path="/anime" element={<Home/>}/><Route path="/anime/:id" element={<AnimeDetails/>}/><Route path="/manga" element={<MangaHome/>}/><Route path="/manga/:id" element={<MangaDetails/>}/><Route path="/dramas-movies" element={<DramasMovies/>}/><Route path="/watch/:type/:id" element={<RequireAuth><MovieWatch/></RequireAuth>}/><Route path="/schedule" element={<Schedule/>}/><Route path="/collections" element={<RequireAuth><Collections/></RequireAuth>}/><Route path="/community" element={<Community/>}/><Route path="/stats" element={<RequireAuth><Stats/></RequireAuth>}/><Route path="/notifications" element={<RequireAuth><Notifications/></RequireAuth>}/><Route path="/about" element={<About/>}/><Route path="/contact" element={<Contact/>}/><Route path="/faq" element={<FAQ/>}/><Route path="/terms" element={<Terms/>}/><Route path="/privacy" element={<Privacy/>}/><Route path="/dmca" element={<DMCA/>}/><Route path="/request" element={<RequestAnime/>}/><Route path="/profile/:userid/*" element={<Profile/>}/><Route path="/settings" element={<RequireAuth><Settings/></RequireAuth>}/><Route path="/forgot-password" element={<ForgotPassword/>}/><Route path="/set-new-password" element={<SetNewPassword/>}/><Route path="/download" element={<Download/>}/><Route path="/admin/*" element={<RequireAdmin><AdminDashboard/></RequireAdmin>}/><Route path="*" element={<NotFound/>}/></Routes></main>
+    <Footer/><nav className="bottom-nav"><NavLink to="/" end className={({isActive})=>isActive?'bottom-nav-link active':'bottom-nav-link'}><HomeIcon size={20}/><span>Home</span></NavLink><NavLink to="/anime" className={({isActive})=>isActive?'bottom-nav-link active':'bottom-nav-link'}><span style={{fontSize:'.8rem',fontWeight:'bold'}}>アニメ</span><span>Anime</span></NavLink><NavLink to="/dramas-movies" className={({isActive})=>isActive?'bottom-nav-link active':'bottom-nav-link'}><TvIcon size={20}/><span>Dramas</span></NavLink><NavLink to="/search" className={({isActive})=>isActive?'bottom-nav-link active':'bottom-nav-link'}><SearchIcon size={20}/><span>Search</span></NavLink></nav>
+    <AuthModal/><UpdateCenter/><ProfileModal isOpen={isProfileOpen} onClose={()=>setIsProfileOpen(false)}/>{isSearchOpen&&<SearchModal onClose={()=>setIsSearchOpen(false)}/>} 
+    <style>{`.mobile-menu-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;justify-content:flex-start}.mobile-menu{width:min(75%,300px);height:100%;background:rgba(15,23,42,.98);padding:2rem 1.5rem;display:flex;flex-direction:column;gap:.75rem;border-right:1px solid rgba(255,255,255,.1);overflow-y:auto}.mobile-nav-link{padding:.75rem 1rem;border-radius:8px;color:#94a3b8;text-decoration:none;display:flex;align-items:center;gap:.75rem;font-weight:600}.mobile-nav-link.active{background:rgba(255,26,117,.15);border:1px solid rgba(255,26,117,.3);color:#ff1a75}.hamburger-btn{display:none}@media(max-width:1024px){.hamburger-btn{display:flex!important}.topnav{display:none!important}.topbar-search-form span,.topbar-search-form kbd{display:none!important}.topbar-search-form{padding:8px}.content{padding-left:1rem;padding-right:1rem}.app-shell{width:100%;overflow-x:hidden}}@media(max-width:600px){.content{padding:.75rem .65rem 5rem}.topbar{padding:.45rem .65rem}.topbar .brand img{height:32px!important}.topbar .brand span{font-size:.9rem}.bottom-nav{display:flex!important}}`}</style>
+  </div></SubAccountGate>;
 }
-
 export default App;
