@@ -1,64 +1,58 @@
 import React, { useEffect, useState } from 'react';
-import { Menu, X, Home, Search, Library, CalendarDays, Bell, Heart, History, Download, Users, User, Settings, ChevronRight, Sparkles } from 'lucide-react';
-import App from '../App';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, Home, Search, Library, CalendarDays, History, Heart, Download, Bell, Users, UserCircle, Settings, ChevronRight } from 'lucide-react';
 
-const NAV = [
-  ['Home', Home, '/'], ['Explore', Search, '/search'], ['Library', Library, '/collections'], ['Schedule', CalendarDays, '/schedule'],
-];
-const VAULT = [
-  ['Continue Watching', History, '/'], ['Favorites', Heart, '/collections'], ['Downloads', Download, '/download'], ['Notifications', Bell, '/notifications'], ['Community', Users, '/community'],
-];
+const NAV = [['Home', Home, '/'], ['Explore', Search, '/search'], ['Library', Library, '/collections'], ['Schedule', CalendarDays, '/schedule']];
+const VAULT = [['Continue Watching', History, '/'], ['Favorites', Heart, '/collections'], ['Downloads', Download, '/download'], ['Notifications', Bell, '/notifications'], ['Community', Users, '/community']];
 
-export default function AppMobile() {
+export default function AppMobile({ children }) {
   const [open, setOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => setOpen(false), [location.pathname, location.search]);
+
   useEffect(() => {
-    const close = () => setOpen(false);
-    window.addEventListener('animevault:close-drawer', close);
-    return () => window.removeEventListener('animevault:close-drawer', close);
+    const onKeyDown = (event) => { if (event.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  const go = path => {
-    setOpen(false);
-    const next = `#${path}`;
-    if (window.location.hash === next) {
-      window.dispatchEvent(new HashChangeEvent('hashchange'));
-      return;
-    }
-    window.location.hash = next;
-  };
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = open ? 'hidden' : previous;
+    return () => { document.body.style.overflow = previous; };
+  }, [open]);
 
+  const go = (path) => { setOpen(false); navigate(path); };
+  const isActive = (path) => path === '/' ? location.pathname === '/' : location.pathname === path || location.pathname.startsWith(`${path}/`);
   const renderItem = ([label, Icon, path]) => (
-    <button key={`${label}-${path}`} className="av-drawer-item" onClick={() => go(path)}>
-      <Icon size={19} /><span>{label}</span><ChevronRight size={15} className="av-drawer-arrow" />
+    <button key={label} type="button" className={`av-v2-drawer-item ${isActive(path) ? 'is-active' : ''}`} onClick={() => go(path)}>
+      <Icon size={19} strokeWidth={2} /><span>{label}</span><ChevronRight className="av-v2-drawer-chevron" size={16} />
     </button>
   );
 
-  return (
-    <div className="av-mobile-v2">
-      <header className="av-mobile-topbar">
-        <button className="av-menu-button" onClick={() => setOpen(true)} aria-label="Open menu"><Menu size={23} /></button>
-        <button className="av-mobile-brand" onClick={() => go('/')} aria-label="AnimeVault home"><span className="av-brand-mark"><Sparkles size={15} /></span><span>ANIMEVAULT</span></button>
-        <button className="av-mobile-icon" onClick={() => go('/notifications')} aria-label="Notifications"><Bell size={20} /></button>
-      </header>
+  return <div className="av-v2-shell">
+    <header className="av-v2-topbar">
+      <button className="av-v2-icon-button" type="button" aria-label="Open menu" onClick={() => setOpen(true)}><Menu size={23} /></button>
+      <button className="av-v2-brand" type="button" onClick={() => go('/')} aria-label="AnimeVault home"><span className="av-v2-brand-mark">A</span><span>AnimeVault</span></button>
+      <button className="av-v2-icon-button" type="button" aria-label="Notifications" onClick={() => go('/notifications')}><Bell size={21} /></button>
+    </header>
 
-      <div className={`av-mobile-drawer-backdrop ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
-      <aside className={`av-mobile-drawer ${open ? 'open' : ''}`} aria-hidden={!open}>
-        <div className="av-drawer-head"><div className="av-drawer-brand"><span className="av-brand-mark"><Sparkles size={16} /></span><strong>ANIMEVAULT</strong></div><button className="av-mobile-icon" onClick={() => setOpen(false)} aria-label="Close menu"><X size={21} /></button></div>
-        <div className="av-drawer-glow" />
-        <nav className="av-drawer-content">
-          <div className="av-drawer-label">DISCOVER</div>
-          {NAV.map(renderItem)}
-          <div className="av-drawer-divider" />
-          <div className="av-drawer-label">YOUR VAULT</div>
-          {VAULT.map(renderItem)}
-          <div className="av-drawer-divider" />
-          {renderItem(['Profile', User, '/profile'])}
-          {renderItem(['Settings', Settings, '/settings'])}
-        </nav>
-        <div className="av-drawer-footer">AnimeVault Android <span>V2</span></div>
-      </aside>
-
-      <main className="av-mobile-v2-content"><App /></main>
-    </div>
-  );
+    <div className={`av-v2-drawer-backdrop ${open ? 'is-open' : ''}`} onClick={() => setOpen(false)} aria-hidden="true" />
+    <aside className={`av-v2-drawer ${open ? 'is-open' : ''}`} aria-hidden={!open}>
+      <div className="av-v2-drawer-header">
+        <div className="av-v2-drawer-brand"><span className="av-v2-brand-mark">A</span><div><strong>AnimeVault</strong><small>Mobile</small></div></div>
+        <button className="av-v2-icon-button" type="button" aria-label="Close menu" onClick={() => setOpen(false)}><X size={22} /></button>
+      </div>
+      <div className="av-v2-drawer-scroll">
+        <p className="av-v2-drawer-label">DISCOVER</p><nav>{NAV.map(renderItem)}</nav>
+        <p className="av-v2-drawer-label">YOUR VAULT</p><nav>{VAULT.map(renderItem)}</nav>
+        <div className="av-v2-drawer-divider" />
+        <button className="av-v2-drawer-item" type="button" onClick={() => go('/profile')}><UserCircle size={19} strokeWidth={2} /><span>Profile</span><ChevronRight className="av-v2-drawer-chevron" size={16} /></button>
+        <button className="av-v2-drawer-item" type="button" onClick={() => go('/settings')}><Settings size={19} strokeWidth={2} /><span>Settings</span><ChevronRight className="av-v2-drawer-chevron" size={16} /></button>
+      </div>
+    </aside>
+    <main className="av-v2-content">{children}</main>
+  </div>;
 }
