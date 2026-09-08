@@ -4,13 +4,16 @@ import { HashRouter } from 'react-router-dom';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { isTvRuntime } from './utils/tvMode.js';
+import { installChunkRecovery } from './utils/chunkRecovery.js';
 import { init } from '@noriginmedia/norigin-spatial-navigation';
 import './styles.css';
 import { UserProvider } from './api/UserContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// Spatial navigation is useful for TV/keyboard navigation, but it should not
-// install its TV-oriented behaviour on ordinary touch devices.
+// Recover automatically when a deployment leaves the browser with stale
+// Vite chunks. This is especially important for GitHub Pages deployments.
+installChunkRecovery();
+
 const isTouchDevice =
   typeof window !== 'undefined' &&
   (navigator.maxTouchPoints > 0 || 'ontouchstart' in window);
@@ -22,12 +25,7 @@ init({
   throttle: 70,
 });
 
-// Do not install the ad-blocking service worker in the web app.
-// It intercepted arbitrary URL paths containing words such as "stats",
-// "track", "target", and "ad", which can break legitimate API/media
-// requests and is especially disruptive on mobile browsers. Existing
-// registrations are removed once so an older deployed worker cannot keep
-// intercepting requests after an update.
+// Remove legacy service workers that may still intercept API/media requests.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.getRegistrations().then(registrations => {
@@ -40,16 +38,20 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000,
-      // Mobile connections are frequently suspended/resumed. Avoid an
-      // unconditional polling loop and refetch only when the app requests it.
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      retry: 1,
+      retry: 2,
+      retryDelay: attempt => Math.min(1000 * 2 ** attempt, 5000),
     },
   },
 });
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+const root = document.getElementById('root');
+if (!root) {
+  throw new Error('AnimeVault: root element was not found. Check index.html.');
+}
+
+ReactDOM.createRoot(root).render(
   <React.StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
