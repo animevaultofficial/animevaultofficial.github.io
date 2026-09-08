@@ -75,7 +75,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
   const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
   const swipeThreshold = 80;
 
-  // Reset active source when sources prop changes
   useEffect(() => {
     setActiveSourceIndex(0);
     setFailoverMsg('');
@@ -99,7 +98,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  // Fullscreen change listener
   useEffect(() => {
     const handleFSChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -117,7 +115,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
     }
   }, []);
 
-  // Automatic failover logic to next working source
   const handleFailover = useCallback(() => {
     if (!sources || sources.length <= 1) {
       setFailoverMsg('All available stream sources exhausted.');
@@ -137,7 +134,14 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
     }, 4000);
   }, [activeSourceIndex, sources]);
 
-  // Touch / Swipe Gesture Handling
+  const handleIframeError = useCallback(() => {
+    setFailoverMsg('Embedded player failed to load.');
+    if (sources.length > 1) {
+      const nextIdx = (activeSourceIndex + 1) % sources.length;
+      if (nextIdx !== activeSourceIndex) setActiveSourceIndex(nextIdx);
+    }
+  }, [activeSourceIndex, sources]);
+
   const handleTouchStart = useCallback((e) => {
     const touch = e.touches[0];
     touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
@@ -192,10 +196,8 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
     }
   };
 
-  // Determine active source object or fallback
   const activeSource = sources[activeSourceIndex] || (embedUrl ? { url: embedUrl, type: 'iframe', serverName: 'AllAnime Direct' } : null);
 
-  // ── LOADING STATE ──
   if (!activeSource && (!sources || sources.length === 0)) {
     return (
       <div className="video-player-error">
@@ -210,7 +212,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
   const cleanUrl = getSafeEmbedUrl(isZen ? stripAdParams(targetUrl) : targetUrl);
   if (cleanUrl) trustedEmbedOriginRef.current = new URL(cleanUrl).origin;
 
-  // ── EXTERNAL EMBED PLAYER (Fallback/Mirror) ──
   if (isIframeSource && !cleanUrl) {
     return (
       <div className="video-player-error">
@@ -229,7 +230,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Swipe Hint Overlays */}
         {showSwipeHint === 'prev' && (
           <div className="av-swipe-hint av-swipe-left" style={{ opacity: swipeProgress }}>
             <SkipBack size={32} />
@@ -243,7 +243,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
           </div>
         )}
 
-        {/* Title Bar */}
         <div className="av-embed-topbar">
           <span className="av-embed-title">{title}</span>
           <div className="av-embed-actions">
@@ -274,7 +273,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
           </div>
         )}
 
-        {/* External embed launcher */}
         <div className={`player-wrap embed-container ${isZen ? 'zen-active' : ''}`}>
           {isElectron ? (
             <webview
@@ -302,7 +300,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
           )}
         </div>
 
-        {/* Server selector pill bar */}
         {sources.length > 1 && (
           <div style={{ display: 'flex', gap: '8px', padding: '8px 12px', background: 'rgba(0,0,0,0.8)', overflowX: 'auto' }}>
             {sources.map((s, idx) => (
@@ -318,7 +315,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
           </div>
         )}
 
-        {/* Bottom Bar */}
         <div className="av-embed-bottombar">
           {onPrevEpisode && (
             <button className="av-embed-nav-btn" onClick={onPrevEpisode}>
@@ -338,7 +334,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
     );
   }
 
-  // ── DIRECT HLS STREAM PLAYER (Vidstack / HLS.js) ──
   return (
     <div 
       ref={wrapperRef}
@@ -347,7 +342,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Swipe Hints */}
       {showSwipeHint === 'prev' && (
         <div className="av-swipe-hint av-swipe-left" style={{ opacity: swipeProgress }}>
           <SkipBack size={32} />
@@ -384,13 +378,11 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
             <Poster className="vds-poster" src={poster} alt={title} />
           </MediaProvider>
 
-          {/* Gestures */}
           <Gesture className="vds-gesture" event="dblpointerup" action="seek:-10" />
           <Gesture className="vds-gesture" event="dblpointerup" action="seek:10" />
           <Gesture className="vds-gesture" event="pointerup" action="toggle:paused" />
           <Gesture className="vds-gesture" event="dblpointerup" action="toggle:fullscreen" />
 
-          {/* Custom Controls UI */}
           <Controls.Root className="av-controls">
             <div className="av-controls-scrim" />
             
@@ -461,7 +453,6 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
           </Controls.Root>
         </MediaPlayer>
         
-        {/* Server & Quality selector overlay */}
         {sources.length > 0 && (
           <div className="quality-overlay custom-quality">
             {sources.map((s, i) => (
