@@ -8,10 +8,12 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import { UserProvider } from '../api/UserContext';
 import { isTvRuntime } from '../utils/tvMode.js';
 import { installChunkRecovery } from '../utils/chunkRecovery.js';
+import { installMobileNavigationGuard } from './security/mobileNavigationGuard.js';
 import '../styles.css';
 import '../styles/mobile-fixes.css';
 
 installChunkRecovery();
+installMobileNavigationGuard();
 
 try {
   const key = 'animevault_favorites';
