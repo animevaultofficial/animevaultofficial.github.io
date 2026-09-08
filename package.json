@@ -13,7 +13,7 @@
     "generate-icons": "node scripts/generate-icons.js",
     "generate-dev-cert": "powershell -ExecutionPolicy Bypass -File scripts/generate-dev-cert.ps1",
     "clean": "rimraf release",
-    "prebuild": "node -e \"try{require('child_process').execSync('taskkill /IM AnimeVault.exe /F',{stdio:'ignore'})}catch(e){console.log('No running instance')}\"",
+    "prebuild": "node scripts/prepare-code-signing.cjs && node -e \"try{require('child_process').execSync('taskkill /IM AnimeVault.exe /F',{stdio:'ignore'})}catch(e){console.log('No running instance')}\"",
     "electron:dev": "cross-env NODE_ENV=development concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run prebuild && npm run clean && npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --publish never",
     "predeploy": "npm run build",
@@ -145,6 +145,7 @@
     "react-dom": "^18.3.1",
     "react-icons": "^5.6.0",
     "react-router-dom": "^6.30.1",
+    "react-icons": "^5.6.0",
     "uuid": "^14.0.1",
     "vidstack": "^1.12.13"
   },
