@@ -11,6 +11,7 @@ import { installChunkRecovery } from '../utils/chunkRecovery.js';
 import { installMobileNavigationGuard } from './security/mobileNavigationGuard.js';
 import '../styles.css';
 import '../styles/mobile-fixes.css';
+import './mobile-v2.css';
 
 installChunkRecovery();
 installMobileNavigationGuard();
