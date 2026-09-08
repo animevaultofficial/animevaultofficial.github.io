@@ -1,217 +1,149 @@
-import React, { useState, useEffect } from 'react';
-import { Search, X, TrendingUp, Filter } from 'lucide-react';
-import { fetchHomeData, searchAnime as searchAnimeApi, getTitle, getImage } from '../api/anilist';
+import React, { useEffect, useState } from 'react';
+import { Search, X, SlidersHorizontal, TrendingUp, Star, Sparkles, ChevronDown } from 'lucide-react';
+import { searchAnime as searchAnimeApi, fetchHomeData, getTitle, getImage } from '../api/anilist';
 
 const GENRES = ['Action','Adventure','Comedy','Drama','Fantasy','Horror','Mystery','Romance','Sci-Fi','Slice of Life','Sports','Supernatural','Thriller','Psychological'];
 const SORT_OPTIONS = [
   { value: 'TRENDING_DESC', label: 'Trending' },
   { value: 'POPULARITY_DESC', label: 'Popular' },
-  { value: 'SCORE_DESC', label: 'Score' },
+  { value: 'SCORE_DESC', label: 'Top Rated' },
   { value: 'FAVOURITES_DESC', label: 'Favorites' },
 ];
-const STATUS_OPTIONS = ['All','RELEASING','FINISHED','NOT_YET_RELEASED'];
+const STATUS_OPTIONS = [{ value: 'All', label: 'All' }, { value: 'RELEASING', label: 'Airing' }, { value: 'FINISHED', label: 'Finished' }, { value: 'NOT_YET_RELEASED', label: 'Upcoming' }];
 const CURRENT_YEAR = new Date().getFullYear();
-const YEAR_OPTIONS = ['All', ...Array.from({ length: 20 }, (_, i) => CURRENT_YEAR - i)];
+const YEARS = ['All', ...Array.from({ length: 20 }, (_, i) => String(CURRENT_YEAR - i))];
 
-function normalizeResults(data) {
+function normalize(data) {
   if (Array.isArray(data)) return data.filter(Boolean);
-  if (Array.isArray(data?.Page?.media)) return data.Page.media.filter(Boolean);
-  if (Array.isArray(data?.media)) return data.media.filter(Boolean);
-  if (Array.isArray(data?.results)) return data.results.filter(Boolean);
-  return [];
+  return data?.Page?.media || data?.media || data?.results || [];
 }
 
-async function searchAnime(query, genre, sort, status, year) {
-  try {
-    return normalizeResults(await searchAnimeApi(query, genre, sort, status, year));
-  } catch (error) {
-    console.warn('[AnimeVault Mobile] search failed:', error?.message || error);
-    return [];
-  }
+async function runSearch(query, genre, sort, status, year) {
+  try { return normalize(await searchAnimeApi(query, genre || null, sort, status, year)); }
+  catch (error) { console.warn('[AnimeVault Mobile] search failed:', error?.message || error); return []; }
 }
 
-async function fetchTrending(sort = 'TRENDING_DESC') {
-  try {
-    if (sort === 'TRENDING_DESC') {
-      const data = await fetchHomeData();
-      return normalizeResults(data?.trending?.media || data?.trending);
-    }
-    return await searchAnime('', null, sort, 'All', 'All');
-  } catch (error) {
-    console.warn('[AnimeVault Mobile] trending fetch failed:', error?.message || error);
-    return [];
-  }
-}
-
-function AnilistImage({ src, alt, className, fallback = '🎬' }) {
+function Poster({ item, onClick }) {
+  const title = getTitle(item);
+  const image = getImage(item);
   const [failed, setFailed] = useState(false);
-  if (!src || failed) return <div className={`${className} loading-shimmer`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>{fallback}</div>;
-  return <img src={src} alt={alt || 'Anime poster'} className={className} onError={() => setFailed(true)} loading="lazy" />;
+  return (
+    <button className="av-explore-card" type="button" onClick={() => onClick(item.id)} aria-label={`Open ${title}`}>
+      <div className="av-explore-poster">
+        {image && !failed ? <img src={image} alt={title} loading="lazy" onError={() => setFailed(true)} /> : <div className="av-explore-fallback">A</div>}
+        {item.averageScore != null && <span className="av-explore-score"><Star size={9} fill="currentColor" />{item.averageScore}%</span>}
+      </div>
+      <strong>{title}</strong>
+      <small>{item.format || 'Anime'}{item.seasonYear ? ` · ${item.seasonYear}` : ''}</small>
+    </button>
+  );
 }
 
 export default function SearchPage({ navigate }) {
-  const nav = (id) => id != null && navigate('anime-detail', { id });
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [trending, setTrending] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
   const [sort, setSort] = useState('TRENDING_DESC');
   const [genre, setGenre] = useState('');
   const [status, setStatus] = useState('All');
   const [year, setYear] = useState('All');
-  const [showFilters, setShowFilters] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [history, setHistory] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('av_search_history') || '[]');
-      return Array.isArray(saved) ? saved.filter(v => typeof v === 'string') : [];
-    } catch {
-      return [];
-    }
+    try { const saved = JSON.parse(localStorage.getItem('av_search_history') || '[]'); return Array.isArray(saved) ? saved.slice(0, 8) : []; } catch { return []; }
   });
 
   useEffect(() => {
     let cancelled = false;
-    fetchTrending(sort).then(data => {
-      if (!cancelled) setTrending(normalizeResults(data));
-    });
+    (async () => {
+      try {
+        const data = sort === 'TRENDING_DESC' ? await fetchHomeData() : await runSearch('', '', sort, 'All', 'All');
+        const items = sort === 'TRENDING_DESC' ? normalize(data?.trending?.media || data?.trending) : normalize(data);
+        if (!cancelled) setTrending(items);
+      } catch { if (!cancelled) setTrending([]); }
+    })();
     return () => { cancelled = true; };
   }, [sort]);
 
   useEffect(() => {
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setResults([]);
-      setSearched(false);
-      setLoading(false);
-      return undefined;
-    }
-
+    const q = query.trim();
+    if (!q) { setResults([]); setLoading(false); return; }
     let cancelled = false;
     const timer = setTimeout(async () => {
       setLoading(true);
-      setSearched(true);
-      const data = await searchAnime(trimmed, genre, sort, status, year);
+      const items = await runSearch(q, genre, sort, status, year);
       if (cancelled) return;
-      setResults(normalizeResults(data));
+      setResults(items);
       setLoading(false);
-
       setHistory(prev => {
-        const next = [trimmed, ...prev.filter(h => h.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8);
-        try { localStorage.setItem('av_search_history', JSON.stringify(next)); } catch (_) {}
+        const next = [q, ...prev.filter(v => v.toLowerCase() !== q.toLowerCase())].slice(0, 8);
+        try { localStorage.setItem('av_search_history', JSON.stringify(next)); } catch {}
         return next;
       });
-    }, 400);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
+    }, 350);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [query, genre, sort, status, year]);
 
-  const handleSearch = (q) => setQuery(q);
+  const openAnime = id => id != null && navigate('anime-detail', { id });
+  const searched = Boolean(query.trim());
 
   return (
-    <div className="mobile-content">
-      <div className="search-bar">
-        <Search size={18} color="var(--text3)" />
-        <input type="text" placeholder="Search anime..." value={query} onChange={e => handleSearch(e.target.value)} autoFocus />
-        {query && <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: 2 }}><X size={16} /></button>}
-        <button onClick={() => setShowFilters(!showFilters)} style={{ background: showFilters ? 'var(--brand-dim)' : 'none', border: 'none', color: showFilters ? 'var(--brand)' : 'var(--text3)', cursor: 'pointer', padding: 4, borderRadius: 6 }}><Filter size={16} /></button>
+    <div className="av-explore">
+      <section className="av-explore-head">
+        <div>
+          <span className="av-explore-kicker"><Sparkles size={12} /> DISCOVER</span>
+          <h1>Explore Anime</h1>
+          <p>Find your next obsession.</p>
+        </div>
+      </section>
+
+      <div className="av-explore-search-wrap">
+        <Search size={19} />
+        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search anime, characters, titles..." aria-label="Search anime" />
+        {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><X size={17} /></button>}
+        <button type="button" className={filtersOpen ? 'active' : ''} onClick={() => setFiltersOpen(v => !v)} aria-label="Toggle filters"><SlidersHorizontal size={18} /></button>
       </div>
 
-      {showFilters && (
-        <div style={{ marginBottom: 12, padding: '0.75rem', background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-          <div className="setting-row">
-            <div className="setting-label">Sort</div>
-            <select className="select-input" style={{ width: 'auto' }} value={sort} onChange={e => setSort(e.target.value)}>
-              {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+      {filtersOpen && (
+        <section className="av-explore-filters">
+          <div className="av-filter-row">
+            <span>Sort</span>
+            <div className="av-filter-scroll">{SORT_OPTIONS.map(o => <button key={o.value} className={sort === o.value ? 'active' : ''} onClick={() => setSort(o.value)}>{o.label}</button>)}</div>
           </div>
-          <div className="setting-row">
-            <div className="setting-label">Status</div>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {STATUS_OPTIONS.map(s => (
-                <button key={s} onClick={() => setStatus(s)} style={{ padding: '4px 10px', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600, background: status === s ? 'var(--brand)' : 'var(--border)', color: status === s ? '#fff' : 'var(--text3)' }}>
-                  {s === 'All' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase().replace('_', ' ')}
-                </button>
-              ))}
-            </div>
+          <div className="av-filter-row">
+            <span>Status</span>
+            <div className="av-filter-scroll">{STATUS_OPTIONS.map(o => <button key={o.value} className={status === o.value ? 'active' : ''} onClick={() => setStatus(o.value)}>{o.label}</button>)}</div>
           </div>
-          <div className="setting-row">
-            <div className="setting-label">Year</div>
-            <select className="select-input" style={{ width: 'auto' }} value={year} onChange={e => setYear(e.target.value)}>
-              {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+          <div className="av-filter-row">
+            <span>Year</span>
+            <div className="av-filter-scroll">{YEARS.map(y => <button key={y} className={year === y ? 'active' : ''} onClick={() => setYear(y)}>{y}</button>)}</div>
           </div>
-          <div style={{ marginTop: 8 }}>
-            <div className="setting-label" style={{ marginBottom: 6 }}>Genres</div>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {GENRES.map(g => (
-                <button key={g} onClick={() => setGenre(genre === g ? '' : g)} style={{ padding: '4px 10px', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600, background: genre === g ? 'var(--brand)' : 'var(--border)', color: genre === g ? '#fff' : 'var(--text3)' }}>
-                  {g}
-                </button>
-              ))}
-            </div>
+          <div className="av-filter-row genre-row">
+            <span>Genre</span>
+            <div className="av-filter-scroll">{GENRES.map(g => <button key={g} className={genre === g ? 'active' : ''} onClick={() => setGenre(genre === g ? '' : g)}>{g}</button>)}</div>
           </div>
-        </div>
+        </section>
       )}
 
-      {!query && history.length > 0 && !showFilters && (
-        <div className="section">
-          <div className="section-header"><span className="section-title">Recent</span></div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {history.map(h => <button key={h} onClick={() => setQuery(h)} style={{ padding: '6px 14px', borderRadius: 20, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 500 }}>{h}</button>)}
-          </div>
-        </div>
+      {!searched && history.length > 0 && (
+        <section className="av-explore-section av-history">
+          <header><h2>Recent searches</h2><button onClick={() => { setHistory([]); localStorage.removeItem('av_search_history'); }}>Clear</button></header>
+          <div>{history.map(item => <button key={item} onClick={() => setQuery(item)}>{item}<Search size={12} /></button>)}</div>
+        </section>
       )}
 
-      {searched && (
-        <div className="section">
-          <div className="section-header">
-            <span className="section-title">{loading ? 'Searching...' : `${results.length} results`}</span>
-            {results.length > 0 && <span className="section-link" onClick={() => setShowFilters(!showFilters)}><Filter size={12} /> Filter</span>}
-          </div>
-          {loading ? (
-            <div className="grid-3">{[1,2,3,4,5,6].map(i => <div key={i} style={{ aspectRatio: '2/3' }} className="loading-shimmer" />)}</div>
-          ) : results.length > 0 ? (
-            <div className="grid-3">
-              {results.map(item => {
-                const title = getTitle(item);
-                const image = getImage(item);
-                return (
-                  <div key={item.id ?? title} className="grid-card" onClick={() => nav(item.id)}>
-                    <div style={{ position: 'relative' }}>
-                      <AnilistImage src={image} alt={title} className="grid-card-img" />
-                      {item.averageScore != null && <span className="stat-pill" style={{ position: 'absolute', top: 4, left: 4, fontSize: '0.5rem', padding: '2px 5px' }}>⭐ {item.averageScore}%</span>}
-                    </div>
-                    <div className="grid-card-title">{title}</div>
-                    <div style={{ padding: '0 0.4rem 0.4rem', fontSize: '0.6rem', color: 'var(--text3)' }}>{item.format || 'Anime'} {item.seasonYear ? `· ${item.seasonYear}` : ''}</div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="empty-state"><Search size={36} style={{ opacity: 0.3, marginBottom: 8 }} /><p>No results found</p></div>
-          )}
-        </div>
-      )}
-
-      {!searched && !showFilters && trending.length > 0 && (
-        <div className="section">
-          <div className="section-header">
-            <span className="section-title"><TrendingUp size={14} /> Trending</span>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {SORT_OPTIONS.slice(0, 3).map(o => <button key={o.value} onClick={() => setSort(o.value)} style={{ padding: '3px 8px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: '0.6rem', fontWeight: 600, background: sort === o.value ? 'var(--brand)' : 'var(--border)', color: sort === o.value ? '#fff' : 'var(--text3)' }}>{o.label}</button>)}
-            </div>
-          </div>
-          <div className="grid-3">
-            {trending.map(item => {
-              const title = getTitle(item);
-              return <div key={item.id ?? title} className="grid-card" onClick={() => nav(item.id)}><AnilistImage src={getImage(item)} alt={title} className="grid-card-img" /><div className="grid-card-title">{title}</div></div>;
-            })}
-          </div>
-        </div>
+      {searched ? (
+        <section className="av-explore-section">
+          <header><div><h2>{loading ? 'Searching…' : `${results.length} results`}</h2><p>{query.trim()}</p></div></header>
+          {loading ? <div className="av-explore-grid">{Array.from({ length: 6 }, (_, i) => <div className="av-explore-skeleton" key={i} />)}</div>
+            : results.length ? <div className="av-explore-grid">{results.map(item => <Poster key={item.id} item={item} onClick={openAnime} />)}</div>
+            : <div className="av-explore-empty"><Search size={34} /><h3>No anime found</h3><p>Try another title, genre, or year.</p></div>}
+        </section>
+      ) : (
+        <section className="av-explore-section">
+          <header><div><h2><TrendingUp size={18} /> Trending now</h2><p>What everyone is watching</p></div><button className="av-sort-mini" onClick={() => setFiltersOpen(true)}>{SORT_OPTIONS.find(o => o.value === sort)?.label}<ChevronDown size={13} /></button></header>
+          <div className="av-explore-grid">{trending.slice(0, 12).map(item => <Poster key={item.id} item={item} onClick={openAnime} />)}</div>
+        </section>
       )}
     </div>
   );
