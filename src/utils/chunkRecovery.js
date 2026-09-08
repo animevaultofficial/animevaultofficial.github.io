@@ -1,7 +1,5 @@
 // Recover automatically from stale Vite/ES module chunks after a deployment.
 // Browsers can keep an old HTML document while Vite has removed old hashed chunks.
-// This prevents users from being trapped on a "Failed to fetch dynamically imported module"
-// or "Importing a module script failed" error screen.
 
 const RECOVERY_KEY = 'animevault:chunk-recovery';
 const MAX_ATTEMPTS = 1;
@@ -12,7 +10,7 @@ function isChunkError(error) {
     message.includes('failed to fetch dynamically imported module') ||
     message.includes('dynamically imported module') ||
     message.includes('importing a module script failed') ||
-    message.includes('module script') && message.includes('failed') ||
+    (message.includes('module script') && message.includes('failed')) ||
     message.includes('chunkloaderror') ||
     message.includes('loading chunk') ||
     message.includes('unable to preload css') ||
@@ -20,18 +18,34 @@ function isChunkError(error) {
   );
 }
 
-function recover() {
+async function clearAppCaches() {
+  if (!('caches' in window)) return;
+  try {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter(key => /animevault|vite/i.test(key))
+        .map(key => caches.delete(key))
+    );
+  } catch {}
+}
+
+async function clearServiceWorkers() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map(registration => registration.unregister()));
+  } catch {}
+}
+
+async function recover() {
   try {
     const attempts = Number(sessionStorage.getItem(RECOVERY_KEY) || '0');
     if (attempts >= MAX_ATTEMPTS) return;
     sessionStorage.setItem(RECOVERY_KEY, String(attempts + 1));
 
-    // Remove only AnimeVault's known caches. Never clear unrelated site data.
-    if ('caches' in window) {
-      caches.keys().then(keys =>
-        Promise.all(keys.filter(key => /animevault|vite/i.test(key)).map(key => caches.delete(key)))
-      ).catch(() => {});
-    }
+    // Clear AnimeVault caches and old service workers before retrying.
+    await Promise.all([clearAppCaches(), clearServiceWorkers()]);
 
     const url = new URL(window.location.href);
     url.searchParams.set('av-recover', Date.now().toString());
@@ -46,13 +60,13 @@ export function installChunkRecovery() {
 
   window.addEventListener('error', event => {
     if (isChunkError(event?.error) || isChunkError(event?.message)) recover();
-  });
+  }, true);
 
   window.addEventListener('unhandledrejection', event => {
     if (isChunkError(event?.reason)) recover();
   });
 
-  // A successful application load means any previous recovery attempt worked.
+  // Only clear the recovery marker after a successful page load.
   window.addEventListener('load', () => {
     try {
       sessionStorage.removeItem(RECOVERY_KEY);
