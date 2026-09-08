@@ -1,7 +1,7 @@
 /* AnimeVault mobile scroll hardening.
- * The document remains the primary vertical scroll container. Component-level
- * overflow:hidden is allowed for visual clipping, but page-level containers
- * must never disable native touch scrolling.
+ * On touch devices the page content gets its own native vertical scroll
+ * container. This avoids browser gesture dead-zones caused by nested/fixed
+ * layout layers while keeping the header and bottom navigation stable.
  */
 @media (max-width: 1180px) {
   html {
@@ -34,41 +34,48 @@
     touch-action: auto !important;
   }
 
+  /* Make the application itself a stable vertical layout. */
   .app-shell {
     min-height: 100vh;
     min-height: 100dvh;
     height: auto !important;
-    overflow-x: hidden !important;
-    overflow-y: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: visible !important;
     touch-action: auto !important;
   }
 
+  /* CRITICAL: use one real scroll container for routed pages. This makes a
+     swipe anywhere in page content scroll the page instead of depending on
+     document/body gesture handling through nested layout layers. */
   .content,
   main.content,
   [role="main"] {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
     height: auto !important;
-    min-height: 0;
     max-height: none !important;
-    overflow: visible !important;
-    touch-action: auto !important;
+    width: 100%;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: auto !important;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y !important;
   }
 
-  /* CRITICAL: touch-action is not inherited. A child with touch-action:none
-     can block the browser's scroll gesture even when body/#root are correct.
-     Keep every normal page descendant scrollable on touch. */
+  /* Do not let descendants disable the vertical gesture. touch-action is not
+     inherited, so an isolated touch-action:none can otherwise create the
+     exact "only the corners scroll" symptom. */
   .content *,
   main.content *,
   [role="main"] * {
     touch-action: auto !important;
   }
 
-  /* Remove page-level overflow traps while preserving intentional clipping
-     on images/cards through their existing component styles. */
+  /* Preserve normal document flow inside the scroll container. */
   .content > * {
     height: auto !important;
     max-height: none !important;
-    overflow-y: visible !important;
   }
 
   .content [style*="100vh"],
@@ -105,16 +112,20 @@
   }
 }
 
-/* Never globally force touch-action:none on coarse/mobile pointers. */
 @media (hover: none) and (pointer: coarse) {
   html,
   body,
   #root,
-  .app-shell,
-  .content,
-  main,
-  [role="main"] {
+  .app-shell {
     touch-action: auto !important;
+  }
+
+  .content,
+  main.content,
+  [role="main"] {
+    touch-action: pan-y !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
   }
 
   .content *,
