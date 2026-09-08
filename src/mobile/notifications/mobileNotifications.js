@@ -6,13 +6,15 @@ export function notificationsEnabled() {
 }
 
 export async function requestMobileNotificationPermission() {
-  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
   if (!notificationsEnabled()) return 'disabled';
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
   if (Notification.permission === 'granted') return 'granted';
   if (Notification.permission === 'denied') return 'denied';
-  const result = await Notification.requestPermission();
-  try { localStorage.setItem(KEY, result); } catch {}
-  return result;
+  try {
+    const result = await Notification.requestPermission();
+    try { localStorage.setItem(KEY, result); } catch {}
+    return result;
+  } catch { return 'denied'; }
 }
 
 export function showMobileNotification({ title, body, tag, url }) {
@@ -31,14 +33,20 @@ export function showMobileNotification({ title, body, tag, url }) {
 }
 
 export function scheduleMobileNotification({ id, timestamp, title, body, url }) {
-  if (!id || !timestamp || timestamp <= Date.now()) return false;
+  if (!id || !timestamp || timestamp <= Date.now() || !notificationsEnabled()) return false;
   if (timers.has(id)) clearTimeout(timers.get(id));
-  const delay = Math.min(timestamp - Date.now(), 2147483647);
-  const timer = setTimeout(() => {
-    timers.delete(id);
-    showMobileNotification({ title, body, tag: `airing-${id}`, url });
-  }, delay);
-  timers.set(id, timer);
+  const scheduleNext = () => {
+    const remaining = timestamp - Date.now();
+    if (remaining <= 0) {
+      timers.delete(id);
+      showMobileNotification({ title, body, tag: `airing-${id}`, url });
+      return;
+    }
+    const delay = Math.min(remaining, 2147483647);
+    const timer = setTimeout(scheduleNext, delay);
+    timers.set(id, timer);
+  };
+  scheduleNext();
   return true;
 }
 
