@@ -1,5 +1,8 @@
 name: Automated Installer Builds & Releases
 
+# Android build pipeline hardened after the Capacitor 6 dependency repair.
+# Keep the generated Android project disposable so CI always builds from a clean state.
+
 on:
   push:
     branches: [main]
@@ -156,6 +159,14 @@ jobs:
           restore-keys: gradle-${{ runner.os }}-
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Verify Capacitor toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          npm --version
+          npx cap --version
+          node -e "const p=require('./package.json'); if(p.dependencies['@capacitor/app'] !== '6.0.3') throw new Error('Unexpected @capacitor/app version: '+p.dependencies['@capacitor/app'])"
       - name: Build web application
         run: npm run build
       - name: Generate fresh Capacitor Android project
@@ -208,19 +219,26 @@ jobs:
           text=re.sub(r'(\n\s*versionCode\s+)\d+',rf'\g<1>{version_code}',text,count=1);text=re.sub(r'(\n\s*versionName\s+)"[^"]+"',rf'\g<1>"{version_name}"',text,count=1);path.write_text(text)
           PY
       - name: Verify generated Android project
-        run: test -d android && test -f android/gradlew
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d android
+          test -f android/gradlew
+          test -f android/app/build.gradle
+          grep -q 'com.animevault.app' android/app/build.gradle
+          grep -q 'android:scheme="animevault"' android/app/src/main/AndroidManifest.xml
       - name: Build signed Android APK
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: cd android && chmod +x gradlew && ./gradlew assembleRelease
+        run: cd android && chmod +x gradlew && ./gradlew --no-daemon assembleRelease
       - name: Build signed Android App Bundle
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: cd android && chmod +x gradlew && ./gradlew bundleRelease
+        run: cd android && chmod +x gradlew && ./gradlew --no-daemon bundleRelease
       - name: Locate and normalize Android artifacts
         shell: bash
         run: |
