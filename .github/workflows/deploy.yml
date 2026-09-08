@@ -3,6 +3,11 @@ name: Deploy to GitHub Pages
 # Builds the Vite app and publishes the generated dist directory to gh-pages.
 # The custom-domain CNAME is explicitly copied into dist so every deployment
 # keeps animevaultofficial.fun connected to GitHub Pages.
+#
+# IMPORTANT: Vite uses content-hashed JS/CSS filenames. Keep previously
+# published assets so an already-open browser tab can still load an older
+# chunk while it receives the new index.html. Without this, lazy routes can
+# fail with "Failed to fetch dynamically imported module" after a deploy.
 
 on:
   push:
@@ -59,8 +64,11 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
-          keep_files: false
+          # Keep old hashed Vite assets for users with an already-open tab.
+          # New index.html points to the newest hashes, while old route chunks
+          # remain available until browsers naturally refresh.
+          keep_files: true
           force_orphan: true
           user_name: github-actions[bot]
-          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          user_email: 41898282+github-actions[bot]@github.com
           commit_message: "deploy: GitHub Pages bundle from ${{ github.sha }}"
