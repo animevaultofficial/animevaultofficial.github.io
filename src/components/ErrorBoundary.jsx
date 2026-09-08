@@ -15,6 +15,13 @@ class ErrorBoundary extends Component {
     console.error('ErrorBoundary caught:', error, errorInfo);
   }
 
+  goHome = () => {
+    // AnimeVault uses HashRouter, so '/' can point to the server root and
+    // leave the app outside the router. Always return to the hash route.
+    const base = document.querySelector('base')?.getAttribute('href') || '/';
+    window.location.assign(`${base.replace(/\/?$/, '/') }#/`);
+  };
+
   render() {
     if (this.state.hasError) {
       return (
@@ -25,10 +32,7 @@ class ErrorBoundary extends Component {
             <p>{this.state.error?.message || 'An unexpected error occurred.'}</p>
             <button
               className="button button-primary"
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.href = '/';
-              }}
+              onClick={this.goHome}
             >
               Go Home
             </button>
