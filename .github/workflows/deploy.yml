@@ -70,5 +70,5 @@ jobs:
           keep_files: true
           force_orphan: true
           user_name: github-actions[bot]
-          user_email: 41898282+github-actions[bot]@github.com
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
           commit_message: "deploy: GitHub Pages bundle from ${{ github.sha }}"
