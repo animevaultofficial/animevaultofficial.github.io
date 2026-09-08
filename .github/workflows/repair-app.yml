@@ -1,0 +1,298 @@
+name: Repair AnimeVault app runtime issues
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'repair: fix app runtime issues')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply runtime repairs
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          # --- Schedule: AniList first, Jikan fallback, bounded timeout ---
+          schedule = Path('src/api/scheduleService.js')
+          schedule.write_text(r'''// src/api/scheduleService.js
+// Reliable airing schedule service. AniList is primary; Jikan is a fallback
+// for outages/rate limits so the Schedule page does not become an empty screen.
+
+const ANILIST_URL = 'https://graphql.anilist.co';
+const JIKAN_URL = 'https://api.jikan.moe/v4/schedules';
+const REQUEST_TIMEOUT_MS = 12000;
+
+const SCHEDULE_QUERY = `
+  query ($start: Int, $end: Int, $page: Int) {
+    Page(page: $page, perPage: 50) {
+      pageInfo { hasNextPage currentPage }
+      airingSchedules(airingAt_greater: $start, airingAt_lesser: $end, sort: TIME) {
+        id episode airingAt timeUntilAiring
+        media {
+          id idMal
+          title { romaji english native }
+          coverImage { large extraLarge }
+          bannerImage genres averageScore format status
+          studios(isMain: true) { nodes { name } }
+          nextAiringEpisode { airingAt episode timeUntilAiring }
+        }
+      }
+    }
+  }
+`;
+
+function withTimeout(ms = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return { signal: controller.signal, done: () => clearTimeout(timer) };
+}
+
+async function fetchJson(url, options = {}) {
+  const request = withTimeout();
+  try {
+    const response = await fetch(url, { ...options, signal: request.signal });
+    const text = await response.text();
+    let json = {};
+    try { json = text ? JSON.parse(text) : {}; } catch { throw new Error(`Invalid response from ${url}`); }
+    if (!response.ok) throw new Error(json?.message || `HTTP ${response.status}`);
+    return json;
+  } finally {
+    request.done();
+  }
+}
+
+function mapAniListScheduleItem(item) {
+  const media = item.media || {};
+  const airingDate = new Date((item.airingAt || 0) * 1000);
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return {
+    id: media.id,
+    scheduleId: item.id,
+    malId: media.idMal || null,
+    title: media.title?.english || media.title?.romaji || media.title?.native || 'Unknown',
+    nativeTitle: media.title?.native || media.title?.romaji || '',
+    episode: item.episode,
+    airingAt: item.airingAt,
+    timeUntilAiring: item.timeUntilAiring ?? Math.floor((item.airingAt * 1000 - Date.now()) / 1000),
+    broadcastDay: DAYS[airingDate.getDay()],
+    broadcastTime: airingDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+    broadcastDateObj: airingDate,
+    image: media.coverImage?.extraLarge || media.coverImage?.large || '',
+    bannerImage: media.bannerImage || media.coverImage?.extraLarge || '',
+    genres: media.genres || [],
+    score: media.averageScore,
+    rating: media.averageScore ? `${(media.averageScore / 10).toFixed(1)}/10` : 'N/A',
+    studio: media.studios?.nodes?.[0]?.name || 'Unknown',
+    format: media.format || '',
+    status: media.status || '',
+    nextEpisode: media.nextAiringEpisode ? {
+      episode: media.nextAiringEpisode.episode,
+      airingAt: media.nextAiringEpisode.airingAt,
+      timeUntilAiring: media.nextAiringEpisode.timeUntilAiring,
+    } : null,
+  };
+}
+
+async function fetchAniList() {
+  const now = Math.floor(Date.now() / 1000);
+  // Include a small past window so an episode that just aired still appears.
+  const start = now - 6 * 60 * 60;
+  const end = now + 8 * 24 * 60 * 60;
+  let all = [];
+  let page = 1;
+  let hasNext = true;
+
+  while (hasNext && page <= 6) {
+    const json = await fetchJson(ANILIST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ query: SCHEDULE_QUERY, variables: { start, end, page } }),
+    });
+    if (json.errors?.length) throw new Error(json.errors[0]?.message || 'AniList GraphQL error');
+    const pageData = json.data?.Page;
+    if (!pageData) throw new Error('AniList returned no schedule data');
+    all.push(...(pageData.airingSchedules || []));
+    hasNext = Boolean(pageData.pageInfo?.hasNextPage);
+    page += 1;
+  }
+  return all.map(mapAniListScheduleItem).filter(item => item.id && item.airingAt);
+}
+
+function parseJikanTime(item) {
+  const broadcast = item.broadcast || {};
+  const day = broadcast.day;
+  const time = broadcast.time;
+  if (!day || !time) return null;
+  const dayIndex = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].indexOf(day);
+  if (dayIndex < 0) return null;
+  const now = new Date();
+  const result = new Date(now);
+  const delta = (dayIndex - now.getDay() + 7) % 7;
+  result.setDate(now.getDate() + delta);
+  const [hours, minutes] = String(time).split(':').map(Number);
+  result.setHours(Number.isFinite(hours) ? hours : 0, Number.isFinite(minutes) ? minutes : 0, 0, 0);
+  if (result.getTime() < now.getTime() - 12 * 60 * 60 * 1000) result.setDate(result.getDate() + 7);
+  return result;
+}
+
+function mapJikan(item, index) {
+  const airingDate = parseJikanTime(item);
+  const image = item.images?.jpg?.large_image_url || item.images?.jpg?.image_url || '';
+  return {
+    id: `mal-${item.mal_id}`,
+    scheduleId: `jikan-${item.mal_id}-${index}`,
+    malId: item.mal_id,
+    title: item.title || item.title_english || 'Unknown',
+    nativeTitle: item.title_japanese || item.title || '',
+    episode: null,
+    airingAt: airingDate ? Math.floor(airingDate.getTime() / 1000) : Math.floor(Date.now() / 1000),
+    timeUntilAiring: airingDate ? Math.floor((airingDate.getTime() - Date.now()) / 1000) : 0,
+    broadcastDay: item.broadcast?.day || 'Unknown',
+    broadcastTime: item.broadcast?.time || 'TBA',
+    broadcastDateObj: airingDate || new Date(),
+    image,
+    bannerImage: image,
+    genres: (item.genres || []).map(g => g.name).filter(Boolean),
+    score: item.score || null,
+    rating: item.score ? `${Number(item.score).toFixed(1)}/10` : 'N/A',
+    studio: item.studios?.[0]?.name || 'Unknown',
+    format: item.type || '',
+    status: 'RELEASING',
+    nextEpisode: null,
+  };
+}
+
+async function fetchJikanFallback() {
+  const json = await fetchJson(JIKAN_URL, { headers: { Accept: 'application/json' } });
+  const data = Array.isArray(json.data) ? json.data : [];
+  return data.map(mapJikan).filter(item => item.id && item.image);
+}
+
+export async function fetchAniListWeeklySchedule() {
+  try {
+    const primary = await fetchAniList();
+    if (primary.length) return primary;
+    throw new Error('AniList returned an empty airing schedule');
+  } catch (primaryError) {
+    console.warn('[AnimeVault Schedule] AniList unavailable, using Jikan fallback:', primaryError?.message || primaryError);
+    try {
+      const fallback = await fetchJikanFallback();
+      if (fallback.length) return fallback;
+      throw new Error('Jikan returned an empty schedule');
+    } catch (fallbackError) {
+      console.error('[AnimeVault Schedule] All schedule providers failed:', fallbackError?.message || fallbackError);
+      throw new Error('Airing schedule providers are temporarily unavailable. Please retry in a moment.');
+    }
+  }
+}
+
+export function groupByDay(schedule = []) {
+  const grouped = {};
+  schedule.forEach(item => {
+    const day = item.broadcastDay || 'Unknown';
+    if (!grouped[day]) grouped[day] = [];
+    grouped[day].push(item);
+  });
+  Object.values(grouped).forEach(items => items.sort((a, b) => (a.airingAt || 0) - (b.airingAt || 0)));
+  return grouped;
+}
+
+export function pickCarouselItems(schedule = [], count = 5) {
+  const ranked = [...schedule].sort((a, b) => (b.score || 0) - (a.score || 0));
+  return ranked.filter(item => item.image).slice(0, count);
+}
+
+export function pickAiringToday(schedule = []) {
+  const day = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
+  return schedule.filter(item => item.broadcastDay === day).sort((a, b) => a.airingAt - b.airingAt);
+}
+
+export function generatePrediction(item) {
+  const episode = Number(item.episode);
+  if (!Number.isFinite(episode)) return { previous: 'Schedule provider data', predicted: item.broadcastTime || 'TBA', confidence: 80 };
+  const prevDate = new Date((item.airingAt - 7 * 24 * 3600) * 1000);
+  const nextDate = new Date(item.airingAt * 1000);
+  return {
+    previous: episode > 1 ? `Ep ${episode - 1} (${prevDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})` : 'Season Premiere',
+    predicted: `Ep ${episode} (${nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`,
+    confidence: item.timeUntilAiring <= 0 ? 100 : item.timeUntilAiring < 86400 ? 96 : 90,
+  };
+}
+''', encoding='utf-8')
+
+          # --- Auth client: include credentials and explicitly handle OAuth URLs returned by Neon ---
+          auth = Path('src/api/authClient.js')
+          text = auth.read_text()
+          text = text.replace("fetchOptions: {\n      timeout: AUTH_TIMEOUT_MS,", "fetchOptions: {\n      credentials: 'include',\n      timeout: AUTH_TIMEOUT_MS,")
+          auth.write_text(text)
+
+          # --- UserContext: proxy auth first (where hCaptcha can be verified), DB fallback second ---
+          uc = Path('src/api/UserContext.jsx')
+          text = uc.read_text()
+          old = re.search(r"const loginWithDbCredentials=async\(email,password\)=>\{.*?\};const signupWithDbCredentials=async\(email,password\)=>\{.*?\};", text, re.S)
+          if not old:
+              raise SystemExit('Could not locate credential auth functions in UserContext.jsx')
+          new = r'''const loginWithDbCredentials=async(email,password,captchaToken='')=>{try{const proxy=await proxyLogin(email,password,captchaToken);if(proxy.configured){if(!proxy.success)return{success:false,message:proxy.message||'Sign in failed.'};if(proxy.user){setUser(normalizeProxyUser(proxy.user));setShowAuthModal(false);return{success:true}}}const dbRes=await dbUserLogin(email,password);if(!dbRes.success)return{success:false,message:dbRes.message||'Login failed. Please check your credentials.'};await tryCreateUserSession(dbRes.user.id);setUser(dbRes.user);setShowAuthModal(false);return{success:true}}catch(err){warn('[AnimeVault Auth] Login failed:',err?.message||err);return{success:false,message:err?.message||'Login failed. Please try again.'}}};const signupWithDbCredentials=async(email,password,captchaToken='')=>{try{const proxy=await proxySignup(email,password,captchaToken);if(proxy.configured){if(!proxy.success)return{success:false,message:proxy.message||'Signup failed.'};if(proxy.user){setUser(normalizeProxyUser(proxy.user));setShowAuthModal(false);return{success:true}}}const dbRes=await dbUserSignup(email,password);if(!dbRes.success)return{success:false,message:dbRes.message||'Signup failed. Please try again.'};await tryCreateUserSession(dbRes.user.id);setUser(dbRes.user);setShowAuthModal(false);return{success:true}}catch(err){warn('[AnimeVault Auth] Signup failed:',err?.message||err);return{success:false,message:err?.message||'Signup failed. Please try again.'}}};'''
+          text = text[:old.start()] + new + text[old.end():]
+
+          # Google OAuth: use Neon Auth normally; if it returns a URL, explicitly open it.
+          old_google = re.search(r"const loginWithGoogleDb=async\(\)=>\{.*?\};", text, re.S)
+          if not old_google:
+              raise SystemExit('Could not locate Google auth function in UserContext.jsx')
+          new_google = r'''const loginWithGoogleDb=async()=>{try{const native=Capacitor.isNativePlatform();const callbackURL=native?'animevault://oauth/callback':'https://animevaultofficial.fun/';const result=await authClient.signIn.social({provider:'google',callbackURL});if(result?.error)return{success:false,message:result.error.message||'Google sign-in failed. Please try again.'};const oauthUrl=result?.data?.url||result?.url||result?.data?.redirectUrl||result?.redirectUrl;if(oauthUrl){if(native){window.open(oauthUrl,'_blank','noopener,noreferrer')}else{window.location.assign(oauthUrl)}}return{success:true,pending:Boolean(oauthUrl||native)}}catch(err){warn('[AnimeVault Auth] Google sign-in failed:',err?.message||err);return{success:false,message:err?.message||'Google sign-in could not be started. Please try again.'}}};'''
+          text = text[:old_google.start()] + new_google + text[old_google.end():]
+
+          # Profile updates accept an object; this avoids spreading a URL string into the user object.
+          text = text.replace("const updateProfile=async data=>{setUser({...user,...data});if(user?.id)await dbUpdateUserProfile(user.id,data).catch(()=>{})};", "const updateProfile=async data=>{if(!data||typeof data!=='object')return{success:false};setUser({...user,...data});if(user?.id){const res=await dbUpdateUserProfile(user.id,data.avatar,data.banner).catch(()=>({success:false}));return res}return{success:false}};")
+          uc.write_text(text)
+
+          # --- Settings: fix profile save argument shape ---
+          settings = Path('src/pages/Settings.jsx')
+          text = settings.read_text()
+          text = text.replace("success = await updateProfile(avatarUrl, bannerUrl);", "const profileResult = await updateProfile({ avatar: avatarUrl, banner: bannerUrl, bio: bioInput });\n      success = Boolean(profileResult?.success !== false);")
+          text = text.replace("await updateProfile(avatarUrl, bannerUrl);", "await updateProfile({ avatar: avatarUrl, banner: bannerUrl, bio: bioInput });")
+          settings.write_text(text)
+
+          # --- DB: new passwords use bcrypt; old simpleHash accounts remain supported by login ---
+          db = Path('src/api/db.js')
+          text = db.read_text()
+          text = text.replace("const hashedPassword = simpleHash(password);", "const hashedPassword = await bcrypt.hash(password, 12);")
+          db.write_text(text)
+
+          # --- hCaptcha: do not pretend native has a usable web widget; web token now reaches proxy auth ---
+          captcha = Path('src/components/AuthModal.jsx')
+          text = captcha.read_text()
+          text = text.replace("const res = await login(username, password, null, captchaToken);", "const res = await login(username, password, captchaToken);")
+          text = text.replace("const res = await login(username, password, verificationCode.trim(), captchaToken);", "const res = await login(username, password, captchaToken);")
+          text = text.replace("const res = await signup(username, password, captchaToken);", "const res = await signup(username, password, captchaToken);")
+          captcha.write_text(text)
+          PY
+
+      - name: Verify build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
+          VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
+          VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Commit repairs
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/repair-app.yml
+          git add src/api/scheduleService.js src/api/authClient.js src/api/UserContext.jsx src/pages/Settings.jsx src/api/db.js src/components/AuthModal.jsx .github/workflows/repair-app.yml
+          git commit -m 'repair: fix app runtime issues' || exit 0
+          git push origin HEAD:main
