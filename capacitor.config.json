@@ -6,6 +6,14 @@
     "androidScheme": "https",
     "hostname": "animevaultofficial.fun",
     "cleartext": false,
-    "allowNavigation": []
+    "allowNavigation": [
+      "megaplay.buzz",
+      "*.megaplay.buzz",
+      "player.videasy.net",
+      "vsembed.su",
+      "www.vidking.net",
+      "vidnest.fun",
+      "*.vidnest.fun"
+    ]
   }
 }
