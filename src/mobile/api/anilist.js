@@ -7,6 +7,7 @@ import {
 } from '../../api/anilist';
 
 const ANILIST_URL = 'https://graphql.anilist.co';
+const DETAIL_TIMEOUT_MS = 10_000;
 
 async function safeFetch(label, fn, fallback) {
   try { return await fn(); }
@@ -17,15 +18,23 @@ async function queryAniListById(value, field = 'id') {
   const numericId = Number(value);
   if (!Number.isFinite(numericId) || numericId <= 0) return null;
   const query = `query ($value: Int) { Media(${field}: $value, type: ANIME) { id idMal title { romaji english native } description episodes status season seasonYear genres averageScore meanScore format duration source studios { nodes { name } } coverImage { extraLarge large medium color } bannerImage nextAiringEpisode { episode timeUntilAiring } externalLinks { site url id } recommendations(perPage: 12, sort: RATING_DESC) { nodes { mediaRecommendation { id title { romaji english native } coverImage { extraLarge large medium } averageScore format seasonYear } } } } }`;
-  const response = await fetch(ANILIST_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ query, variables: { value: numericId } }),
-  });
-  if (!response.ok) throw new Error(`AniList detail request failed: ${response.status}`);
-  const json = await response.json();
-  if (json.errors?.length) throw new Error(json.errors[0].message || 'AniList detail request failed');
-  return json.data?.Media || null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DETAIL_TIMEOUT_MS);
+  try {
+    const response = await fetch(ANILIST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ query, variables: { value: numericId } }),
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`AniList detail request failed: ${response.status}`);
+    const json = await response.json();
+    if (json.errors?.length) throw new Error(json.errors[0].message || 'AniList detail request failed');
+    return json.data?.Media || null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function fetchHomeData() {
@@ -46,7 +55,7 @@ export async function fetchAnimeDetail(id) {
   try {
     media = isMal ? await queryAniListById(numeric, 'idMal') : await queryAniListById(numeric, 'id');
   } catch (err) {
-    console.warn('[AnimeVault Mobile] direct AniList detail lookup failed:', err?.message || err);
+    console.warn('[AnimeVault Mobile] direct AniList detail lookup failed:', err?.name === 'AbortError' ? 'timeout' : err?.message || err);
   }
   if (!media) {
     try { media = await fetchAnimeById(isMal ? numeric : raw); }
