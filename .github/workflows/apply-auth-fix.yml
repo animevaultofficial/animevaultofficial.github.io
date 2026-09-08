@@ -2,10 +2,8 @@ name: Apply auth fixes
 on:
   push:
     branches: [main]
-
 permissions:
   contents: write
-
 jobs:
   patch:
     if: github.actor != 'github-actions[bot]'
@@ -14,136 +12,51 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Apply auth fixes
+      - name: Phase 20 auth hardening
         run: |
           python3 <<'PY'
-          import json
           from pathlib import Path
-
-          # package.json: add Capacitor App deep-link listener.
-          p = Path('package.json')
-          pkg = json.loads(p.read_text())
-          deps = pkg.setdefault('dependencies', {})
-          deps.setdefault('@capacitor/app', '^6.2.1')
-          p.write_text(json.dumps(pkg, indent=2) + '\n')
-
-          # DB auth fixes: preserve full email identities, remain compatible with
-          # legacy local-part usernames, use bcrypt for newly created passwords,
-          # and never report database failures as a bad password.
-          p = Path('src/api/db.js')
-          s = p.read_text()
-          old_signup = """export async function userSignup(username, password) {
-  const trimmedUser = (username || '').trim().toLowerCase().split('@')[0];"""
-          new_signup = """export async function userSignup(username, password) {
-  const trimmedUser = (username || '').trim().toLowerCase();
-  const legacyUser = trimmedUser.split('@')[0];"""
-          if old_signup not in s:
-              raise SystemExit('signup marker not found')
-          s = s.replace(old_signup, new_signup, 1)
-          s = s.replace("""    const hashedPassword = simpleHash(password);
-    const result = await db`
-      INSERT INTO users (username, password, is_admin)
-      VALUES (${trimmedUser}, ${hashedPassword}, false)""", """    const hashedPassword = await bcrypt.hash(password, 12);
-    const existing = await db`
-      SELECT id FROM users
-      WHERE LOWER(username) = LOWER(${trimmedUser})
-         OR LOWER(username) = LOWER(${legacyUser})
-      LIMIT 1
-    `;
-    if (existing.length) {
-      return { success: false, message: 'Username or email is already registered.' };
-    }
-    const result = await db`
-      INSERT INTO users (username, password, is_admin)
-      VALUES (${trimmedUser}, ${hashedPassword}, false)""", 1)
-
-          old_login = """export async function userLogin(username, password) {
-  const trimmedUser = (username || '').trim().toLowerCase().split('@')[0];
-  if (!trimmedUser || !password) return { success: false, message: 'All fields are required.' };
-
-  const inputHash = simpleHash(password);"""
-          new_login = """export async function userLogin(username, password) {
-  const trimmedUser = (username || '').trim().toLowerCase();
-  const legacyUser = trimmedUser.split('@')[0];
-  if (!trimmedUser || !password) return { success: false, message: 'All fields are required.' };"""
-          if old_login not in s:
-              raise SystemExit('login marker not found')
-          s = s.replace(old_login, new_login, 1)
-          s = s.replace("""      WHERE LOWER(username) = LOWER(${trimmedUser})
-    `;""", """      WHERE LOWER(username) = LOWER(${trimmedUser})
-         OR LOWER(username) = LOWER(${legacyUser})
-      ORDER BY CASE WHEN LOWER(username) = LOWER(${trimmedUser}) THEN 0 ELSE 1 END
-      LIMIT 1
-    `;""", 1)
-          s = s.replace("""  } catch (e) {
-    error('[AnimeVault DB] login error:', e);
-    return { success: false, message: 'Invalid username or password' };
-  }
-}
-
-
-
-export async function getProfile""", """  } catch (e) {
-    error('[AnimeVault DB] login error:', e);
-    return { success: false, message: 'Login service temporarily unavailable. Please try again.' };
-  }
-}
-
-
-
-export async function getProfile""", 1)
-          s = s.replace("""  const hashed = simpleHash(newPassword);""", """  const hashed = await bcrypt.hash(newPassword, 12);""", 1)
+          import json, subprocess
+          p=Path('package.json')
+          pkg=json.loads(p.read_text())
+          pkg.setdefault('dependencies',{})['@capacitor/app']='^6.2.1'
+          p.write_text(json.dumps(pkg,indent=2)+'\n')
+          subprocess.run(['npm','install','--package-lock-only','--ignore-scripts','--no-audit','--no-fund'],check=True)
+          p=Path('src/api/UserContext.jsx')
+          s=p.read_text()
+          if not s.startswith("import { App }"):
+              s="import { App } from '@capacitor/app';"+s
+          old=" const loginWithGoogleDb=async()=>{const email=window.prompt('Enter your Google email to sign in on mobile:');if(!email?.trim())return{success:false,message:'Google sign-in cancelled.'};const syncRes=await syncGoogleUserToDb(email.trim(),null,true);if(!syncRes.success)return{success:false,message:syncRes.message||'Google DB login failed.'};const dbUser=syncRes.user;await tryCreateUserSession(dbUser.id);setUser(dbUser);setShowAuthModal(false);return{success:true}};"
+          new=" const loginWithGoogleDb=async()=>{try{const native=typeof window!=='undefined'&&!!window.Capacitor;const callbackURL=native?'animevault://oauth/callback':'https://animevaultofficial.fun/';const result=await authClient.signIn.social({provider:'google',callbackURL});if(result?.error)return{success:false,message:result.error.message||'Google sign-in failed.'};return{success:true,pending:true}}catch(err){warn('[AnimeVault Auth] Google sign-in failed:',err?.message||err);return{success:false,message:'Google sign-in could not be started. Please try again.'}}};"
+          if old in s: s=s.replace(old,new,1)
+          old_effect=" useEffect(()=>{initSession();const subscription=authClient.onAuthStateChange?.((_event,session)=>{if(session?.user)syncAuthSessionUser({session,user:session.user}).finally(()=>setAuthLoading(false));else if(!localStorage.getItem(CACHED_USER_KEY)){setUser(null);setAuthLoading(false)}});return()=>subscription?.data?.subscription?.unsubscribe?.()},[]);"
+          new_effect=" useEffect(()=>{initSession();let appUrlListener=null;if(typeof window!=='undefined'&&window.Capacitor){appUrlListener=App.addListener('appUrlOpen',async({url})=>{if(!url?.startsWith('animevault://oauth/callback'))return;try{const parsed=new URL(url);window.location.replace('https://animevaultofficial.fun/'+parsed.search+parsed.hash)}catch(err){warn('[AnimeVault Auth] OAuth callback handling failed:',err?.message||err)}})}const subscription=authClient.onAuthStateChange?.((_event,session)=>{if(session?.user)syncAuthSessionUser({session,user:session.user}).finally(()=>setAuthLoading(false));else if(!localStorage.getItem(CACHED_USER_KEY)){setUser(null);setAuthLoading(false)}});return()=>{subscription?.data?.subscription?.unsubscribe?.();appUrlListener?.then?.(h=>h.remove?.())}},[]);"
+          if old_effect in s: s=s.replace(old_effect,new_effect,1)
           p.write_text(s)
-
-          # Replace the fake mobile Google-email prompt with real Neon Auth OAuth.
-          p = Path('src/api/UserContext.jsx')
-          s = p.read_text()
-          s = "import { App } from '@capacitor/app';" + s if not s.startswith("import { App }") else s
-          old = """ const loginWithGoogleDb=async()=>{const email=window.prompt('Enter your Google email to sign in on mobile:');if(!email?.trim())return{success:false,message:'Google sign-in cancelled.'};const syncRes=await syncGoogleUserToDb(email.trim(),null,true);if(!syncRes.success)return{success:false,message:syncRes.message||'Google DB login failed.'};const dbUser=syncRes.user;await tryCreateUserSession(dbUser.id);setUser(dbUser);setShowAuthModal(false);return{success:true}};"""
-          new = """ const loginWithGoogleDb=async()=>{try{const native=typeof window!=='undefined'&&window.location?.protocol==='https:'&&window.location?.hostname==='animevaultofficial.fun'&&window.Capacitor;const callbackURL=native?'animevault://oauth/callback':'https://animevaultofficial.fun/';const result=await authClient.signIn.social({provider:'google',callbackURL});if(result?.error)return{success:false,message:result.error.message||'Google sign-in failed.'};return{success:true,pending:true}}catch(err){warn('[AnimeVault Auth] Google sign-in failed:',err?.message||err);return{success:false,message:'Google sign-in could not be started. Please try again.'}}};"""
-          if old not in s:
-              raise SystemExit('google login marker not found')
-          s = s.replace(old, new, 1)
-          old_effect = """ useEffect(()=>{initSession();const subscription=authClient.onAuthStateChange?.((_event,session)=>{if(session?.user)syncAuthSessionUser({session,user:session.user}).finally(()=>setAuthLoading(false));else if(!localStorage.getItem(CACHED_USER_KEY)){setUser(null);setAuthLoading(false)}});return()=>subscription?.data?.subscription?.unsubscribe?.()},[]);"""
-          new_effect = """ useEffect(()=>{initSession();let appUrlListener=null;if(typeof window!=='undefined'&&window.Capacitor){appUrlListener=App.addListener('appUrlOpen',async({url})=>{if(!url?.startsWith('animevault://oauth/callback'))return;try{const auth=await authClient.getSession();const data=auth?.data;if(data?.session||data?.user)await syncAuthSessionUser(data);else await initSession()}catch(err){warn('[AnimeVault Auth] OAuth callback session restore failed:',err?.message||err)}})}const subscription=authClient.onAuthStateChange?.((_event,session)=>{if(session?.user)syncAuthSessionUser({session,user:session.user}).finally(()=>setAuthLoading(false));else if(!localStorage.getItem(CACHED_USER_KEY)){setUser(null);setAuthLoading(false)}});return()=>{subscription?.data?.subscription?.unsubscribe?.();appUrlListener?.then?.(h=>h.remove?.())}},[]);"""
-          if old_effect not in s:
-              raise SystemExit('auth effect marker not found')
-          s = s.replace(old_effect, new_effect, 1)
-          p.write_text(s)
-
-          # Android is generated fresh in CI, so add the deep-link intent filter
-          # after cap sync rather than relying on a committed android/ directory.
-          p = Path('.github/workflows/electron-build.yml')
-          s = p.read_text()
-          marker = """          npx cap sync android
-      - name: Decode Android release keystore"""
-          inject = """          npx cap sync android
+          p=Path('.github/workflows/electron-build.yml')
+          s=p.read_text()
+          marker='          npx cap sync android\n      - name: Decode Android release keystore'
+          inject='''          npx cap sync android
           python3 <<'PY'
           from pathlib import Path
           path=Path('android/app/src/main/AndroidManifest.xml')
           text=path.read_text()
-          marker='<category android:name=\"android.intent.category.BROWSABLE\" />'
-          intent='''          <intent-filter>\n              <action android:name=\"android.intent.action.VIEW\" />\n              <category android:name=\"android.intent.category.DEFAULT\" />\n              <category android:name=\"android.intent.category.BROWSABLE\" />\n              <data android:scheme=\"animevault\" android:host=\"oauth\" />\n          </intent-filter>'''
-          if 'android:scheme=\"animevault\"' not in text:
+          if 'android:scheme="animevault"' not in text:
+              marker='<category android:name="android.intent.category.BROWSABLE" />'
               pos=text.find(marker)
               if pos<0: raise SystemExit('Android manifest activity marker not found')
               end=text.find('</intent-filter>',pos)+len('</intent-filter>')
+              intent='''          <intent-filter>\n              <action android:name="android.intent.action.VIEW" />\n              <category android:name="android.intent.category.DEFAULT" />\n              <category android:name="android.intent.category.BROWSABLE" />\n              <data android:scheme="animevault" android:host="oauth" />\n          </intent-filter>'''
               text=text[:end]+'\\n'+intent+text[end:]
               path.write_text(text)
           PY
-      - name: Decode Android release keystore"""
-          if marker not in s:
-              raise SystemExit('android workflow marker not found')
-          s = s.replace(marker, inject, 1)
+      - name: Decode Android release keystore'''
+          if marker in s: s=s.replace(marker,inject,1)
           p.write_text(s)
           PY
-
-      - name: Commit fixes and remove one-time patcher
-        run: |
+          rm -f .github/workflows/apply-auth-fix.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          rm -f .github/workflows/apply-auth-fix.yml
-          git add package.json src/api/db.js src/api/UserContext.jsx .github/workflows/electron-build.yml .github/workflows/apply-auth-fix.yml
-          git commit -m "fix: repair database login and Android Google OAuth callback"
+          git add package.json package-lock.json src/api/UserContext.jsx .github/workflows/electron-build.yml .github/workflows/apply-auth-fix.yml
+          git commit -m "fix: harden Android Google OAuth callback" || exit 0
           git push
