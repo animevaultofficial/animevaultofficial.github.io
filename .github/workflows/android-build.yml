@@ -55,21 +55,49 @@ jobs:
           npx cap sync android
 
       - name: Add OAuth deep link
+        shell: bash
         run: |
+          set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('android/app/src/main/AndroidManifest.xml')
-          s = p.read_text()
-          if 'android:scheme="animevault"' not in s:
-              marker = '</intent-filter>'
-              i = s.find(marker)
-              if i < 0:
-                  raise SystemExit('No activity intent-filter found')
-              i += len(marker)
-              s = s[:i] + '''\n        <intent-filter>\n            <action android:name="android.intent.action.VIEW" />\n            <category android:name="android.intent.category.DEFAULT" />\n            <category android:name="android.intent.category.BROWSABLE" />\n            <data android:scheme="animevault" android:host="oauth" />\n        </intent-filter>''' + s[i:]
-              p.write_text(s)
+          import re
+
+          path = Path('android/app/src/main/AndroidManifest.xml')
+          text = path.read_text()
+          scheme = 'android:scheme="animevault"'
+
+          if scheme not in text:
+              # Find Capacitor's MainActivity, regardless of whether the generated
+              # manifest uses a relative or fully-qualified activity name.
+              match = re.search(r'<activity\b[^>]*android:name="[^"]*MainActivity"[^>]*>', text)
+              if not match:
+                  match = re.search(r'<activity\b[^>]*>', text)
+              if not match:
+                  raise SystemExit('No Android activity found in generated manifest')
+
+              activity_open = match.group(0)
+              if activity_open.rstrip().endswith('/>'):
+                  raise SystemExit('Generated MainActivity is self-closing; cannot add OAuth intent-filter')
+
+              activity_end = text.find('</activity>', match.end())
+              if activity_end < 0:
+                  raise SystemExit('MainActivity closing tag not found')
+
+              intent = '''
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="animevault" android:host="oauth" />
+        </intent-filter>'''
+
+              text = text[:activity_end] + intent + text[activity_end:]
+              path.write_text(text)
+
+          if scheme not in path.read_text():
+              raise SystemExit('OAuth deep link was not added')
+          print('OAuth deep link configured successfully')
           PY
-          grep -q 'android:scheme="animevault"' android/app/src/main/AndroidManifest.xml
 
       - name: Decode release keystore
         env:
@@ -94,7 +122,16 @@ jobs:
           code=a*1000000+b*1000+c
           p=Path('android/app/build.gradle')
           s=p.read_text()
-          signing='''    signingConfigs {\n        release {\n            storeFile file("../animevault-release.keystore")\n            storePassword System.getenv("STORE_PASSWORD")\n            keyAlias System.getenv("KEY_ALIAS")\n            keyPassword System.getenv("KEY_PASSWORD")\n        }\n    }\n\n'''
+          signing='''    signingConfigs {
+          release {
+              storeFile file("../animevault-release.keystore")
+              storePassword System.getenv("STORE_PASSWORD")
+              keyAlias System.getenv("KEY_ALIAS")
+              keyPassword System.getenv("KEY_PASSWORD")
+          }
+      }
+
+      '''
           if 'signingConfigs {' not in s:
               s=s.replace('    buildTypes {',signing+'    buildTypes {',1)
           if 'signingConfig signingConfigs.release' not in s:
