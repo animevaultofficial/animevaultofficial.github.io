@@ -16,32 +16,33 @@ class ErrorBoundary extends Component {
   }
 
   goHome = () => {
-    // AnimeVault uses HashRouter, so '/' can point to the server root and
-    // leave the app outside the router. Always return to the hash route.
     const base = document.querySelector('base')?.getAttribute('href') || '/';
-    window.location.assign(`${base.replace(/\/?$/, '/') }#/`);
+    window.location.assign(`${base.replace(/\/?$/, '/')}#/`);
+  };
+
+  retry = () => {
+    this.setState({ hasError: false, error: null });
   };
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="error-boundary">
+        <div className="error-boundary" role="alert">
           <div className="error-boundary-content">
-            <AlertTriangle size={48} color="#ef4444" aria-hidden="true" />
-            <h2>Something went wrong</h2>
-            <p>{this.state.error?.message || 'An unexpected error occurred.'}</p>
-            <button
-              className="button button-primary"
-              onClick={this.goHome}
-            >
-              Go Home
-            </button>
-            <button
-              className="button button-secondary"
-              onClick={() => window.location.reload()}
-            >
-              Reload Page
-            </button>
+            <AlertTriangle size={48} aria-hidden="true" />
+            <h2>AnimeVault hit a problem</h2>
+            <p>Please try again. If the problem continues, return to the home screen.</p>
+            <div className="error-boundary-actions">
+              <button className="button button-primary" onClick={this.retry}>
+                Try Again
+              </button>
+              <button className="button button-secondary" onClick={this.goHome}>
+                Go Home
+              </button>
+              <button className="button button-secondary" onClick={() => window.location.reload()}>
+                Reload App
+              </button>
+            </div>
           </div>
         </div>
       );
