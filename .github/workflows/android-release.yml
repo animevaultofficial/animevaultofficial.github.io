@@ -13,6 +13,7 @@ jobs:
   android:
     name: Build signed Android APK + AAB
     runs-on: ubuntu-latest
+    environment: github-pages
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,7 +40,34 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Validate mobile production configuration
+        shell: bash
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
+          VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
+          VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in VITE_API_URL VITE_NEON_AUTH_URL VITE_DATABASE_URL VITE_HCAPTCHA_SITEKEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error title=Missing AnimeVault mobile secret::$name is empty or unavailable to this job"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
       - name: Build mobile web app
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
+          VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
+          VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
+          VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+          VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
         run: |
           npm run build
           rm -rf android
