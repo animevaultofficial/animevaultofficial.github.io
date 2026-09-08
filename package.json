@@ -49,6 +49,7 @@
     "publish": [{ "provider": "github", "releaseType": "release", "owner": "animevaultofficial", "repo": "animevaultofficial.github.io" }]
   },
   "dependencies": {
+    "@capacitor/app": "^6.2.1",
     "@capacitor/core": "^6.2.1",
     "@capacitor/local-notifications": "^6.1.3",
     "@hcaptcha/react-hcaptcha": "^2.1.0",
