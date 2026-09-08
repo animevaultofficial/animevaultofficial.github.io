@@ -3,7 +3,7 @@ import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-d
 import { Search as SearchIcon, Home as HomeIcon, Tv as TvIcon, Menu, X, Bell, Download as DownloadIcon, Users, Award, BookOpen, User } from 'lucide-react';
 import './styles/designTokens.css';
 import { useUser } from './api/UserContext';
-import { fetchSiteSettings, initDatabase } from './api/db';
+import { fetchSiteSettings } from './api/db';
 import { applyTheme, applyAccentColor } from './utils/appearance';
 import { storage } from './utils/storage';
 import { applyTvModeClass } from './utils/tvMode';
@@ -56,19 +56,25 @@ function App() {
   useEffect(() => { setIsTvMode(applyTvModeClass()); }, []);
   useEffect(() => {
     let cancelled = false;
-    async function loadSettings() {
-      try {
-        const settings = await fetchSiteSettings().catch(() => null);
-        if (cancelled) return;
-        if (settings?.announcement) setAnnouncement(settings.announcement);
-        if (settings?.maintenance === 'true') setMaintenanceMode(true);
-        applyAccentColor(storage.get('accentColor') || 'red');
-        applyTheme(storage.get('theme') || 'dark', storage.get('customThemeVars'));
-        void initDatabase().catch(() => {});
-      } catch (err) { if (!cancelled) console.warn('Global settings load skipped:', err?.message); }
+    const run = () => {
+      async function loadSettings() {
+        try {
+          const settings = await fetchSiteSettings().catch(() => null);
+          if (cancelled) return;
+          if (settings?.announcement) setAnnouncement(settings.announcement);
+          if (settings?.maintenance === 'true') setMaintenanceMode(true);
+        } catch (err) { if (!cancelled) console.warn('Global settings load skipped:', err?.message); }
+      }
+      loadSettings();
+    };
+    applyAccentColor(storage.get('accentColor') || 'red');
+    applyTheme(storage.get('theme') || 'dark', storage.get('customThemeVars'));
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(run, { timeout: 2000 });
+      return () => { cancelled = true; window.cancelIdleCallback(id); };
     }
-    loadSettings();
-    return () => { cancelled = true; };
+    const id = window.setTimeout(run, 1200);
+    return () => { cancelled = true; window.clearTimeout(id); };
   }, []);
   useEffect(() => { void import('./pages/MixedHome'); }, []);
   useEffect(() => {
