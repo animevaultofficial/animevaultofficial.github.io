@@ -1,23 +1,23 @@
-# PowerShell script to generate a self-signed code-signing certificate
-# for the AnimeVault Windows installer.
+# PowerShell helper to generate a self-signed code-signing certificate
+# for local AnimeVault Windows builds.
 #
-# Output: C:\Anime-Vault\animevault-code-signing.pfx
-# Password: Adiyan123@!
-#
-# IMPORTANT: Make sure to update the CSC_KEY_PASSWORD GitHub repository
-# secret to match the new password ("Adiyan123@!") so CI builds can sign.
+# IMPORTANT:
+# - Never commit the generated .pfx file.
+# - Never hard-code the PFX password in source control.
+# - For CI, store the certificate and password in GitHub Actions secrets.
 
 $ErrorActionPreference = "Stop"
 
-# Password used for both the local PFX and the GitHub CSC_KEY_PASSWORD secret.
-$pwdText = "Adiyan123@!"
-$pwd = ConvertTo-SecureString -String $pwdText -Force -AsPlainText
+$defaultOutPath = Join-Path (Get-Location) "animevault-code-signing.pfx"
+$outPath = Read-Host "PFX output path [$defaultOutPath]"
+if ([string]::IsNullOrWhiteSpace($outPath)) { $outPath = $defaultOutPath }
+
+$pwd = Read-Host "Enter a strong PFX password" -AsSecureString
 
 Write-Host "Generating self-signed code-signing certificate..."
-Write-Host "  Subject        : CN=AnimeVault"
-Write-Host "  Key Length     : 2048"
-Write-Host "  Output PFX     : C:\Anime-Vault\animevault-code-signing.pfx"
-Write-Host "  PFX Password   : $pwdText"
+Write-Host "  Subject    : CN=AnimeVault"
+Write-Host "  Key Length : 2048"
+Write-Host "  Output PFX : $outPath"
 
 $cert = New-SelfSignedCertificate `
     -Subject "CN=AnimeVault" `
@@ -27,28 +27,18 @@ $cert = New-SelfSignedCertificate `
     -KeyUsage DigitalSignature `
     -Type CodeSigningCert
 
-# Export to the path the electron-build workflow uses (workspace root).
-$outPath = "C:\Anime-Vault\animevault-code-signing.pfx"
-
-Export-PfxCertificate -Cert "Cert:\CurrentUser\My\$($cert.Thumbprint)" `
+Export-PfxCertificate `
+    -Cert "Cert:\CurrentUser\My\$($cert.Thumbprint)" `
     -FilePath $outPath `
     -Password $pwd `
     -ChainOption BuildChain
 
-# Remove the certificate from the personal store so it doesn't pollute
-# the user's certificate list (the PFX file is the source of truth going
-# forward). This also avoids duplicate-subject warnings on re-runs.
 try {
     Remove-Item -Path "Cert:\CurrentUser\My\$($cert.Thumbprint)" -Force -ErrorAction SilentlyContinue
 } catch {
-    Write-Warning "Could not remove the cert from the personal store: $_"
+    Write-Warning "Could not remove the certificate from the personal store: $_"
 }
 
 Write-Host ""
 Write-Host "Certificate generated successfully."
-Write-Host "  Path     : $outPath"
-Write-Host "  Password : $pwdText"
-Write-Host ""
-Write-Host "Next steps:"
-Write-Host "  1. Commit the new PFX (if you want it in the repo) or upload it as a GitHub Actions secret."
-Write-Host "  2. Update the CSC_KEY_PASSWORD repository secret on GitHub to: $pwdText"
+Write-Host "Keep the PFX and password private. Do not commit the PFX to Git."
