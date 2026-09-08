@@ -14,6 +14,25 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // Vite chunks. This is especially important for GitHub Pages deployments.
 installChunkRecovery();
 
+// Migrate malformed/legacy local favorites data before any page can consume it.
+// Older builds could store {} here, which made code such as prev.animes.some(...)
+// throw "Cannot read properties of undefined (reading 'some')".
+try {
+  const FAVORITES_KEY = 'animevault_favorites';
+  const rawFavorites = localStorage.getItem(FAVORITES_KEY);
+  const parsedFavorites = rawFavorites ? JSON.parse(rawFavorites) : null;
+  const normalizedFavorites = {
+    animes: Array.isArray(parsedFavorites?.animes) ? parsedFavorites.animes : [],
+    studios: Array.isArray(parsedFavorites?.studios) ? parsedFavorites.studios : [],
+    characters: Array.isArray(parsedFavorites?.characters) ? parsedFavorites.characters : [],
+  };
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify(normalizedFavorites));
+} catch {
+  try {
+    localStorage.setItem('animevault_favorites', JSON.stringify({ animes: [], studios: [], characters: [] }));
+  } catch {}
+}
+
 const isTouchDevice =
   typeof window !== 'undefined' &&
   (navigator.maxTouchPoints > 0 || 'ontouchstart' in window);
