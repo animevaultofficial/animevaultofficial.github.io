@@ -83,7 +83,6 @@
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
-    "cross-env": "^7.0.3",
     "electron": "^42.4.0",
     "electron-builder": "24.13.2",
     "gh-pages": "^6.3.0",
