@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Home, Search, Library, CalendarDays, History, Heart, Download, Bell, Users, UserCircle, Settings, ChevronRight } from 'lucide-react';
 import WebApp from '../App';
+import SearchPage from './pages/SearchPage';
 
 const NAV = [['Home', Home, '/'], ['Explore', Search, '/search'], ['Library', Library, '/collections'], ['Schedule', CalendarDays, '/schedule']];
 const VAULT = [['Continue Watching', History, '/'], ['Favorites', Heart, '/collections'], ['Downloads', Download, '/download'], ['Notifications', Bell, '/notifications'], ['Community', Users, '/community']];
@@ -32,12 +33,27 @@ export default function AppMobile() {
   }, [open]);
 
   const go = (path) => { setOpen(false); navigate(path); };
+  const mobileNavigate = (route, params = {}) => {
+    if (route === 'anime-detail' && params.id != null) {
+      navigate(`/anime/${params.id}`);
+      return;
+    }
+    if (route === 'profile') {
+      navigate('/profile');
+      return;
+    }
+    navigate(route);
+  };
   const isActive = (path) => path === '/' ? location.pathname === '/' : location.pathname === path || location.pathname.startsWith(`${path}/`);
   const renderItem = ([label, Icon, path]) => (
     <button key={label} type="button" className={`av-v2-drawer-item ${isActive(path) ? 'is-active' : ''}`} onClick={() => go(path)}>
       <Icon size={19} strokeWidth={2} /><span>{label}</span><ChevronRight className="av-v2-drawer-chevron" size={16} />
     </button>
   );
+
+  const content = location.pathname === '/search'
+    ? <SearchPage navigate={mobileNavigate} />
+    : <WebApp />;
 
   return <div className="av-v2-shell">
     <header className="av-v2-topbar">
@@ -59,6 +75,6 @@ export default function AppMobile() {
         <button className="av-v2-drawer-item" type="button" onClick={() => go('/settings')}><Settings size={19} strokeWidth={2} /><span>Settings</span><ChevronRight className="av-v2-drawer-chevron" size={16} /></button>
       </div>
     </aside>
-    <main className="av-v2-content"><WebApp /></main>
+    <main className="av-v2-content">{content}</main>
   </div>;
 }
