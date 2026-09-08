@@ -2,7 +2,7 @@
 // Browsers can keep an old HTML document while Vite has removed old hashed chunks.
 
 const RECOVERY_KEY = 'animevault:chunk-recovery';
-const MAX_ATTEMPTS = 1;
+const MAX_ATTEMPTS = 2;
 
 function isChunkError(error) {
   const message = String(error?.message || error || '').toLowerCase();
@@ -44,11 +44,14 @@ async function recover() {
     if (attempts >= MAX_ATTEMPTS) return;
     sessionStorage.setItem(RECOVERY_KEY, String(attempts + 1));
 
-    // Clear AnimeVault caches and old service workers before retrying.
+    // Clear client caches and old service workers before retrying.
     await Promise.all([clearAppCaches(), clearServiceWorkers()]);
 
+    // A query-string cache buster forces GitHub Pages/CDN to fetch the current
+    // index instead of replaying a stale HTML response that references the
+    // missing hashed chunk.
     const url = new URL(window.location.href);
-    url.searchParams.set('av-recover', Date.now().toString());
+    url.searchParams.set('av-recover', `${Date.now()}-${attempts + 1}`);
     window.location.replace(url.toString());
   } catch {
     window.location.reload();
