@@ -2,8 +2,7 @@ name: AnimeVault Android APK & AAB
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -54,48 +53,56 @@ jobs:
           npx vite build --config vite.mobile.config.js
           npx cap sync android
 
-      - name: Add OAuth deep link
-        shell: bash
+      - name: Configure OAuth deep link
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re
+          import xml.etree.ElementTree as ET
 
           path = Path('android/app/src/main/AndroidManifest.xml')
-          text = path.read_text()
-          scheme = 'android:scheme="animevault"'
+          text = path.read_text(encoding='utf-8')
+          android = '{http://schemas.android.com/apk/res/android}'
+          root = ET.fromstring(text)
 
-          if scheme not in text:
-              # Find Capacitor's MainActivity, regardless of whether the generated
-              # manifest uses a relative or fully-qualified activity name.
-              match = re.search(r'<activity\b[^>]*android:name="[^"]*MainActivity"[^>]*>', text)
-              if not match:
-                  match = re.search(r'<activity\b[^>]*>', text)
-              if not match:
-                  raise SystemExit('No Android activity found in generated manifest')
+          application = root.find('application')
+          if application is None:
+              raise SystemExit('AndroidManifest: <application> not found')
 
-              activity_open = match.group(0)
-              if activity_open.rstrip().endswith('/>'):
-                  raise SystemExit('Generated MainActivity is self-closing; cannot add OAuth intent-filter')
+          activities = application.findall('activity')
+          if not activities:
+              raise SystemExit('AndroidManifest: no <activity> found')
 
-              activity_end = text.find('</activity>', match.end())
-              if activity_end < 0:
-                  raise SystemExit('MainActivity closing tag not found')
+          activity = next(
+              (a for a in activities if a.get(android + 'name', '').endswith('MainActivity')),
+              activities[0],
+          )
 
-              intent = '''
-        <intent-filter>
-            <action android:name="android.intent.action.VIEW" />
-            <category android:name="android.intent.category.DEFAULT" />
-            <category android:name="android.intent.category.BROWSABLE" />
-            <data android:scheme="animevault" android:host="oauth" />
-        </intent-filter>'''
+          existing = any(
+              data.get(android + 'scheme') == 'animevault' and
+              data.get(android + 'host') == 'oauth'
+              for intent in activity.findall('intent-filter')
+              for data in intent.findall('data')
+          )
 
-              text = text[:activity_end] + intent + text[activity_end:]
-              path.write_text(text)
+          if not existing:
+              intent = ET.Element('intent-filter')
+              ET.SubElement(intent, 'action', {android + 'name': 'android.intent.action.VIEW'})
+              ET.SubElement(intent, 'category', {android + 'name': 'android.intent.category.DEFAULT'})
+              ET.SubElement(intent, 'category', {android + 'name': 'android.intent.category.BROWSABLE'})
+              ET.SubElement(intent, 'data', {
+                  android + 'scheme': 'animevault',
+                  android + 'host': 'oauth',
+              })
+              activity.append(intent)
 
-          if scheme not in path.read_text():
-              raise SystemExit('OAuth deep link was not added')
+              # Preserve the Android namespace expected by aapt/Gradle.
+              ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
+              ET.ElementTree(root).write(path, encoding='utf-8', xml_declaration=True)
+
+          check = path.read_text(encoding='utf-8')
+          if 'android:scheme="animevault"' not in check or 'android:host="oauth"' not in check:
+              raise SystemExit('OAuth deep link verification failed')
           print('OAuth deep link configured successfully')
           PY
 
@@ -104,25 +111,25 @@ jobs:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           test -n "$KEYSTORE"
-          mkdir -p android
           printf '%s' "$KEYSTORE" | base64 --decode > android/animevault-release.keystore
           chmod 600 android/animevault-release.keystore
 
-      - name: Configure signing
+      - name: Configure signing and version
         env:
           STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           python3 - <<'PY'
-          import json,re
+          import json, re
           from pathlib import Path
-          version=json.loads(Path('package.json').read_text())['version']
-          a,b,c=map(int,version.split('.'))
-          code=a*1000000+b*1000+c
-          p=Path('android/app/build.gradle')
-          s=p.read_text()
-          signing='''    signingConfigs {
+          version = json.loads(Path('package.json').read_text())['version']
+          a, b, c = map(int, version.split('.'))
+          code = a * 1000000 + b * 1000 + c
+          p = Path('android/app/build.gradle')
+          s = p.read_text()
+          if 'signingConfigs {' not in s:
+              signing = '''    signingConfigs {
           release {
               storeFile file("../animevault-release.keystore")
               storePassword System.getenv("STORE_PASSWORD")
@@ -132,33 +139,32 @@ jobs:
       }
 
       '''
-          if 'signingConfigs {' not in s:
-              s=s.replace('    buildTypes {',signing+'    buildTypes {',1)
+              s = s.replace('    buildTypes {', signing + '    buildTypes {', 1)
           if 'signingConfig signingConfigs.release' not in s:
-              s=s.replace('    buildTypes {\n        release {','    buildTypes {\n        release {\n            signingConfig signingConfigs.release',1)
-          s=re.sub(r'(versionCode\s+)\d+',rf'\g<1>{code}',s,count=1)
-          s=re.sub(r'(versionName\s+)"[^"]+"',rf'\g<1>"{version}"',s,count=1)
+              s = s.replace('    buildTypes {\n        release {', '    buildTypes {\n        release {\n            signingConfig signingConfigs.release', 1)
+          s = re.sub(r'(versionCode\s+)\d+', rf'\g<1>{code}', s, count=1)
+          s = re.sub(r'(versionName\s+)"[^"]+"', rf'\g<1>"{version}"', s, count=1)
           p.write_text(s)
-          print(version, code)
+          print(f'Android versionName={version}, versionCode={code}')
           PY
 
-      - name: Build APK
+      - name: Build signed APK
         env:
           STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: cd android && chmod +x gradlew && ./gradlew --no-daemon assembleRelease
+        run: cd android && chmod +x gradlew && ./gradlew --no-daemon --stacktrace assembleRelease
 
-      - name: Build AAB
+      - name: Build signed AAB
         env:
           STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: cd android && chmod +x gradlew && ./gradlew --no-daemon bundleRelease
+        run: cd android && chmod +x gradlew && ./gradlew --no-daemon --stacktrace bundleRelease
 
-      - name: Prepare artifacts
+      - name: Prepare and verify artifacts
         run: |
-          set -e
+          set -euo pipefail
           mkdir -p release/android
           cp android/app/build/outputs/apk/release/*.apk release/android/AnimeVault-Android.apk
           cp android/app/build/outputs/bundle/release/*.aab release/android/AnimeVault-Android.aab
