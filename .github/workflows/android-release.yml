@@ -117,13 +117,18 @@ jobs:
         run: cd android && chmod +x gradlew && ./gradlew --no-daemon --stacktrace bundleRelease
 
       - name: Prepare artifacts
+        env:
+          BUILD_TOOLS_VERSION: '34.0.0'
         run: |
+          set -euo pipefail
           mkdir -p release/android
           cp android/app/build/outputs/apk/release/*.apk release/android/AnimeVault-Android.apk
           cp android/app/build/outputs/bundle/release/*.aab release/android/AnimeVault-Android.aab
           test -s release/android/AnimeVault-Android.apk
           test -s release/android/AnimeVault-Android.aab
-          apksigner verify --verbose release/android/AnimeVault-Android.apk
+          APKSIGNER="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose release/android/AnimeVault-Android.apk
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
