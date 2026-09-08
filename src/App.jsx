@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { Search as SearchIcon, Home as HomeIcon, Tv as TvIcon, Menu, X, Bell, Download as DownloadIcon, Users, Award, BookOpen, User, CalendarDays, BarChart3, Library, Settings, Info } from 'lucide-react';
+import { Search as SearchIcon, Home as HomeIcon, Tv as TvIcon, Menu, X, Bell, Download as DownloadIcon, Users, Award, BookOpen, User, CalendarDays, BarChart3, Library, Settings as SettingsIcon, Info } from 'lucide-react';
 import './styles/designTokens.css';
 import { useUser } from './api/UserContext';
 import { fetchSiteSettings } from './api/db';
@@ -135,7 +135,7 @@ function App() {
       <aside id="mobile-navigation" className="mobile-menu" aria-label="Mobile navigation">
         <div className="mobile-menu-header"><div className="mobile-menu-title"><img src={assetPath('logo.png')} alt="" aria-hidden="true" /><div><strong>AnimeVault</strong><span>Navigation</span></div></div><button className="mobile-menu-close" type="button" aria-label="Close navigation menu" onClick={() => setIsMobileMenuOpen(false)}><X size={22} /></button></div>
         <div className="mobile-menu-links">{primaryNav.map(([to, label, Icon]) => <FocusableNavLink key={to} to={to} end={to === '/'} onClick={() => setIsMobileMenuOpen(false)} className={({ isActive }) => isActive ? 'mobile-nav-link active' : 'mobile-nav-link'}>{Icon && <Icon size={18} />}<span>{label}</span></FocusableNavLink>)}<FocusableNavLink to="/about" onClick={() => setIsMobileMenuOpen(false)} className={({ isActive }) => isActive ? 'mobile-nav-link active' : 'mobile-nav-link'}><Info size={18} /><span>About</span></FocusableNavLink>{user?.is_admin && <FocusableNavLink to="/admin/dashboard" onClick={() => setIsMobileMenuOpen(false)} className={({ isActive }) => isActive ? 'mobile-nav-link active admin-link' : 'mobile-nav-link admin-link'}><Award size={18} /><span>Admin Dashboard</span></FocusableNavLink>}</div>
-        <div className="mobile-menu-account">{user ? <FocusableLink to={ownProfilePath} onClick={() => setIsMobileMenuOpen(false)} className="mobile-account-link"><User size={18} /><span><strong>{user.username}</strong><small>View profile</small></span></FocusableLink> : !authLoading && <FocusableButton onClick={openLogin} className="mobile-account-link"><User size={18} /><span>Sign In</span></FocusableButton>}{user && <FocusableNavLink to="/settings" onClick={() => setIsMobileMenuOpen(false)} className="mobile-account-link"><Settings size={18} /><span>Settings</span></FocusableNavLink>}</div>
+        <div className="mobile-menu-account">{user ? <FocusableLink to={ownProfilePath} onClick={() => setIsMobileMenuOpen(false)} className="mobile-account-link"><User size={18} /><span><strong>{user.username}</strong><small>View profile</small></span></FocusableLink> : !authLoading && <FocusableButton onClick={openLogin} className="mobile-account-link"><User size={18} /><span>Sign In</span></FocusableButton>}{user && <FocusableNavLink to="/settings" onClick={() => setIsMobileMenuOpen(false)} className="mobile-account-link"><SettingsIcon size={18} /><span>Settings</span></FocusableNavLink>}</div>
       </aside>
     </>}
 
