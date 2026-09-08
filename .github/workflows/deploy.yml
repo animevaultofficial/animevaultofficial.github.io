@@ -18,6 +18,16 @@ on:
 permissions:
   contents: write
 
+env:
+  # These are intentionally repository secrets except VITE_DATABASE_URL,
+  # which is stored in the github-pages environment shown in repository settings.
+  VITE_API_URL: ${{ secrets.VITE_API_URL }}
+  VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
+  VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
+  VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
+  VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+  VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
+
 concurrency:
   group: gh-pages
   cancel-in-progress: false
@@ -25,6 +35,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: github-pages
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,18 +49,29 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Validate production configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in VITE_API_URL VITE_NEON_AUTH_URL VITE_DATABASE_URL VITE_HCAPTCHA_SITEKEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error title=Missing AnimeVault production secret::$name is empty or unavailable to this job"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Production configuration is incomplete. Check repository/environment secrets."
+            exit 1
+          fi
+
       - name: Build production bundle
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
-          VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
           CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
-          VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
-          VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: npm run build
 
