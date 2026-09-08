@@ -25,6 +25,7 @@ env:
   VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
   VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
   VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
+  VITE_AUTH_PROXY_URL: https://animevaultofficial-github-io.onrender.com
   VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
   VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
 
@@ -86,9 +87,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
-          # Keep old hashed Vite assets for users with an already-open tab.
-          # New index.html points to the newest hashes, while old route chunks
-          # remain available until browsers naturally refresh.
           keep_files: true
           force_orphan: true
           user_name: github-actions[bot]
