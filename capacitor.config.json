@@ -5,6 +5,7 @@
   "server": {
     "androidScheme": "https",
     "hostname": "animevaultofficial.fun",
-    "cleartext": true
+    "cleartext": true,
+    "allowNavigation": []
   }
 }
