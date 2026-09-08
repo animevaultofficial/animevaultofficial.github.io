@@ -54,25 +54,29 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Some pages/components use their own viewport-sized root. Those roots
-     must not become a second, locked scroll container on phones. */
+  /* CRITICAL: touch-action is not inherited. A child with touch-action:none
+     can block the browser's scroll gesture even when body/#root are correct.
+     Keep every normal page descendant scrollable on touch. */
+  .content *,
+  main.content *,
+  [role="main"] * {
+    touch-action: auto !important;
+  }
+
+  /* Remove page-level overflow traps while preserving intentional clipping
+     on images/cards through their existing component styles. */
   .content > * {
     height: auto !important;
     max-height: none !important;
     overflow-y: visible !important;
-    touch-action: auto !important;
   }
 
-  /* Catch inline viewport locks used by individual pages without touching
-     fixed-position modals/menus that live outside .content. */
   .content [style*="100vh"],
   .content [style*="100dvh"] {
     height: auto !important;
     max-height: none !important;
   }
 
-  /* Settings has a desktop-only fixed viewport layout. On mobile it should
-     participate in the normal document flow instead of trapping the page. */
   .content .discord-settings-layout {
     position: static !important;
     top: auto !important;
@@ -110,6 +114,12 @@
   .content,
   main,
   [role="main"] {
+    touch-action: auto !important;
+  }
+
+  .content *,
+  main.content *,
+  [role="main"] * {
     touch-action: auto !important;
   }
 }
