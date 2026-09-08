@@ -1,7 +1,4 @@
-name: Automated Installer Builds & Releases
-
-# Android build pipeline hardened after the Capacitor 6 dependency repair.
-# Keep the generated Android project disposable so CI always builds from a clean state.
+name: AnimeVault Desktop Builds & Releases
 
 on:
   push:
@@ -9,15 +6,13 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-  repository_dispatch:
-    types: [release]
 
 permissions:
   contents: write
   actions: read
 
 concurrency:
-  group: installer-build-${{ github.ref }}
+  group: desktop-build-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -32,40 +27,9 @@ env:
   VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
 
 jobs:
-  version-bump:
-    name: Auto-bump version
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0, token: ${{ secrets.GITHUB_TOKEN }} }
-      - uses: actions/setup-node@v4
-        with: { node-version: '22' }
-      - name: Auto-increment patch version
-        id: bump
-        shell: bash
-        run: |
-          set -euo pipefail
-          current_version="$(node -p "require('./package.json').version")"
-          IFS='.' read -r major minor patch <<< "$current_version"
-          new_version="${major}.${minor}.$((patch + 1))"
-          node -e "const fs=require('fs');const pkg=require('./package.json');pkg.version='${new_version}';fs.writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\\n');"
-          echo "version=${new_version}" >> "$GITHUB_OUTPUT"
-      - name: Commit and push version bump
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }}"
-          git push origin main
-
   desktop:
     name: Desktop installer (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
-    needs: [version-bump]
-    if: always()
     strategy:
       fail-fast: false
       matrix:
@@ -80,188 +44,102 @@ jobs:
             name: Linux
             args: --linux
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0, ref: ${{ github.event_name == 'push' && 'refs/heads/main' || github.ref }} }
-      - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: npm }
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
       - name: Install ImageMagick (Ubuntu)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y imagemagick
+
       - name: Install ImageMagick (Windows)
         if: runner.os == 'Windows'
         run: choco install imagemagick --yes --no-progress
+
       - name: Install ImageMagick (macOS)
         if: runner.os == 'macOS'
         run: brew install imagemagick
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Build installer
+
+      - name: Build desktop installer
         shell: bash
         env:
           CSC_LINK: ${{ github.workspace }}/animevault-code-signing.pfx
-          CSC_KEY_PASSWORD: '${{ secrets.CSC_KEY_PASSWORD }}'
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           WIN_CSC_LINK: ${{ github.workspace }}/animevault-code-signing.pfx
-          WIN_CSC_KEY_PASSWORD: '${{ secrets.CSC_KEY_PASSWORD }}'
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: npm run electron:build -- ${{ matrix.args }}
+
       - name: Verify desktop artifacts
         shell: bash
         run: |
           set -euo pipefail
-          find release -maxdepth 1 -type f -print | sort
-          find release -maxdepth 1 -type f | grep -q . || { echo 'ERROR: No desktop release files were produced.'; exit 1; }
-      - name: Upload desktop installer artifact
+          mkdir -p checked-release
+          found=0
+          for pattern in '*.exe' '*.dmg' '*.zip' '*.AppImage' '*.deb' '*.yml' '*.blockmap'; do
+            for file in release/$pattern; do
+              if [ -f "$file" ]; then
+                cp "$file" checked-release/
+                found=1
+              fi
+            done
+          done
+          if [ "$found" -ne 1 ]; then
+            echo 'ERROR: No desktop release files were produced.'
+            find release -maxdepth 2 -type f -print || true
+            exit 1
+          fi
+          find checked-release -maxdepth 1 -type f -print | sort
+
+      - name: Upload desktop installer
         uses: actions/upload-artifact@v4
         with:
           name: animevault-${{ matrix.name }}-installer
-          retention-days: 30
+          path: checked-release/*
           if-no-files-found: error
-          path: |
-            release/*.exe
-            release/*.dmg
-            release/*.zip
-            release/*.AppImage
-            release/*.deb
-            release/*.yml
-            release/*.blockmap
+          retention-days: 30
 
-  android:
-    name: Android APK + AAB
+  release:
+    name: Publish desktop release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: desktop
     runs-on: ubuntu-latest
-    needs: [version-bump]
-    if: always()
-    env:
-      ANDROID_PLATFORM: android-34
-      ANDROID_BUILD_TOOLS: 34.0.0
-      ANDROID_KEYSTORE_PATH: android/animevault-release.keystore
-      ANDROID_PACKAGE_NAME: com.animevault.app
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0, ref: ${{ github.event_name == 'push' && 'refs/heads/main' || github.ref }} }
-      - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: npm }
-      - uses: actions/setup-java@v5
-        with: { distribution: temurin, java-version: '17' }
-      - uses: android-actions/setup-android@v3
-      - name: Install Android SDK packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          sdkmanager "platforms;${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}" "platform-tools"
-          echo "${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}" >> "${GITHUB_PATH}"
-          echo "${ANDROID_HOME}/platform-tools" >> "${GITHUB_PATH}"
-      - name: Cache Gradle
-        uses: actions/cache@v4
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: gradle-${{ runner.os }}-
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Verify Capacitor toolchain
-        shell: bash
-        run: |
-          set -euo pipefail
-          node --version
-          npm --version
-          npx cap --version
-          node -e "const p=require('./package.json'); if(p.dependencies['@capacitor/app'] !== '6.0.3') throw new Error('Unexpected @capacitor/app version: '+p.dependencies['@capacitor/app'])"
-      - name: Build web application
-        run: npm run build
-      - name: Generate fresh Capacitor Android project
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf android
-          npx cap add android
-          npm run generate-android-icons
-          npx vite build --config vite.mobile.config.js
-          npx cap sync android
-          python3 <<'PY'
-          from pathlib import Path
-          path=Path('android/app/src/main/AndroidManifest.xml')
-          text=path.read_text()
-          if 'android:scheme="animevault"' not in text:
-              marker='<category android:name="android.intent.category.BROWSABLE" />'
-              pos=text.find(marker)
-              if pos < 0:
-                  raise SystemExit('Android manifest activity marker not found')
-              end=text.find('</intent-filter>',pos)+len('</intent-filter>')
-              intent='''\n        <intent-filter>\n            <action android:name="android.intent.action.VIEW" />\n            <category android:name="android.intent.category.DEFAULT" />\n            <category android:name="android.intent.category.BROWSABLE" />\n            <data android:scheme="animevault" android:host="oauth" />\n        </intent-filter>'''
-              text=text[:end]+intent+text[end:]
-              path.write_text(text)
-          PY
-      - name: Decode Android release keystore
-        shell: bash
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          set -euo pipefail
-          if [ -z "${ANDROID_KEYSTORE_BASE64}" ]; then echo 'ERROR: ANDROID_KEYSTORE_BASE64 secret is not configured.'; exit 1; fi
-          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "${ANDROID_KEYSTORE_PATH}"
-          chmod 600 "${ANDROID_KEYSTORE_PATH}"
-      - name: Configure Android release signing and version
-        shell: bash
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          import json,re
-          from pathlib import Path
-          package=json.loads(Path('package.json').read_text());version_name=package['version'];major,minor,patch=(int(part) for part in version_name.split('.')[:3]);version_code=major*1000000+minor*1000+patch
-          path=Path('android/app/build.gradle');text=path.read_text();signing='''    signingConfigs {\n        release {\n            storeFile file("../animevault-release.keystore")\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n\n'''
-          if 'signingConfigs {' not in text:text=text.replace('    buildTypes {',signing+'    buildTypes {',1)
-          if 'signingConfig signingConfigs.release' not in text:text=text.replace('    buildTypes {\n        release {','    buildTypes {\n        release {\n            signingConfig signingConfigs.release',1)
-          text=re.sub(r'(\n\s*versionCode\s+)\d+',rf'\g<1>{version_code}',text,count=1);text=re.sub(r'(\n\s*versionName\s+)"[^"]+"',rf'\g<1>"{version_name}"',text,count=1);path.write_text(text)
-          PY
-      - name: Verify generated Android project
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -d android
-          test -f android/gradlew
-          test -f android/app/build.gradle
-          grep -q 'com.animevault.app' android/app/build.gradle
-          grep -q 'android:scheme="animevault"' android/app/src/main/AndroidManifest.xml
-      - name: Build signed Android APK
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: cd android && chmod +x gradlew && ./gradlew --no-daemon assembleRelease
-      - name: Build signed Android App Bundle
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: cd android && chmod +x gradlew && ./gradlew --no-daemon bundleRelease
-      - name: Locate and normalize Android artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p release/android
-          apk=$(find android/app/build/outputs/apk/release -type f -name '*.apk' | head -n1)
-          aab=$(find android/app/build/outputs/bundle/release -type f -name '*.aab' | head -n1)
-          test -n "$apk" && test -n "$aab"
-          cp "$apk" release/android/AnimeVault-Android.apk
-          cp "$aab" release/android/AnimeVault-Android.aab
-      - name: Verify Android APK
-        run: test -s release/android/AnimeVault-Android.apk
-      - name: Verify Android APK signature
-        run: apksigner verify --verbose release/android/AnimeVault-Android.apk
-      - name: Verify Android AAB
-        run: test -s release/android/AnimeVault-Android.aab
-      - name: Upload Android artifacts
-        uses: actions/upload-artifact@v4
+          name: animevault-Windows-installer
+          path: release/Windows
+
+      - name: Download macOS installer
+        uses: actions/download-artifact@v4
         with:
-          name: animevault-android
-          retention-days: 30
-          if-no-files-found: error
-          path: release/android/*
-      - name: Delete Android release keystore
-        if: always()
-        run: rm -f "${ANDROID_KEYSTORE_PATH}"
+          name: animevault-macOS-installer
+          path: release/macOS
+
+      - name: Download Linux installer
+        uses: actions/download-artifact@v4
+        with:
+          name: animevault-Linux-installer
+          path: release/Linux
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-build-${{ github.run_number }}
+          name: AnimeVault Desktop Build ${{ github.run_number }}
+          body: Automated desktop installers built from main.
+          files: |
+            release/Windows/*
+            release/macOS/*
+            release/Linux/*
+          fail_on_unmatched_files: true
