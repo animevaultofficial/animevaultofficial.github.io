@@ -2,45 +2,25 @@ name: AnimeVault Android APK & AAB
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: write
-  actions: read
-
-concurrency:
-  group: animevault-android-${{ github.ref }}
-  cancel-in-progress: false
-
-env:
-  VITE_ANFIRE_API_URL: ${{ secrets.VITE_ANFIRE_API_URL || 'http://localhost:3000/api.php' }}
-  VITE_ANFIRE_API_KEY: ${{ secrets.VITE_ANFIRE_API_KEY || 'default-key' }}
-  VITE_ANFIRE_EPISODE_API_URL: ${{ secrets.VITE_ANFIRE_EPISODE_API_URL || 'http://localhost:3000/api.php' }}
-  VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
-  VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
-  VITE_AUTH_PROXY_URL: ${{ secrets.VITE_AUTH_PROXY_URL || 'https://animevaultofficial-github-io.onrender.com' }}
-  VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
-  VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
-  VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
 
 jobs:
   android:
-    name: Build signed APK + AAB
+    name: Android APK + AAB
     runs-on: ubuntu-latest
-    env:
-      ANDROID_PLATFORM: android-34
-      ANDROID_BUILD_TOOLS: 34.0.0
-      ANDROID_KEYSTORE_PATH: android/animevault-release.keystore
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: 22
           cache: npm
 
       - name: Setup Java
@@ -52,179 +32,123 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK packages
-        shell: bash
-        run: |
-          set -euo pipefail
-          sdkmanager "platforms;${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}" "platform-tools"
-          echo "${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}" >> "$GITHUB_PATH"
-          echo "${ANDROID_HOME}/platform-tools" >> "$GITHUB_PATH"
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-android-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: gradle-android-${{ runner.os }}-
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0' 'platform-tools'
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Verify Capacitor dependencies
-        shell: bash
+      - name: Verify Capacitor
         run: |
-          set -euo pipefail
           npx cap --version
-          node -e "const p=require('./package.json'); if(p.dependencies['@capacitor/app'] !== '6.0.3') throw new Error('Expected @capacitor/app 6.0.3, found '+p.dependencies['@capacitor/app'])"
+          node -e "const p=require('./package.json'); if(p.dependencies['@capacitor/app'] !== '6.0.3') throw new Error('Expected @capacitor/app 6.0.3')"
 
-      - name: Build web application
+      - name: Build web
         run: npm run build
 
-      - name: Generate clean Android project
-        shell: bash
+      - name: Generate Android project
         run: |
-          set -euo pipefail
           rm -rf android
           npx cap add android
           npm run generate-android-icons
           npx vite build --config vite.mobile.config.js
           npx cap sync android
 
-      - name: Configure OAuth deep link
-        shell: bash
+      - name: Add OAuth deep link
         run: |
-          set -euo pipefail
-          python3 <<'PY'
+          python3 - <<'PY'
           from pathlib import Path
-          path = Path('android/app/src/main/AndroidManifest.xml')
-          text = path.read_text()
-          if 'android:scheme="animevault"' not in text:
-              marker = '<category android:name="android.intent.category.BROWSABLE" />'
-              pos = text.find(marker)
-              if pos < 0:
-                  raise SystemExit('BROWSABLE activity marker not found')
-              end = text.find('</intent-filter>', pos)
-              if end < 0:
-                  raise SystemExit('Intent filter end not found')
-              end += len('</intent-filter>')
-              intent = '''\n        <intent-filter>\n            <action android:name="android.intent.action.VIEW" />\n            <category android:name="android.intent.category.DEFAULT" />\n            <category android:name="android.intent.category.BROWSABLE" />\n            <data android:scheme="animevault" android:host="oauth" />\n        </intent-filter>'''
-              path.write_text(text[:end] + intent + text[end:])
+          p = Path('android/app/src/main/AndroidManifest.xml')
+          s = p.read_text()
+          if 'android:scheme="animevault"' not in s:
+              marker = '</intent-filter>'
+              i = s.find(marker)
+              if i < 0:
+                  raise SystemExit('No activity intent-filter found')
+              i += len(marker)
+              s = s[:i] + '''\n        <intent-filter>\n            <action android:name="android.intent.action.VIEW" />\n            <category android:name="android.intent.category.DEFAULT" />\n            <category android:name="android.intent.category.BROWSABLE" />\n            <data android:scheme="animevault" android:host="oauth" />\n        </intent-filter>''' + s[i:]
+              p.write_text(s)
           PY
           grep -q 'android:scheme="animevault"' android/app/src/main/AndroidManifest.xml
 
-      - name: Decode signing keystore
-        shell: bash
+      - name: Decode release keystore
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
-          set -euo pipefail
-          test -n "${ANDROID_KEYSTORE_BASE64}" || { echo 'ANDROID_KEYSTORE_BASE64 is not configured'; exit 1; }
-          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "${ANDROID_KEYSTORE_PATH}"
-          chmod 600 "${ANDROID_KEYSTORE_PATH}"
+          test -n "$KEYSTORE"
+          mkdir -p android
+          printf '%s' "$KEYSTORE" | base64 --decode > android/animevault-release.keystore
+          chmod 600 android/animevault-release.keystore
 
-      - name: Configure signing and version
-        shell: bash
+      - name: Configure signing
         env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          set -euo pipefail
-          python3 <<'PY'
-          import json, re
+          python3 - <<'PY'
+          import json,re
           from pathlib import Path
-          pkg = json.loads(Path('package.json').read_text())
-          version = pkg['version']
-          parts = version.split('.')
-          if len(parts) != 3 or not all(p.isdigit() for p in parts):
-              raise SystemExit(f'Invalid package version: {version}')
-          major, minor, patch = map(int, parts)
-          version_code = major * 1000000 + minor * 1000 + patch
-          path = Path('android/app/build.gradle')
-          text = path.read_text()
-          signing = '''    signingConfigs {\n        release {\n            storeFile file("../animevault-release.keystore")\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n\n'''
-          if 'signingConfigs {' not in text:
-              text = text.replace('    buildTypes {', signing + '    buildTypes {', 1)
-          if 'signingConfig signingConfigs.release' not in text:
-              text = text.replace('    buildTypes {\n        release {', '    buildTypes {\n        release {\n            signingConfig signingConfigs.release', 1)
-          text = re.sub(r'(\n\s*versionCode\s+)\d+', rf'\g<1>{version_code}', text, count=1)
-          text = re.sub(r'(\n\s*versionName\s+)"[^"]+"', rf'\g<1>"{version}"', text, count=1)
-          path.write_text(text)
-          print(f'Building AnimeVault {version} (versionCode {version_code})')
+          version=json.loads(Path('package.json').read_text())['version']
+          a,b,c=map(int,version.split('.'))
+          code=a*1000000+b*1000+c
+          p=Path('android/app/build.gradle')
+          s=p.read_text()
+          signing='''    signingConfigs {\n        release {\n            storeFile file("../animevault-release.keystore")\n            storePassword System.getenv("STORE_PASSWORD")\n            keyAlias System.getenv("KEY_ALIAS")\n            keyPassword System.getenv("KEY_PASSWORD")\n        }\n    }\n\n'''
+          if 'signingConfigs {' not in s:
+              s=s.replace('    buildTypes {',signing+'    buildTypes {',1)
+          if 'signingConfig signingConfigs.release' not in s:
+              s=s.replace('    buildTypes {\n        release {','    buildTypes {\n        release {\n            signingConfig signingConfigs.release',1)
+          s=re.sub(r'(versionCode\s+)\d+',rf'\g<1>{code}',s,count=1)
+          s=re.sub(r'(versionName\s+)"[^"]+"',rf'\g<1>"{version}"',s,count=1)
+          p.write_text(s)
+          print(version, code)
           PY
 
-      - name: Build signed APK
+      - name: Build APK
         env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: cd android && chmod +x gradlew && ./gradlew --no-daemon assembleRelease
 
-      - name: Build signed AAB
+      - name: Build AAB
         env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew --no-daemon bundleRelease
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: cd android && chmod +x gradlew && ./gradlew --no-daemon bundleRelease
 
-      - name: Collect release files
-        shell: bash
+      - name: Prepare artifacts
         run: |
-          set -euo pipefail
+          set -e
           mkdir -p release/android
-          apk=$(find android/app/build/outputs/apk/release -type f -name '*.apk' | head -n1)
-          aab=$(find android/app/build/outputs/bundle/release -type f -name '*.aab' | head -n1)
-          test -n "$apk" || { echo 'APK was not produced'; exit 1; }
-          test -n "$aab" || { echo 'AAB was not produced'; exit 1; }
-          cp "$apk" release/android/AnimeVault-Android.apk
-          cp "$aab" release/android/AnimeVault-Android.aab
-          ls -lh release/android
+          cp android/app/build/outputs/apk/release/*.apk release/android/AnimeVault-Android.apk
+          cp android/app/build/outputs/bundle/release/*.aab release/android/AnimeVault-Android.aab
+          test -s release/android/AnimeVault-Android.apk
+          test -s release/android/AnimeVault-Android.aab
+          apksigner verify --verbose release/android/AnimeVault-Android.apk
 
-      - name: Verify APK signature
-        run: apksigner verify --verbose release/android/AnimeVault-Android.apk
-
-      - name: Upload APK + AAB artifact
+      - name: Upload APK and AAB
         uses: actions/upload-artifact@v4
         with:
           name: AnimeVault-Android
-          retention-days: 30
-          if-no-files-found: error
           path: release/android/*
+          if-no-files-found: error
+          retention-days: 30
 
-      - name: Read package version
-        id: version
-        shell: bash
-        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-
-      - name: Publish GitHub Release
+      - name: Publish GitHub release
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-v${{ steps.version.outputs.version }}-build.${{ github.run_number }}
-          name: AnimeVault Android v${{ steps.version.outputs.version }} (Build ${{ github.run_number }})
-          body: |
-            ## AnimeVault Android
-
-            Automated signed Android build.
-
-            - APK: ready to install on Android
-            - AAB: ready for Google Play upload
-            - Version: ${{ steps.version.outputs.version }}
-            - Build: ${{ github.run_number }}
+          tag_name: android-build-${{ github.run_number }}
+          name: AnimeVault Android Build ${{ github.run_number }}
+          body: Automated signed APK and AAB build from main.
           files: |
             release/android/AnimeVault-Android.apk
             release/android/AnimeVault-Android.aab
           fail_on_unmatched_files: true
-          generate_release_notes: false
 
-      - name: Remove signing keystore
+      - name: Remove keystore
         if: always()
-        run: rm -f "${ANDROID_KEYSTORE_PATH}"
+        run: rm -f android/animevault-release.keystore
