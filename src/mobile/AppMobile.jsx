@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Home, Search, Film, Calendar, User, Menu, X, Heart, ChevronRight, Bell, BarChart3, Settings, Users, RefreshCw } from 'lucide-react';
 import './mobile.css';
-import './mobile-fixes.css';
+import '../styles/mobile-fixes.css';
 import { useUser } from '../api/UserContext';
 import { initDatabase, fetchSiteSettings } from '../api/db';
 import { applyAccentColor, applyTheme } from '../utils/appearance';
