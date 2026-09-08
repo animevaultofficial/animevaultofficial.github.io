@@ -1,11 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Menu, X, Home, Search, Library, CalendarDays, History, Heart, Download, Bell, Users, UserCircle, Settings, ChevronRight } from 'lucide-react';
 import WebApp from '../App';
 import SearchPage from './pages/SearchPage';
+import AnimeDetailsPage from './pages/AnimeDetailsPage';
 
 const NAV = [['Home', Home, '/'], ['Explore', Search, '/search'], ['Library', Library, '/collections'], ['Schedule', CalendarDays, '/schedule']];
 const VAULT = [['Continue Watching', History, '/'], ['Favorites', Heart, '/collections'], ['Downloads', Download, '/download'], ['Notifications', Bell, '/notifications'], ['Community', Users, '/community']];
+
+function MobileAnimeDetails({ navigate }) {
+  const { id } = useParams();
+  const detailNavigate = (route, params = {}) => {
+    if (route === 'anime-detail' && params.id != null) { navigate(`/anime/${params.id}`); return; }
+    if (route === 'profile') { navigate('/profile'); return; }
+    navigate(route);
+  };
+  return <AnimeDetailsPage params={{ id }} goBack={() => navigate(-1)} navigate={detailNavigate} />;
+}
 
 export default function AppMobile() {
   const [open, setOpen] = useState(false);
@@ -34,14 +45,8 @@ export default function AppMobile() {
 
   const go = (path) => { setOpen(false); navigate(path); };
   const mobileNavigate = (route, params = {}) => {
-    if (route === 'anime-detail' && params.id != null) {
-      navigate(`/anime/${params.id}`);
-      return;
-    }
-    if (route === 'profile') {
-      navigate('/profile');
-      return;
-    }
+    if (route === 'anime-detail' && params.id != null) { navigate(`/anime/${params.id}`); return; }
+    if (route === 'profile') { navigate('/profile'); return; }
     navigate(route);
   };
   const isActive = (path) => path === '/' ? location.pathname === '/' : location.pathname === path || location.pathname.startsWith(`${path}/`);
@@ -51,9 +56,9 @@ export default function AppMobile() {
     </button>
   );
 
-  const content = location.pathname === '/search'
-    ? <SearchPage navigate={mobileNavigate} />
-    : <WebApp />;
+  let content = <WebApp />;
+  if (location.pathname === '/search') content = <SearchPage navigate={mobileNavigate} />;
+  else if (/^\/anime\/[^/]+$/.test(location.pathname)) content = <MobileAnimeDetails navigate={navigate} />;
 
   return <div className="av-v2-shell">
     <header className="av-v2-topbar">
