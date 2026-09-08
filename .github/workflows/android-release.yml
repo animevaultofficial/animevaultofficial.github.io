@@ -47,12 +47,13 @@ jobs:
           VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
           VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
           VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
+          VITE_AUTH_PROXY_URL: https://animevaultofficial-github-io.onrender.com
         run: |
           set -euo pipefail
           missing=0
-          for name in VITE_API_URL VITE_NEON_AUTH_URL VITE_DATABASE_URL VITE_HCAPTCHA_SITEKEY; do
+          for name in VITE_API_URL VITE_NEON_AUTH_URL VITE_DATABASE_URL VITE_HCAPTCHA_SITEKEY VITE_AUTH_PROXY_URL; do
             if [ -z "${!name:-}" ]; then
-              echo "::error title=Missing AnimeVault mobile secret::$name is empty or unavailable to this job"
+              echo "::error title=Missing AnimeVault mobile configuration::$name is empty or unavailable to this job"
               missing=1
             fi
           done
@@ -66,6 +67,7 @@ jobs:
           VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
           VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
           VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
+          VITE_AUTH_PROXY_URL: https://animevaultofficial-github-io.onrender.com
           VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
           VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
         run: |
