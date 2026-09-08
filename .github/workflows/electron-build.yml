@@ -167,6 +167,20 @@ jobs:
           npm run generate-android-icons
           npx vite build --config vite.mobile.config.js
           npx cap sync android
+          python3 <<'PY'
+          from pathlib import Path
+          path=Path('android/app/src/main/AndroidManifest.xml')
+          text=path.read_text()
+          if 'android:scheme="animevault"' not in text:
+              marker='<category android:name="android.intent.category.BROWSABLE" />'
+              pos=text.find(marker)
+              if pos < 0:
+                  raise SystemExit('Android manifest activity marker not found')
+              end=text.find('</intent-filter>',pos)+len('</intent-filter>')
+              intent='''\n        <intent-filter>\n            <action android:name="android.intent.action.VIEW" />\n            <category android:name="android.intent.category.DEFAULT" />\n            <category android:name="android.intent.category.BROWSABLE" />\n            <data android:scheme="animevault" android:host="oauth" />\n        </intent-filter>'''
+              text=text[:end]+intent+text[end:]
+              path.write_text(text)
+          PY
       - name: Decode Android release keystore
         shell: bash
         env:
