@@ -8,9 +8,10 @@ const INTERNAL_ORIGINS = new Set([
 function isInternal(url) {
   try {
     const parsed = new URL(url, window.location.href);
-    return parsed.protocol === 'about:' || INTERNAL_ORIGINS.has(parsed.origin);
+    if (parsed.protocol === 'about:') return parsed.href === 'about:blank';
+    return INTERNAL_ORIGINS.has(parsed.origin);
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -24,7 +25,7 @@ function blockNavigation(event, url) {
 
 export function installMobileNavigationGuard() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
-  if (window.__ANIMEVAULT_MOBILE_NAV_GUARD__) return window.__ANIMEVAULT_MOBILE_MAV_GUARD_CLEANUP__ || (() => {});
+  if (window.__ANIMEVAULT_MOBILE_NAV_GUARD__) return window.__ANIMEVAULT_MOBILE_NAV_GUARD_CLEANUP__ || (() => {});
 
   const onClick = (event) => {
     const anchor = event.target?.closest?.('a[href]');
@@ -57,9 +58,9 @@ export function installMobileNavigationGuard() {
     document.removeEventListener('auxclick', onAuxClick, true);
     window.open = originalOpen;
     delete window.__ANIMEVAULT_MOBILE_NAV_GUARD__;
-    delete window.__ANIMEVAULT_MOBILE_MAV_GUARD_CLEANUP__;
+    delete window.__ANIMEVAULT_MOBILE_NAV_GUARD_CLEANUP__;
   };
 
-  window.__ANIMEVAULT_MOBILE_MAV_GUARD_CLEANUP__ = cleanup;
+  window.__ANIMEVAULT_MOBILE_NAV_GUARD_CLEANUP__ = cleanup;
   return cleanup;
 }
