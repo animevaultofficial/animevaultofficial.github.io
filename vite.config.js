@@ -17,10 +17,10 @@ export default defineConfig(({ command, mode }) => {
   const ghPagesBase = process.env.VITE_BASE || process.env.GH_PAGES_BASE || '/';
 
   const base = command === 'serve'
-    ? '/' // dev server
+    ? '/'
     : (isElectronBuild || isWebOSBuild)
-      ? './' // packaged apps load local files and need relative assets
-      : ghPagesBase; // GitHub Pages absolute base
+      ? './'
+      : ghPagesBase;
 
   if (command === 'build') {
     console.log(`[Vite] Build base path: "${base}" (electron: ${isElectronBuild}, webos: ${isWebOSBuild})`);
@@ -33,18 +33,10 @@ export default defineConfig(({ command, mode }) => {
         name: 'manga-api-dev-middleware',
         configureServer(server) {
           server.middlewares.use((req, res, next) => {
-            if (req.url && req.url.startsWith('/api/manga')) {
-              return mangaApiApp(req, res, next);
-            }
-            if (req.url && req.url.startsWith('/api/allanime')) {
-              return allAnimeApiApp(req, res, next);
-            }
-            if (req.url && req.url.startsWith('/api/vidplus')) {
-              return vidPlusApiApp(req, res, next);
-            }
-            if (req.url && req.url.startsWith('/api/hcaptcha')) {
-              return hcaptchaApiApp(req, res, next);
-            }
+            if (req.url && req.url.startsWith('/api/manga')) return mangaApiApp(req, res, next);
+            if (req.url && req.url.startsWith('/api/allanime')) return allAnimeApiApp(req, res, next);
+            if (req.url && req.url.startsWith('/api/vidplus')) return vidPlusApiApp(req, res, next);
+            if (req.url && req.url.startsWith('/api/hcaptcha')) return hcaptchaApiApp(req, res, next);
             next();
           });
         }
@@ -57,17 +49,20 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     server: {
-      port: 5174,
+      // Keep the dev server on the port expected by the Electron/dev scripts.
+      port: 5173,
       strictPort: true,
       proxy: {
         '/api': {
           target: 'http://localhost:3000',
           changeOrigin: true,
           bypass: (req) => {
-            // Do not proxy /api/manga, /api/allanime or /api/vidplus requests to port 3000
-            if (req.url && (req.url.startsWith('/api/manga') || req.url.startsWith('/api/allanime') || req.url.startsWith('/api/vidplus') || req.url.startsWith('/api/hcaptcha'))) {
-              return req.url;
-            }
+            if (req.url && (
+              req.url.startsWith('/api/manga') ||
+              req.url.startsWith('/api/allanime') ||
+              req.url.startsWith('/api/vidplus') ||
+              req.url.startsWith('/api/hcaptcha')
+            )) return req.url;
           },
           rewrite: (p) => p.replace(/^\/api/, '/api'),
         },
