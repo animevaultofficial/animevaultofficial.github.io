@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "AnimeVault",
+    "slug": "animevault-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": { "package": "com.animevault.app" },
+    "plugins": ["expo-linear-gradient"]
+  }
+}
