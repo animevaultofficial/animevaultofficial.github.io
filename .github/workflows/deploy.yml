@@ -6,8 +6,7 @@ name: Deploy to GitHub Pages
 #
 # IMPORTANT: Vite uses content-hashed JS/CSS filenames. Keep previously
 # published assets so an already-open browser tab can still load an older
-# chunk while it receives the new index.html. Without this, lazy routes can
-# fail with "Failed to fetch dynamically imported module" after a deploy.
+# chunk while it receives the new index.html.
 
 on:
   push:
@@ -19,8 +18,6 @@ permissions:
   contents: write
 
 env:
-  # These are intentionally repository secrets except VITE_DATABASE_URL,
-  # which is stored in the github-pages environment shown in repository settings.
   VITE_API_URL: ${{ secrets.VITE_API_URL }}
   VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
   VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
@@ -48,7 +45,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Validate production configuration
         shell: bash
@@ -74,7 +71,7 @@ jobs:
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        run: npm run build
+        run: npx vite build --mode production
 
       - name: Preserve GitHub Pages custom domain
         run: |
