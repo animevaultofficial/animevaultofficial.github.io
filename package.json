@@ -27,7 +27,7 @@
     "electron:build:mac": "npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --mac --publish never",
     "electron:build:linux": "npm run generate-icons && npm run clean && npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --linux --publish never",
     "generate-android-icons": "node scripts/generate-android-icons.js",
-    "android:sync": "npm run generate-android-icons && vite build --config vite.mobile.config.js && npx cap sync android",
+    "android:sync": "npm run android:ensure && npm run generate-android-icons && vite build --config vite.mobile.config.js && npx cap sync android && node scripts/patch-android-adblock.cjs",
     "android:ensure": "npx cap add android || echo 'Android already added'",
     "android:mobile": "npm run generate-android-icons && vite build --config vite.mobile.config.js && npx cap sync android && cd android && chmod +x gradlew && ./gradlew assembleRelease",
     "verify:mobile": "node scripts/verify-mobile-build.cjs",

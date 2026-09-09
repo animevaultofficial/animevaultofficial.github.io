@@ -116,8 +116,7 @@ public class MainActivity extends BridgeActivity {
             return;
         }
 
-        WebViewClient existingClient = webView.getWebViewClient();
-        webView.setWebViewClient(new AdBlockWebViewClient(existingClient));
+        webView.setWebViewClient(new AdBlockWebViewClient());
     }
 
     private static boolean isAllowedMedia(String url) {
@@ -157,60 +156,20 @@ public class MainActivity extends BridgeActivity {
     }
 
     private static final class AdBlockWebViewClient extends WebViewClient {
-        private final WebViewClient delegate;
-
-        AdBlockWebViewClient(WebViewClient delegate) {
-            this.delegate = delegate;
-        }
-
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
             Uri uri = request.getUrl();
             String url = uri != null ? uri.toString() : "";
 
             if (isAllowedMedia(url)) {
-                return delegate != null
-                    ? delegate.shouldInterceptRequest(view, request)
-                    : null;
+                return super.shouldInterceptRequest(view, request);
             }
 
             if (uri != null && isBlockedHost(uri)) {
                 return emptyBlockedResponse();
             }
 
-            return delegate != null
-                ? delegate.shouldInterceptRequest(view, request)
-                : null;
-        }
-
-        @Override
-        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-            return delegate != null && delegate.shouldOverrideUrlLoading(view, request);
-        }
-
-        @Override
-        public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            return delegate != null && delegate.shouldOverrideUrlLoading(view, url);
-        }
-
-        @Override
-        public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
-            if (delegate != null) delegate.onPageStarted(view, url, favicon);
-        }
-
-        @Override
-        public void onPageFinished(WebView view, String url) {
-            if (delegate != null) delegate.onPageFinished(view, url);
-        }
-
-        @Override
-        public void onReceivedError(WebView view, android.webkit.WebResourceRequest request, android.webkit.WebResourceError error) {
-            if (delegate != null) delegate.onReceivedError(view, request, error);
-        }
-
-        @Override
-        public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-            if (delegate != null) delegate.onReceivedError(view, errorCode, description, failingUrl);
+            return super.shouldInterceptRequest(view, request);
         }
     }
 }
