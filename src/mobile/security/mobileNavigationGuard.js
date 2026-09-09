@@ -17,10 +17,14 @@ function isInternal(url) {
 
 function blockNavigation(event, url) {
   if (!url || isInternal(url)) return;
+  try {
+    const parsed = new URL(url, window.location.href);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:' || parsed.protocol === 'mailto:' || parsed.protocol === 'tel:') return;
+  } catch {}
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
-  console.warn('[AnimeVault Mobile] Blocked external navigation:', url);
+  console.warn('[AnimeVault Mobile] Blocked unsafe navigation:', url);
 }
 
 export function installMobileNavigationGuard() {
@@ -31,7 +35,7 @@ export function installMobileNavigationGuard() {
     const anchor = event.target?.closest?.('a[href]');
     if (!anchor) return;
     const href = anchor.getAttribute('href');
-    if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+    if (!href || href.startsWith('#')) return;
     blockNavigation(event, href);
   };
 
@@ -43,9 +47,9 @@ export function installMobileNavigationGuard() {
 
   const originalOpen = window.open;
   const guardedOpen = (url, ...args) => {
-    if (!url || isInternal(String(url))) return originalOpen.call(window, url, ...args);
-    console.warn('[AnimeVault Mobile] Blocked window.open:', url);
-    return null;
+    if (!url) return originalOpen.call(window, url, ...args);
+    try { const protocol = new URL(String(url), window.location.href).protocol; if (['https:', 'http:', 'mailto:', 'tel:'].includes(protocol)) return originalOpen.call(window, url, ...args); } catch {}
+    console.warn('[AnimeVault Mobile] Blocked unsafe window.open:', url); return null;
   };
 
   document.addEventListener('click', onClick, true);

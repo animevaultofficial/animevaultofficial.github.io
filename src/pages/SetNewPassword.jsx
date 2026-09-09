@@ -12,15 +12,15 @@ export default function SetNewPassword() {
   const recovery = getPasswordRecovery();
   const initialEmail = params.get('email') || recovery?.email || '';
   const [email, setEmail] = useState(initialEmail);
-  const [otp, setOtp] = useState(recovery?.otp || '');
+  const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [status, setStatus] = useState('idle');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (email) savePasswordRecovery({ email: email.trim().toLowerCase(), otp, requestedAt: recovery?.requestedAt || Date.now() });
-  }, [email, otp]);
+    if (email) savePasswordRecovery({ email: email.trim().toLowerCase(), requestedAt: recovery?.requestedAt || Date.now() });
+  }, [email, recovery?.requestedAt]);
 
   const submit = async (event) => {
     event.preventDefault();
