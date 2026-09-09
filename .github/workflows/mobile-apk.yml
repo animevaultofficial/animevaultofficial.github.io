@@ -51,3 +51,40 @@ jobs:
           name: animevault-mobile-debug-apk
           path: mobile-app/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+
+      - name: Generate release tag
+        id: tag
+        run: echo "tag=$(date +'%Y.%m.%d-%H%M%S')" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release with APK
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: mobile-${{ steps.tag.outputs.tag }}
+          name: AnimeVault Mobile Debug APK - ${{ steps.tag.outputs.tag }}
+          body: |
+            ## AnimeVault Mobile Debug APK Build
+            
+            **Build Date:** ${{ steps.tag.outputs.tag }}
+            **Commit:** ${{ github.sha }}
+            **Branch:** ${{ github.ref_name }}
+            
+            ### Download
+            - `app-debug.apk` - Debug Android APK (installable on Android devices)
+            
+            ### Installation
+            1. Download the APK file
+            2. Transfer to your Android device or use ADB:
+               ```bash
+               adb install app-debug.apk
+               ```
+            3. The app will appear in your app drawer as "AnimeVault"
+            
+            ### Notes
+            - This is a **DEBUG build**, not for production use
+            - Signing is not production-grade
+            - Built from branch: `${{ github.ref_name }}`
+          files: mobile-app/android/app/build/outputs/apk/debug/app-debug.apk
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
