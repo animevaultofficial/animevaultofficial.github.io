@@ -1,0 +1,2 @@
+/* AnimeVault is now a movies / dramas / TV app. Keep legacy routes available for old links, but remove them from primary navigation. */
+a[href="#/anime"],a[href="/anime"],a[href="#/manga"],a[href="/manga"],button[data-route="/anime"],button[data-route="/manga"]{display:none!important;}
