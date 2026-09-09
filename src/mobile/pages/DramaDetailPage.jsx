@@ -4,7 +4,7 @@ import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails, EMBED_SERVERS 
 import { getProxiedEmbedUrl, isAdHeavyServer } from '../api/adProxy';
 import { useUser } from '../../api/UserContext';
 
-export default function DramaDetailPage({ params = {}, goBack, navigate }) {
+export default function DramaDetailPage({ params = {}, goBack, navigate, onWatch }) {
   const { user, setAuthTab } = useUser();
   const id = params?.id;
   const mediaType = String(params?.mediaType || params?.type || 'tv').toLowerCase() === 'movie' ? 'movie' : 'tv';
@@ -12,21 +12,10 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showPlayer, setShowPlayer] = useState(false);
   const [embedServer, setEmbedServer] = useState(0);
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [episodes, setEpisodes] = useState([]);
-  const [zenMode, setZenMode] = useState(true);
-  const [isFs, setIsFs] = useState(false);
-  const [playerLoading, setPlayerLoading] = useState(false);
-  const playerWrapperRef = useRef(null);
-
-  useEffect(() => {
-    const handler = () => setIsFs(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handler);
-    return () => document.removeEventListener('fullscreenchange', handler);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,14 +66,8 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
     return () => { cancelled = true; };
   }, [id, mediaType, details?.seasons, selectedSeason]);
 
-  const toggleFs = () => {
-    if (!playerWrapperRef.current) return;
-    if (document.fullscreenElement) document.exitFullscreen();
-    else playerWrapperRef.current.requestFullscreen();
-  };
-
   const requireWatch = () => {
-    if (user) { setPlayerLoading(true); setShowPlayer(true); return; }
+    if (user) { onWatch?.({ season: selectedSeason, episode: selectedEpisode }); return; }
     setAuthTab('login');
     navigate?.('profile');
   };
@@ -117,31 +100,6 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
   const genres = Array.isArray(details.genres) ? details.genres.map(g => g?.name).filter(Boolean) : [];
   const seasons = Array.isArray(details.seasons) ? details.seasons.filter(s => Number(s?.season_number) > 0) : [];
   const tmdbId = String(id).replace(/^tmdb-/i, '').trim();
-
-  if (showPlayer) {
-    const server = EMBED_SERVERS[embedServer] || EMBED_SERVERS[0];
-    const rawUrl = mediaType === 'movie' ? server.movie(tmdbId) : server.tv(tmdbId, selectedSeason, selectedEpisode);
-    const embedUrl = zenMode ? getProxiedEmbedUrl(rawUrl, isAdHeavyServer(rawUrl)) : rawUrl;
-    return (
-      <div ref={playerWrapperRef} className="player-screen player-screen-v2" style={isFs ? { padding: 0 } : {}}>
-        <div className="player-topbar player-topbar-v2">
-          <button className="player-icon-btn" onClick={() => setShowPlayer(false)} aria-label="Back"><ArrowLeft size={20} /></button>
-          <div className="player-title"><strong>{title}</strong><span>{mediaType === 'movie' ? 'Movie' : `S${selectedSeason} E${selectedEpisode}`}</span></div>
-          <div className="player-language"><button className={`ply-zen-btn ${zenMode ? 'active' : ''}`} onClick={() => setZenMode(!zenMode)}><Shield size={16} /></button></div>
-        </div>
-        <div className="player-frame-wrap player-frame-wrap-v2">
-          {playerLoading && <div className="player-loading"><div className="spinner" /><span>Opening player…</span></div>}
-          {zenMode && <div className="ply-zen-badge"><Shield size={14} /> Zen</div>}
-          {mediaType !== 'movie' && <div className="ply-center-nav"><button className="ply-nav-overlay" onClick={goPrevEp} aria-label="Previous episode"><SkipBack size={36} /></button><button className="ply-nav-overlay" onClick={goNextEp} aria-label="Next episode"><SkipForward size={36} /></button><button className="ply-fs-overlay" onClick={toggleFs} aria-label="Fullscreen">{isFs ? <Minimize size={22} /> : <Maximize size={22} />}</button></div>}
-          <iframe key={`${selectedEpisode}-${embedServer}`} src={embedUrl} className="player-frame" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen title={title} onLoad={() => setPlayerLoading(false)} />
-        </div>
-        <div className="player-episode-rail">
-          {mediaType !== 'movie' && <><button className="ply-rail-nav" onClick={goPrevEp} disabled={selectedEpisode <= 1}><SkipBack size={16} /></button><div className="ply-rail-scroll">{episodes.slice(0, 100).map(ep => <button key={ep.episode_number} className={ep.episode_number === selectedEpisode ? 'active' : ''} onClick={() => setSelectedEpisode(ep.episode_number)}>{ep.episode_number}</button>)}</div><button className="ply-rail-nav" onClick={goNextEp} disabled={selectedEpisode >= episodes.length}><SkipForward size={16} /></button></>}
-          <div className="ply-server-pills">{EMBED_SERVERS.map((s, i) => <button key={s.name} onClick={() => { setEmbedServer(i); setPlayerLoading(true); }} className={i === embedServer ? 'active' : ''}>{s.name}</button>)}</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="mobile-content" style={{ padding: 0 }}>

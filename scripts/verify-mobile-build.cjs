@@ -1,5 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
+const fs = require('node:fs');
+const path = require('node:path');
 
 const root = path.resolve('dist-mobile');
 const indexPath = path.join(root, 'index.html');

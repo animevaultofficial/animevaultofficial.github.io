@@ -64,6 +64,7 @@ async function generateIcons() {
 
   // Generate splash screen
   const splashSize = 1080;
+  fs.mkdirSync(path.join(androidResDir, 'drawable'), { recursive: true });
   await sharp(sourceIcon)
     .resize(400, 400, { fit: 'contain', background: { r: 15, g: 23, b: 42, alpha: 1 } })
     .png()

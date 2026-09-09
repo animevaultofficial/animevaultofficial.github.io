@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Mail, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { authClient } from '../../auth';
+import { savePasswordRecovery } from '../../components/PublicPasswordRoutes';
 
 export default function ForgotPasswordPage({ navigate }) {
   const [email, setEmail] = useState('');
@@ -16,6 +17,7 @@ export default function ForgotPasswordPage({ navigate }) {
     try {
       const result = await authClient.emailOtp.requestPasswordReset({ email: normalizedEmail });
       if (result?.error) throw new Error(result.error.message || 'Failed to send verification code.');
+      savePasswordRecovery({ email: normalizedEmail, requestedAt: Date.now() });
       setStatus('sent');
       setMessage('If an account exists for that email, a 6-digit verification code has been sent.');
     } catch (error) {
