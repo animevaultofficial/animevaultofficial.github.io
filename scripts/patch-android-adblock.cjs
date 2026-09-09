@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import fs from 'node:fs';
-import path from 'node:path';
+const fs = require('node:fs');
+const path = require('node:path');
 
 const mainActivity = path.join(
   process.cwd(),
@@ -32,18 +32,16 @@ import android.webkit.WebViewClient;
 import com.getcapacitor.BridgeActivity;
 
 import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import java.util.Set;
 import java.util.HashSet;
+import java.util.Set;
 
 /**
  * AnimeVault native network filter.
  *
- * This is intentionally implemented at the Android WebView request layer rather
- * than by injecting JavaScript or using an iframe. Requests to known advertising
- * and tracking hosts are cancelled before WebView loads them. Media and AnimeVault
- * API requests are explicitly allowed through.
+ * This is implemented at the Android WebView request layer rather than by
+ * injecting JavaScript or using an iframe. Known advertising and tracking
+ * hosts are cancelled before WebView loads them. Media requests are allowed.
  */
 public class MainActivity extends BridgeActivity {
     private static final Set<String> BLOCKED_HOSTS = new HashSet<>();
@@ -54,7 +52,7 @@ public class MainActivity extends BridgeActivity {
             "googlesyndication.com",
             "googleadservices.com",
             "adservice.google.com",
-            "pagead2.googlesyndication.com",
+            "pagead.googlesyndication.com",
             "adnxs.com",
             "adsrvr.org",
             "adform.net",
@@ -170,14 +168,12 @@ public class MainActivity extends BridgeActivity {
             Uri uri = request.getUrl();
             String url = uri != null ? uri.toString() : "";
 
-            // Never interfere with direct media/subtitle delivery.
             if (isAllowedMedia(url)) {
                 return delegate != null
                     ? delegate.shouldInterceptRequest(view, request)
                     : null;
             }
 
-            // Cancel known advertising/tracking hosts before they reach WebView.
             if (uri != null && isBlockedHost(uri)) {
                 return emptyBlockedResponse();
             }
