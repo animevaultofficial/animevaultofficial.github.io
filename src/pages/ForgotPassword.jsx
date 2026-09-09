@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mail, ShieldCheck } from 'lucide-react';
 import { authClient } from '../auth';
+import { savePasswordRecovery } from '../components/PublicPasswordRoutes';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -18,6 +19,8 @@ export default function ForgotPassword() {
     try {
       const result = await authClient.emailOtp.requestPasswordReset({ email: normalizedEmail });
       if (result?.error) throw new Error(result.error.message || 'Failed to send verification code.');
+      // Keep recovery alive if Android recreates the WebView while the user checks email.
+      savePasswordRecovery({ email: normalizedEmail, requestedAt: Date.now() });
       navigate(`/set-new-password?email=${encodeURIComponent(normalizedEmail)}`);
     } catch (err) {
       console.error(err);
