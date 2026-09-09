@@ -39,6 +39,9 @@ function createUnavailableAuthClient() {
     },
     emailOtp: {
       sendVerificationOtp: (...args) => unavailable('emailOtp.sendVerificationOtp'),
+      requestPasswordReset: (...args) => unavailable('emailOtp.requestPasswordReset'),
+      checkVerificationOtp: (...args) => unavailable('emailOtp.checkVerificationOtp'),
+      resetPassword: (...args) => unavailable('emailOtp.resetPassword'),
     },
     requestPasswordReset: (...args) => unavailable('requestPasswordReset'),
     resetPassword: (...args) => unavailable('resetPassword'),
