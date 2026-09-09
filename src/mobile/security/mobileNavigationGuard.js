@@ -1,26 +1,20 @@
-const INTERNAL_ORIGINS = new Set([
-  'capacitor://localhost',
-  'http://localhost',
-  'https://animevaultofficial.fun',
-  'https://www.animevaultofficial.fun',
-]);
+const BLOCKED_PROTOCOLS = new Set(['javascript:','data:','vbscript:','file:','blob:']);
 
-function isInternal(url) {
+function isBlocked(url) {
   try {
-    const parsed = new URL(url, window.location.href);
-    if (parsed.protocol === 'about:') return parsed.href === 'about:blank';
-    return INTERNAL_ORIGINS.has(parsed.origin);
+    const parsed = new URL(String(url), window.location.href);
+    return BLOCKED_PROTOCOLS.has(parsed.protocol.toLowerCase());
   } catch {
-    return false;
+    return true;
   }
 }
 
 function blockNavigation(event, url) {
-  if (!url || isInternal(url)) return;
+  if (!url || !isBlocked(url)) return;
   event.preventDefault();
   event.stopPropagation();
   event.stopImmediatePropagation?.();
-  console.warn('[AnimeVault Mobile] Blocked external navigation:', url);
+  console.warn('[AnimeVault Mobile] Blocked unsafe navigation:', url);
 }
 
 export function installMobileNavigationGuard() {
@@ -30,9 +24,7 @@ export function installMobileNavigationGuard() {
   const onClick = (event) => {
     const anchor = event.target?.closest?.('a[href]');
     if (!anchor) return;
-    const href = anchor.getAttribute('href');
-    if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
-    blockNavigation(event, href);
+    blockNavigation(event, anchor.getAttribute('href'));
   };
 
   const onAuxClick = (event) => {
@@ -43,8 +35,8 @@ export function installMobileNavigationGuard() {
 
   const originalOpen = window.open;
   const guardedOpen = (url, ...args) => {
-    if (!url || isInternal(String(url))) return originalOpen.call(window, url, ...args);
-    console.warn('[AnimeVault Mobile] Blocked window.open:', url);
+    if (!url || !isBlocked(String(url))) return originalOpen.call(window, url, ...args);
+    console.warn('[AnimeVault Mobile] Blocked unsafe window.open:', url);
     return null;
   };
 
