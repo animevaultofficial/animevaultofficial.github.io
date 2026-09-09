@@ -1,0 +1,53 @@
+name: Build Mobile APK
+
+on:
+  push:
+    branches:
+      - mobile-frontend-rebuild
+    paths:
+      - 'mobile-app/**'
+      - '.github/workflows/mobile-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build Android APK
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install mobile app dependencies
+        working-directory: mobile-app
+        run: npm install
+
+      - name: Generate native Android project with Expo prebuild
+        working-directory: mobile-app
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Grant execute permission to Gradle wrapper
+        working-directory: mobile-app
+        run: chmod +x android/gradlew
+
+      - name: Build debug APK
+        working-directory: mobile-app/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: animevault-mobile-debug-apk
+          path: mobile-app/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
