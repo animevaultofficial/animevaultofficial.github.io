@@ -1,4 +1,4 @@
-const BLOCKED_PROTOCOLS = new Set(['javascript:','data:','vbscript:','file:','blob:']);
+const BLOCKED_PROTOCOLS = new Set(['javascript:','data:','vbscript:','file:']);
 
 function isBlocked(url) {
   try {
