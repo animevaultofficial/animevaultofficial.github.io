@@ -2,6 +2,14 @@ const TMDB_API_KEY = '288d312680f3117dd4c56964be6809dc';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const MEDIA_SOURCE_API = import.meta.env.VITE_MEDIA_SOURCE_API || '';
 
+export const MEDIA_SOURCE_PROVIDERS = [
+  { id: 'videasy', name: 'Videasy', default: true },
+  { id: 'vidsrc', name: 'VidSrc', default: false },
+  { id: 'vidnest', name: 'Vidnest', default: false },
+];
+
+export const DEFAULT_MEDIA_SOURCE_PROVIDER = 'videasy';
+
 async function tmdbFetch(endpoint) {
   try {
     const url = new URL(`${TMDB_BASE}${endpoint}`);
@@ -42,16 +50,22 @@ export async function fetchMediaMeta(mediaType, tmdbId) {
   return mediaType === 'movie' ? fetchMovieDetails(tmdbId) : fetchTVDetails(tmdbId);
 }
 
-// Native-player source resolver.
-// The endpoint must return a direct media URL, never an iframe/embed page.
-// Expected JSON: { url: "https://your-cdn.example/video.m3u8" }
-export async function resolveDirectMediaSource(mediaType, tmdbId, season = null, episode = null) {
+// AnimeVault source resolver.
+// Providers are selected by AnimeVault, while the backend must return a
+// direct media URL that the native player can legally play (MP4/HLS/etc.).
+// The frontend never converts provider pages into media streams.
+export async function resolveDirectMediaSource(mediaType, tmdbId, season = null, episode = null, provider = DEFAULT_MEDIA_SOURCE_PROVIDER) {
   if (!MEDIA_SOURCE_API) return null;
+
+  const selectedProvider = MEDIA_SOURCE_PROVIDERS.some(item => item.id === provider)
+    ? provider
+    : DEFAULT_MEDIA_SOURCE_PROVIDER;
 
   try {
     const url = new URL(MEDIA_SOURCE_API, window.location.origin);
     url.searchParams.set('type', mediaType === 'movie' ? 'movie' : 'tv');
     url.searchParams.set('tmdbId', String(tmdbId));
+    url.searchParams.set('provider', selectedProvider);
     if (mediaType !== 'movie') {
       url.searchParams.set('season', String(season || 1));
       url.searchParams.set('episode', String(episode || 1));
