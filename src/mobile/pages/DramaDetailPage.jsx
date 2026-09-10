@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, SkipBack, SkipForward, Maximize, Minimize } from 'lucide-react';
-import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails, resolveDirectMediaSource } from '../api/movies';
+import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails, resolveDirectMediaSource, MEDIA_SOURCE_PROVIDERS, DEFAULT_MEDIA_SOURCE_PROVIDER } from '../api/movies';
 import AndroidVideoPlayer from '../components/AndroidVideoPlayer';
 import { useUser } from '../../api/UserContext';
 
@@ -20,6 +20,7 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
   const [mediaSource, setMediaSource] = useState(routeSourceUrl);
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceError, setSourceError] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState(DEFAULT_MEDIA_SOURCE_PROVIDER);
   const [isFs, setIsFs] = useState(false);
   const playerWrapperRef = useRef(null);
 
@@ -71,18 +72,23 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
     return () => { cancelled = true; };
   }, [id, mediaType, details?.seasons, selectedSeason]);
 
-  const loadSource = async (season = selectedSeason, episode = selectedEpisode) => {
+  const loadSource = async (season = selectedSeason, episode = selectedEpisode, provider = selectedProvider) => {
     const numericId = String(id || '').replace(/^tmdb-/i, '').trim();
     if (!numericId) return;
     setSourceLoading(true);
     setSourceError('');
-    const resolved = await resolveDirectMediaSource(mediaType, numericId, season, episode);
+    const resolved = await resolveDirectMediaSource(mediaType, numericId, season, episode, provider);
     if (resolved) setMediaSource(resolved);
     else if (!routeSourceUrl) {
       setMediaSource('');
-      setSourceError('No direct media source is configured. Add VITE_MEDIA_SOURCE_API and return a direct MP4, WebM, OGG or HLS (.m3u8) URL.');
+      setSourceError(`No direct media source is available from ${provider}. Configure VITE_MEDIA_SOURCE_API to return a direct MP4, WebM, OGG or HLS (.m3u8) URL.`);
     }
     setSourceLoading(false);
+  };
+
+  const selectProvider = async (provider) => {
+    setSelectedProvider(provider);
+    if (showPlayer) await loadSource(selectedSeason, selectedEpisode, provider);
   };
 
   const toggleFs = () => {
@@ -132,8 +138,15 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
           <div className="player-title"><strong>{title}</strong><span>{mediaType === 'movie' ? 'Movie' : `S${selectedSeason} E${selectedEpisode}`}</span></div>
           <button className="player-icon-btn" onClick={toggleFs} aria-label="Fullscreen">{isFs ? <Minimize size={20} /> : <Maximize size={20} />}</button>
         </div>
+        <div className="player-source-bar" style={{ display: 'flex', gap: 8, padding: '8px 12px', overflowX: 'auto', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+          {MEDIA_SOURCE_PROVIDERS.map(provider => (
+            <button key={provider.id} onClick={() => selectProvider(provider.id)} style={{ flexShrink: 0, border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', background: provider.id === selectedProvider ? 'var(--brand-color)' : 'rgba(255,255,255,.05)', color: '#fff', fontWeight: provider.id === selectedProvider ? 700 : 500 }}>
+              {provider.name}{provider.id === DEFAULT_MEDIA_SOURCE_PROVIDER ? ' · Default' : ''}
+            </button>
+          ))}
+        </div>
         <div className="player-frame-wrap player-frame-wrap-v2">
-          {sourceLoading && <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Preparing media…</div>}
+          {sourceLoading && <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Preparing {selectedProvider}…</div>}
           {sourceError && !sourceLoading && <div style={{ padding: 24, textAlign: 'center', color: '#fca5a5' }}>{sourceError}</div>}
           {!sourceLoading && !sourceError && <AndroidVideoPlayer sourceUrl={mediaSource} poster={poster} title={title} onPrevEpisode={mediaType !== 'movie' ? goPrevEp : undefined} onNextEpisode={mediaType !== 'movie' ? goNextEp : undefined} />}
         </div>
