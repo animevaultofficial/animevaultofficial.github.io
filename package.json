@@ -22,7 +22,7 @@
     "electron:release": "npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --publish always",
     "electron:build:win": "npm run prebuild && npm run clean && npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --win --publish never",
     "electron:build:mac": "npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --mac --publish never",
-    "electron:build:linux": "npm run generate-icons && npm run clean && npm run generate-icons && electron-builder --linux --publish never",
+    "electron:build:linux": "npm run prebuild && npm run clean && npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --linux --publish never",
     "webos:build": "vite build --mode webos",
     "webos:package": "node scripts/build-webos.cjs"
   },
@@ -54,6 +54,7 @@
     "express": "^5.2.1",
     "framer-motion": "^12.38.0",
     "graphql-request": "^6.1.0",
+    "hls.js": "^1.6.13",
     "lucide-react": "^1.21.0",
     "mangakakalot-api": "^1.0.3",
     "react": "^18.3.1",
@@ -72,7 +73,7 @@
     "rimraf": "^5.0.5",
     "sharp": "^0.35.2",
     "vite": "^5.4.21",
-    "wait-on": "^7.2.0"
+    "wait-on": "^7.0.0"
   },
   "engines": { "node": ">=22.12.0" }
 }
