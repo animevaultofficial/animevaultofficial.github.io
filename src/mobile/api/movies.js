@@ -1,5 +1,6 @@
 const TMDB_API_KEY = '288d312680f3117dd4c56964be6809dc';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
+const MEDIA_SOURCE_API = import.meta.env.VITE_MEDIA_SOURCE_API || '';
 
 async function tmdbFetch(endpoint) {
   try {
@@ -7,6 +8,7 @@ async function tmdbFetch(endpoint) {
     url.searchParams.set('api_key', TMDB_API_KEY);
     url.searchParams.set('language', 'en-US');
     const res = await fetch(url.toString());
+    if (!res.ok) return null;
     return await res.json();
   } catch { return null; }
 }
@@ -37,50 +39,29 @@ export async function searchMoviesAndSeries(query, page = 1) {
 }
 
 export async function fetchMediaMeta(mediaType, tmdbId) {
-  if (mediaType === 'movie') return fetchMovieDetails(tmdbId);
-  else return fetchTVDetails(tmdbId);
+  return mediaType === 'movie' ? fetchMovieDetails(tmdbId) : fetchTVDetails(tmdbId);
 }
 
-// ── Player Sources ──
-// User-selectable embed providers. The player UI renders these automatically.
-export const EMBED_SERVERS = [
-  {
-    name: 'VidSrc',
-    movie: (id) => `https://vsembed.su/embed/movie/${id}`,
-    tv: (id, s, e) => `https://vsembed.su/embed/tv/${id}/${s}/${e}`,
-  },
-  {
-    name: 'Videasy',
-    colorParam: 'color',
-    params: { overlay: 'true' },
-    movie: (id) => `https://player.videasy.net/movie/${id}`,
-    tv: (id, s, e) => `https://player.videasy.net/tv/${id}/${s}/${e}`,
-  },
-  {
-    name: 'Vidnest',
-    movie: (id) => `https://vidnest.fun/movie/${id}`,
-    tv: (id, s, e) => `https://vidnest.fun/tv/${id}/${s}/${e}`,
-  },
-];
+// Native-player source resolver.
+// The endpoint must return a direct media URL, never an iframe/embed page.
+// Expected JSON: { url: "https://your-cdn.example/video.m3u8" }
+export async function resolveDirectMediaSource(mediaType, tmdbId, season = null, episode = null) {
+  if (!MEDIA_SOURCE_API) return null;
 
-export function getPlayerUrl(mediaType, tmdbId, season, episode, serverIndex = 0, accentColor = null) {
-  const server = EMBED_SERVERS[serverIndex] || EMBED_SERVERS[0];
-  let url;
-  if (mediaType === 'movie') {
-    url = server.movie(tmdbId);
-  } else {
-    url = server.tv(tmdbId, season || 1, episode || 1);
-  }
+  try {
+    const url = new URL(MEDIA_SOURCE_API, window.location.origin);
+    url.searchParams.set('type', mediaType === 'movie' ? 'movie' : 'tv');
+    url.searchParams.set('tmdbId', String(tmdbId));
+    if (mediaType !== 'movie') {
+      url.searchParams.set('season', String(season || 1));
+      url.searchParams.set('episode', String(episode || 1));
+    }
 
-  if (accentColor && server.colorParam) {
-    try {
-      const parsed = new URL(url);
-      parsed.searchParams.set(server.colorParam, accentColor.replace(/^#/, ''));
-      if (server.params) {
-        Object.entries(server.params).forEach(([k, v]) => parsed.searchParams.set(k, v));
-      }
-      return parsed.toString();
-    } catch { return url; }
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return typeof data?.url === 'string' ? data.url : null;
+  } catch {
+    return null;
   }
-  return url;
 }
