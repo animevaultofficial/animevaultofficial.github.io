@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, SkipBack, SkipForward, Maximize, Minimize } from 'lucide-react';
-import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails } from '../api/movies';
+import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails, resolveDirectMediaSource } from '../api/movies';
 import AndroidVideoPlayer from '../components/AndroidVideoPlayer';
 import { useUser } from '../../api/UserContext';
 
@@ -9,7 +9,7 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
   const id = params?.id;
   const mediaType = String(params?.mediaType || params?.type || 'tv').toLowerCase() === 'movie' ? 'movie' : 'tv';
   const initialTitle = params?.title;
-  const directSourceUrl = params?.sourceUrl || params?.videoUrl || params?.streamUrl || '';
+  const routeSourceUrl = params?.sourceUrl || params?.videoUrl || params?.streamUrl || '';
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -17,6 +17,9 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [episodes, setEpisodes] = useState([]);
+  const [mediaSource, setMediaSource] = useState(routeSourceUrl);
+  const [sourceLoading, setSourceLoading] = useState(false);
+  const [sourceError, setSourceError] = useState('');
   const [isFs, setIsFs] = useState(false);
   const playerWrapperRef = useRef(null);
 
@@ -68,25 +71,44 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
     return () => { cancelled = true; };
   }, [id, mediaType, details?.seasons, selectedSeason]);
 
+  const loadSource = async (season = selectedSeason, episode = selectedEpisode) => {
+    const numericId = String(id || '').replace(/^tmdb-/i, '').trim();
+    if (!numericId) return;
+    setSourceLoading(true);
+    setSourceError('');
+    const resolved = await resolveDirectMediaSource(mediaType, numericId, season, episode);
+    if (resolved) setMediaSource(resolved);
+    else if (!routeSourceUrl) {
+      setMediaSource('');
+      setSourceError('No direct media source is configured. Add VITE_MEDIA_SOURCE_API and return a direct MP4, WebM, OGG or HLS (.m3u8) URL.');
+    }
+    setSourceLoading(false);
+  };
+
   const toggleFs = () => {
     if (!playerWrapperRef.current) return;
     if (document.fullscreenElement) document.exitFullscreen();
-    else playerWrapperRef.current.requestFullscreen();
+    else playerWrapperRef.current.requestFullscreen?.();
   };
 
-  const requireWatch = () => {
-    if (user) { setShowPlayer(true); return; }
-    setAuthTab('login');
-    navigate?.('profile');
+  const requireWatch = async () => {
+    if (!user) { setAuthTab('login'); navigate?.('profile'); return; }
+    setShowPlayer(true);
+    await loadSource();
+  };
+
+  const changeEpisode = async (episode) => {
+    setSelectedEpisode(episode);
+    if (showPlayer) await loadSource(selectedSeason, episode);
   };
 
   const goNextEp = () => {
     const idx = episodes.findIndex(e => e.episode_number === selectedEpisode);
-    if (idx < episodes.length - 1) setSelectedEpisode(episodes[idx + 1].episode_number);
+    if (idx < episodes.length - 1) changeEpisode(episodes[idx + 1].episode_number);
   };
   const goPrevEp = () => {
     const idx = episodes.findIndex(e => e.episode_number === selectedEpisode);
-    if (idx > 0) setSelectedEpisode(episodes[idx - 1].episode_number);
+    if (idx > 0) changeEpisode(episodes[idx - 1].episode_number);
   };
 
   if (loading) return <div className="mobile-content"><div className="loading-shimmer" style={{ width: '100%', height: 250, borderRadius: 12, marginBottom: 16 }} /><div className="loading-shimmer" style={{ width: '60%', height: 28, borderRadius: 8, marginBottom: 12 }} /></div>;
@@ -111,11 +133,13 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
           <button className="player-icon-btn" onClick={toggleFs} aria-label="Fullscreen">{isFs ? <Minimize size={20} /> : <Maximize size={20} />}</button>
         </div>
         <div className="player-frame-wrap player-frame-wrap-v2">
-          <AndroidVideoPlayer sourceUrl={directSourceUrl} poster={poster} title={title} onPrevEpisode={mediaType !== 'movie' ? goPrevEp : undefined} onNextEpisode={mediaType !== 'movie' ? goNextEp : undefined} />
+          {sourceLoading && <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Preparing media…</div>}
+          {sourceError && !sourceLoading && <div style={{ padding: 24, textAlign: 'center', color: '#fca5a5' }}>{sourceError}</div>}
+          {!sourceLoading && !sourceError && <AndroidVideoPlayer sourceUrl={mediaSource} poster={poster} title={title} onPrevEpisode={mediaType !== 'movie' ? goPrevEp : undefined} onNextEpisode={mediaType !== 'movie' ? goNextEp : undefined} />}
         </div>
         {mediaType !== 'movie' && <div className="player-episode-rail">
           <button className="ply-rail-nav" onClick={goPrevEp} disabled={selectedEpisode <= 1}><SkipBack size={16} /></button>
-          <div className="ply-rail-scroll">{episodes.slice(0, 100).map(ep => <button key={ep.episode_number} className={ep.episode_number === selectedEpisode ? 'active' : ''} onClick={() => setSelectedEpisode(ep.episode_number)}>{ep.episode_number}</button>)}</div>
+          <div className="ply-rail-scroll">{episodes.slice(0, 100).map(ep => <button key={ep.episode_number} className={ep.episode_number === selectedEpisode ? 'active' : ''} onClick={() => changeEpisode(ep.episode_number)}>{ep.episode_number}</button>)}</div>
           <button className="ply-rail-nav" onClick={goNextEp} disabled={selectedEpisode >= episodes.length}><SkipForward size={16} /></button>
         </div>}
       </div>
