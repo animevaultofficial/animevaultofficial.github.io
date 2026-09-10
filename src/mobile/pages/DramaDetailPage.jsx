@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, SkipBack, SkipForward, Maximize, Minimize, Shield } from 'lucide-react';
-import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails, EMBED_SERVERS } from '../api/movies';
-import { getProxiedEmbedUrl, isAdHeavyServer } from '../api/adProxy';
+import { ArrowLeft, SkipBack, SkipForward, Maximize, Minimize } from 'lucide-react';
+import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails } from '../api/movies';
+import AndroidVideoPlayer from '../components/AndroidVideoPlayer';
 import { useUser } from '../../api/UserContext';
 
 export default function DramaDetailPage({ params = {}, goBack, navigate }) {
@@ -9,17 +9,15 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
   const id = params?.id;
   const mediaType = String(params?.mediaType || params?.type || 'tv').toLowerCase() === 'movie' ? 'movie' : 'tv';
   const initialTitle = params?.title;
+  const directSourceUrl = params?.sourceUrl || params?.videoUrl || params?.streamUrl || '';
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showPlayer, setShowPlayer] = useState(false);
-  const [embedServer, setEmbedServer] = useState(0);
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [selectedEpisode, setSelectedEpisode] = useState(1);
   const [episodes, setEpisodes] = useState([]);
-  const [zenMode, setZenMode] = useState(true);
   const [isFs, setIsFs] = useState(false);
-  const [playerLoading, setPlayerLoading] = useState(false);
   const playerWrapperRef = useRef(null);
 
   useEffect(() => {
@@ -31,15 +29,8 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (!id) {
-        setError('Missing movie or TV show ID.');
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      setError('');
-      setDetails(null);
-      setEpisodes([]);
+      if (!id) { setError('Missing movie or TV show ID.'); setLoading(false); return; }
+      setLoading(true); setError(''); setDetails(null); setEpisodes([]);
       try {
         const numericId = String(id).replace(/^tmdb-/i, '').trim();
         const data = mediaType === 'movie' ? await fetchMovieDetails(numericId) : await fetchTVDetails(numericId);
@@ -84,7 +75,7 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
   };
 
   const requireWatch = () => {
-    if (user) { setPlayerLoading(true); setShowPlayer(true); return; }
+    if (user) { setShowPlayer(true); return; }
     setAuthTab('login');
     navigate?.('profile');
   };
@@ -99,13 +90,7 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
   };
 
   if (loading) return <div className="mobile-content"><div className="loading-shimmer" style={{ width: '100%', height: 250, borderRadius: 12, marginBottom: 16 }} /><div className="loading-shimmer" style={{ width: '60%', height: 28, borderRadius: 8, marginBottom: 12 }} /></div>;
-
-  if (error || !details) return (
-    <div className="mobile-content" style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-      <p style={{ color: '#94a3b8' }}>{error || 'Failed to load details'}</p>
-      <button onClick={goBack} style={{ marginTop: 12, background: 'var(--brand-color)', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: 8 }}>Go Back</button>
-    </div>
-  );
+  if (error || !details) return <div className="mobile-content" style={{ textAlign: 'center', padding: '3rem 1rem' }}><p style={{ color: '#94a3b8' }}>{error || 'Failed to load details'}</p><button onClick={goBack} style={{ marginTop: 12, background: 'var(--brand-color)', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: 8 }}>Go Back</button></div>;
 
   const title = details.title || details.name || initialTitle || 'Unknown';
   const poster = details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : null;
@@ -116,29 +101,23 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
   const overview = details.overview || 'No description available.';
   const genres = Array.isArray(details.genres) ? details.genres.map(g => g?.name).filter(Boolean) : [];
   const seasons = Array.isArray(details.seasons) ? details.seasons.filter(s => Number(s?.season_number) > 0) : [];
-  const tmdbId = String(id).replace(/^tmdb-/i, '').trim();
 
   if (showPlayer) {
-    const server = EMBED_SERVERS[embedServer] || EMBED_SERVERS[0];
-    const rawUrl = mediaType === 'movie' ? server.movie(tmdbId) : server.tv(tmdbId, selectedSeason, selectedEpisode);
-    const embedUrl = zenMode ? getProxiedEmbedUrl(rawUrl, isAdHeavyServer(rawUrl)) : rawUrl;
     return (
       <div ref={playerWrapperRef} className="player-screen player-screen-v2" style={isFs ? { padding: 0 } : {}}>
         <div className="player-topbar player-topbar-v2">
           <button className="player-icon-btn" onClick={() => setShowPlayer(false)} aria-label="Back"><ArrowLeft size={20} /></button>
           <div className="player-title"><strong>{title}</strong><span>{mediaType === 'movie' ? 'Movie' : `S${selectedSeason} E${selectedEpisode}`}</span></div>
-          <div className="player-language"><button className={`ply-zen-btn ${zenMode ? 'active' : ''}`} onClick={() => setZenMode(!zenMode)}><Shield size={16} /></button></div>
+          <button className="player-icon-btn" onClick={toggleFs} aria-label="Fullscreen">{isFs ? <Minimize size={20} /> : <Maximize size={20} />}</button>
         </div>
         <div className="player-frame-wrap player-frame-wrap-v2">
-          {playerLoading && <div className="player-loading"><div className="spinner" /><span>Opening player…</span></div>}
-          {zenMode && <div className="ply-zen-badge"><Shield size={14} /> Zen</div>}
-          {mediaType !== 'movie' && <div className="ply-center-nav"><button className="ply-nav-overlay" onClick={goPrevEp} aria-label="Previous episode"><SkipBack size={36} /></button><button className="ply-nav-overlay" onClick={goNextEp} aria-label="Next episode"><SkipForward size={36} /></button><button className="ply-fs-overlay" onClick={toggleFs} aria-label="Fullscreen">{isFs ? <Minimize size={22} /> : <Maximize size={22} />}</button></div>}
-          <iframe key={`${selectedEpisode}-${embedServer}`} src={embedUrl} className="player-frame" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen title={title} onLoad={() => setPlayerLoading(false)} />
+          <AndroidVideoPlayer sourceUrl={directSourceUrl} poster={poster} title={title} onPrevEpisode={mediaType !== 'movie' ? goPrevEp : undefined} onNextEpisode={mediaType !== 'movie' ? goNextEp : undefined} />
         </div>
-        <div className="player-episode-rail">
-          {mediaType !== 'movie' && <><button className="ply-rail-nav" onClick={goPrevEp} disabled={selectedEpisode <= 1}><SkipBack size={16} /></button><div className="ply-rail-scroll">{episodes.slice(0, 100).map(ep => <button key={ep.episode_number} className={ep.episode_number === selectedEpisode ? 'active' : ''} onClick={() => setSelectedEpisode(ep.episode_number)}>{ep.episode_number}</button>)}</div><button className="ply-rail-nav" onClick={goNextEp} disabled={selectedEpisode >= episodes.length}><SkipForward size={16} /></button></>}
-          <div className="ply-server-pills">{EMBED_SERVERS.map((s, i) => <button key={s.name} onClick={() => { setEmbedServer(i); setPlayerLoading(true); }} className={i === embedServer ? 'active' : ''}>{s.name}</button>)}</div>
-        </div>
+        {mediaType !== 'movie' && <div className="player-episode-rail">
+          <button className="ply-rail-nav" onClick={goPrevEp} disabled={selectedEpisode <= 1}><SkipBack size={16} /></button>
+          <div className="ply-rail-scroll">{episodes.slice(0, 100).map(ep => <button key={ep.episode_number} className={ep.episode_number === selectedEpisode ? 'active' : ''} onClick={() => setSelectedEpisode(ep.episode_number)}>{ep.episode_number}</button>)}</div>
+          <button className="ply-rail-nav" onClick={goNextEp} disabled={selectedEpisode >= episodes.length}><SkipForward size={16} /></button>
+        </div>}
       </div>
     );
   }
