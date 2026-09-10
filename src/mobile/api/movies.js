@@ -41,11 +41,14 @@ export async function fetchMediaMeta(mediaType, tmdbId) {
   else return fetchTVDetails(tmdbId);
 }
 
-// ── Player Sources (matching web version) ──
-// Primary: Videasy (same as web's playerSources.js)
-// Fallbacks: VidSrc, VidKing
-
+// ── Player Sources ──
+// User-selectable embed providers. The player UI renders these automatically.
 export const EMBED_SERVERS = [
+  {
+    name: 'VidSrc',
+    movie: (id) => `https://vsembed.su/embed/movie/${id}`,
+    tv: (id, s, e) => `https://vsembed.su/embed/tv/${id}/${s}/${e}`,
+  },
   {
     name: 'Videasy',
     colorParam: 'color',
@@ -54,23 +57,10 @@ export const EMBED_SERVERS = [
     tv: (id, s, e) => `https://player.videasy.net/tv/${id}/${s}/${e}`,
   },
   {
-    name: 'VidSrc',
-    movie: (id) => `https://vsembed.su/embed/movie/${id}`,
-    tv: (id, s, e) => `https://vsembed.su/embed/tv/${id}/${s}/${e}`,
-  },
-  {
-    name: 'VidKing',
-    colorParam: 'color',
-    params: { autoPlay: 'true' },
-    movie: (id) => `https://www.vidking.net/embed/movie/${id}`,
-    tv: (id, s, e) => `https://www.vidking.net/embed/tv/${id}/${s}/${e}`,
-  },
-  {
     name: 'Vidnest',
     movie: (id) => `https://vidnest.fun/movie/${id}`,
     tv: (id, s, e) => `https://vidnest.fun/tv/${id}/${s}/${e}`,
   },
-
 ];
 
 export function getPlayerUrl(mediaType, tmdbId, season, episode, serverIndex = 0, accentColor = null) {
@@ -81,12 +71,11 @@ export function getPlayerUrl(mediaType, tmdbId, season, episode, serverIndex = 0
   } else {
     url = server.tv(tmdbId, season || 1, episode || 1);
   }
-  // Add accent color if supported
+
   if (accentColor && server.colorParam) {
     try {
       const parsed = new URL(url);
       parsed.searchParams.set(server.colorParam, accentColor.replace(/^#/, ''));
-      // Add any extra params
       if (server.params) {
         Object.entries(server.params).forEach(([k, v]) => parsed.searchParams.set(k, v));
       }
