@@ -1,48 +1,34 @@
-// Player sources for AnimeVault (inspired by Streambert)
+// Player sources for AnimeVault
+// User-selectable embed providers for movies and TV shows.
 export const PLAYER_SOURCES = [
-  {
-    id: "videasy",
-    label: "Videasy",
-    tag: null,
-    note: null,
-    supportsProgress: true,
-    colorParam: "color", // hex without # → e.g. "e50914"
-    langParam: null, // no subtitle lang param
-    params: {
-      overlay: "true",
-    },
-    movieUrl: (id) => `https://player.videasy.net/movie/${id}`,
-    tvUrl: (id, season, ep) =>
-      `https://player.videasy.net/tv/${id}/${season}/${ep}`,
-  },
   {
     id: "vidsrc",
     label: "VidSrc",
     tag: null,
     note: null,
     supportsProgress: true,
-    progressViaFrames: true, // video is in a nested iframe, needs main-process frame query
-    colorParam: null, // vidsrc doesn't support color param
-    langParam: "ds_lang", // ISO 639-1 language code
+    progressViaFrames: true,
+    colorParam: null,
+    langParam: "ds_lang",
     params: {},
     movieUrl: (id) => `https://vsembed.su/embed/movie/${id}`,
     tvUrl: (id, season, ep) =>
       `https://vsembed.su/embed/tv/${id}/${season}/${ep}`,
   },
   {
-    id: "vidking",
-    label: "Vidking",
+    id: "videasy",
+    label: "Videasy",
     tag: null,
     note: null,
     supportsProgress: true,
-    colorParam: "color", // hex without # → e.g. "e50914"
+    colorParam: "color",
     langParam: null,
     params: {
-      autoPlay: "true",
+      overlay: "true",
     },
-    movieUrl: (id) => `https://www.vidking.net/embed/movie/${id}`,
+    movieUrl: (id) => `https://player.videasy.net/movie/${id}`,
     tvUrl: (id, season, ep) =>
-      `https://www.vidking.net/embed/tv/${id}/${season}/${ep}`,
+      `https://player.videasy.net/tv/${id}/${season}/${ep}`,
   },
   {
     id: "vidnest",
@@ -56,7 +42,6 @@ export const PLAYER_SOURCES = [
     movieUrl: (id) => `https://vidnest.fun/movie/${id}`,
     tvUrl: (id, season, ep) => `https://vidnest.fun/tv/${id}/${season}/${ep}`,
   },
-  // We'll add AllManga later if needed
 ];
 
 export const getSourceUrl = (
@@ -80,7 +65,6 @@ export const getSourceUrl = (
     url.searchParams.set(key, value);
   });
 
-  // Inject accent color into the player if the source supports it
   if (accentColor && src.colorParam) {
     url.searchParams.set(src.colorParam, accentColor.replace(/^#/, ""));
   }
