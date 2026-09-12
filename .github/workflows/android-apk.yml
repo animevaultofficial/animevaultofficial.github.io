@@ -67,15 +67,14 @@ jobs:
       - name: Install Android SDK packages
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Create or sync Capacitor Android project
+      - name: Create fresh Capacitor Android project
         run: |
           set -euo pipefail
-          if [ -d android ]; then
-            npx cap sync android
-          else
-            npx cap add android
-            npx cap sync android
-          fi
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+          test -f android/app/build.gradle.kts || test -f android/app/build.gradle
+          test -x android/gradlew
 
       - name: Generate launcher icons
         run: |
@@ -119,36 +118,64 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
+
           candidates = [Path('android/app/build.gradle.kts'), Path('android/app/build.gradle')]
           p = next((x for x in candidates if x.exists()), None)
           if p is None:
               raise SystemExit('No Android app Gradle build file found')
+
           text = p.read_text()
+          print(f'Gradle file: {p}')
+
           if p.suffix == '.kts':
-              if 'compileSdk =' not in text:
+              if 'compileSdk = 35' not in text and 'compileSdk = ' not in text:
                   text = text.replace('android {', 'android {\n    compileSdk = 35', 1)
-              if 'signingConfigs {' not in text:
-                  block = '''    signingConfigs {\n        create("release") {\n            storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias = System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n\n'''
-                  text = text.replace('    buildTypes {', block + '    buildTypes {', 1)
+
+              signing = '''    signingConfigs {\n        create("release") {\n            storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias = System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n\n'''
+              if 'create("release")' not in text and 'signingConfigs {' not in text:
+                  text = text.replace('    buildTypes {', signing + '    buildTypes {', 1)
+
               if 'signingConfig = signingConfigs.getByName("release")' not in text:
-                  text = text.replace('    buildTypes {', '    buildTypes {\n        getByName("release") {\n            signingConfig = signingConfigs.getByName("release")\n        }', 1)
+                  patterns = [
+                      r'(getByName\("release"\)\s*\{)',
+                      r'(release\s*\{)'
+                  ]
+                  replaced = False
+                  for pattern in patterns:
+                      text, n = re.subn(pattern, r'\1\n            signingConfig = signingConfigs.getByName("release")', text, count=1)
+                      if n:
+                          replaced = True
+                          break
+                  if not replaced:
+                      raise SystemExit('release build type not found in Kotlin Gradle file')
           else:
               if 'compileSdkVersion' not in text and 'compileSdk ' not in text:
                   text = text.replace('android {', 'android {\n    compileSdkVersion 35', 1)
+
+              signing = '''    signingConfigs {\n        release {\n            storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n\n'''
               if 'signingConfigs {' not in text:
-                  block = '''    signingConfigs {\n        release {\n            storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n\n'''
-                  text = text.replace('    buildTypes {', block + '    buildTypes {', 1)
+                  text = text.replace('    buildTypes {', signing + '    buildTypes {', 1)
               if 'signingConfig signingConfigs.release' not in text:
-                  text = re.sub(r'(buildTypes\s*\{\s*release\s*\{)', r'\1\n            signingConfig signingConfigs.release', text, count=1)
+                  text, n = re.subn(r'(buildTypes\s*\{\s*release\s*\{)', r'\1\n            signingConfig signingConfigs.release', text, count=1)
+                  if n != 1:
+                      raise SystemExit('release build type not found in Groovy Gradle file')
+
           p.write_text(text)
-          print(f'Configured {p}')
+          print('--- configured Gradle excerpt ---')
+          for i, line in enumerate(text.splitlines(), 1):
+              if i <= 140:
+                  print(f'{i:03}: {line}')
           PY
+
+      - name: Validate Gradle configuration
+        working-directory: android
+        run: ./gradlew tasks --no-daemon --stacktrace
 
       - name: Build signed release APK
         working-directory: android
         env:
           ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/animevault-release.keystore
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Verify APK
         shell: bash
