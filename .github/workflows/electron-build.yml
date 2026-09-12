@@ -108,10 +108,62 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform and build tools
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Create Capacitor Android project
+        run: npx cap add android
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify APK
+        run: test -f android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: animevault-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
   release:
     name: Publish desktop release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: desktop
+    needs: [desktop, android]
     runs-on: ubuntu-latest
     steps:
       - name: Download Windows installer
@@ -132,14 +184,21 @@ jobs:
           name: animevault-Linux-installer
           path: release/Linux
 
+      - name: Download Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: animevault-Android-APK
+          path: release/Android
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: desktop-build-${{ github.run_number }}
           name: AnimeVault Desktop Build ${{ github.run_number }}
-          body: Automated desktop installers built from main.
+          body: Automated desktop installers and Android APK built from main.
           files: |
             release/Windows/*
             release/macOS/*
             release/Linux/*
+            release/Android/*
           fail_on_unmatched_files: true
