@@ -1,148 +1,214 @@
 import React, { useEffect, useState } from 'react';
-import { Search, X, SlidersHorizontal, TrendingUp, Star, Sparkles, ChevronDown } from 'lucide-react';
-import { searchAnime as searchAnimeApi, fetchHomeData, getTitle, getImage } from '../api/anilist';
+import { Search, X, TrendingUp, Star, Sparkles, Film, Tv } from 'lucide-react';
+import { fetchLatestMovies, fetchLatestTVShows, searchMoviesAndSeries } from '../api/movies';
 
-const GENRES = ['Action','Adventure','Comedy','Drama','Fantasy','Horror','Mystery','Romance','Sci-Fi','Slice of Life','Sports','Supernatural','Thriller','Psychological'];
-const SORT_OPTIONS = [
-  { value: 'TRENDING_DESC', label: 'Trending' },
-  { value: 'POPULARITY_DESC', label: 'Popular' },
-  { value: 'SCORE_DESC', label: 'Top Rated' },
-  { value: 'FAVOURITES_DESC', label: 'Favorites' },
-];
-const STATUS_OPTIONS = [{ value: 'All', label: 'All' }, { value: 'RELEASING', label: 'Airing' }, { value: 'FINISHED', label: 'Finished' }, { value: 'NOT_YET_RELEASED', label: 'Upcoming' }];
-const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = ['All', ...Array.from({ length: 20 }, (_, i) => String(CURRENT_YEAR - i))];
-
-function normalize(data) {
-  if (Array.isArray(data)) return data.filter(Boolean);
-  return data?.Page?.media || data?.media || data?.results || [];
+function titleOf(item) {
+  return item?.title || item?.name || 'Unknown';
 }
 
-async function runSearch(query, genre, sort, status, year) {
-  try { return normalize(await searchAnimeApi(query, genre || null, sort, status, year)); }
-  catch (error) { console.warn('[AnimeVault Mobile] search failed:', error?.message || error); return []; }
+function imageOf(item, size = 'w342') {
+  return item?.poster_path ? `https://image.tmdb.org/t/p/${size}${item.poster_path}` : null;
 }
 
 function Poster({ item, onClick }) {
-  const title = getTitle(item);
-  const image = getImage(item);
-  const [failed, setFailed] = useState(false);
+  const title = titleOf(item);
+  const image = imageOf(item);
+  const type = item?.media_type === 'movie' ? 'Movie' : 'Drama / Show';
+  const date = item?.release_date || item?.first_air_date || '';
+  const year = date ? date.slice(0, 4) : '';
+  const score = Number(item?.vote_average);
+
   return (
-    <button className="av-explore-card" type="button" onClick={() => onClick(item.id)} aria-label={`Open ${title}`}>
+    <button className="av-explore-card" type="button" onClick={() => onClick(item)} aria-label={`Open ${title}`}>
       <div className="av-explore-poster">
-        {image && !failed ? <img src={image} alt={title} loading="lazy" onError={() => setFailed(true)} /> : <div className="av-explore-fallback">A</div>}
-        {item.averageScore != null && <span className="av-explore-score"><Star size={9} fill="currentColor" />{item.averageScore}%</span>}
+        {image ? <img src={image} alt={title} loading="lazy" /> : <div className="av-explore-fallback">AV</div>}
+        {Number.isFinite(score) && score > 0 && <span className="av-explore-score"><Star size={9} fill="currentColor" />{score.toFixed(1)}</span>}
       </div>
       <strong>{title}</strong>
-      <small>{item.format || 'Anime'}{item.seasonYear ? ` · ${item.seasonYear}` : ''}</small>
+      <small>{type}{year ? ` · ${year}` : ''}</small>
     </button>
   );
 }
 
 export default function SearchPage({ navigate }) {
   const [query, setQuery] = useState('');
+  const [submittedQuery, setSubmittedQuery] = useState('');
   const [results, setResults] = useState([]);
   const [trending, setTrending] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [sort, setSort] = useState('TRENDING_DESC');
-  const [genre, setGenre] = useState('');
-  const [status, setStatus] = useState('All');
-  const [year, setYear] = useState('All');
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState('all');
   const [history, setHistory] = useState(() => {
-    try { const saved = JSON.parse(localStorage.getItem('av_search_history') || '[]'); return Array.isArray(saved) ? saved.slice(0, 8) : []; } catch { return []; }
+    try {
+      const saved = JSON.parse(localStorage.getItem('av_media_search_history') || '[]');
+      return Array.isArray(saved) ? saved.slice(0, 8) : [];
+    } catch {
+      return [];
+    }
   });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const data = sort === 'TRENDING_DESC' ? await fetchHomeData() : await runSearch('', '', sort, 'All', 'All');
-        const items = sort === 'TRENDING_DESC' ? normalize(data?.trending?.media || data?.trending) : normalize(data);
-        if (!cancelled) setTrending(items);
-      } catch { if (!cancelled) setTrending([]); }
+        const [movies, tv] = await Promise.all([fetchLatestMovies(), fetchLatestTVShows()]);
+        const movieItems = Array.isArray(movies?.results) ? movies.results.map(item => ({ ...item, media_type: 'movie' })) : [];
+        const tvItems = Array.isArray(tv?.results) ? tv.results.map(item => ({ ...item, media_type: 'tv' })) : [];
+        if (!cancelled) setTrending([...movieItems, ...tvItems]);
+      } catch (error) {
+        console.warn('[AnimeVault Mobile] search discovery failed:', error?.message || error);
+        if (!cancelled) setTrending([]);
+      } finally {
+        if (!cancelled) setInitialLoading(false);
+      }
     })();
     return () => { cancelled = true; };
-  }, [sort]);
+  }, []);
 
-  useEffect(() => {
-    const q = query.trim();
-    if (!q) { setResults([]); setLoading(false); return; }
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      const items = await runSearch(q, genre, sort, status, year);
-      if (cancelled) return;
-      setResults(items);
-      setLoading(false);
+  const executeSearch = async (value = query) => {
+    const q = String(value || '').trim();
+    if (!q) {
+      setSubmittedQuery('');
+      setResults([]);
+      return;
+    }
+
+    setSubmittedQuery(q);
+    setLoading(true);
+    try {
+      const items = await searchMoviesAndSeries(q);
+      setResults(Array.isArray(items) ? items.filter(Boolean) : []);
       setHistory(prev => {
-        const next = [q, ...prev.filter(v => v.toLowerCase() !== q.toLowerCase())].slice(0, 8);
-        try { localStorage.setItem('av_search_history', JSON.stringify(next)); } catch {}
+        const next = [q, ...prev.filter(item => item.toLowerCase() !== q.toLowerCase())].slice(0, 8);
+        try { localStorage.setItem('av_media_search_history', JSON.stringify(next)); } catch {}
         return next;
       });
-    }, 350);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [query, genre, sort, status, year]);
+    } catch (error) {
+      console.warn('[AnimeVault Mobile] media search failed:', error?.message || error);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const openAnime = id => id != null && navigate('anime-detail', { id });
-  const searched = Boolean(query.trim());
+  const handleSubmit = event => {
+    event?.preventDefault?.();
+    executeSearch();
+  };
+
+  const openMedia = item => {
+    if (!item?.id) return;
+    const mediaType = item.media_type === 'movie' ? 'movie' : 'tv';
+    navigate('drama-detail', {
+      id: item.id,
+      mediaType,
+      title: titleOf(item),
+      poster: item.poster_path || null,
+    });
+  };
+
+  const visibleResults = typeFilter === 'all'
+    ? results
+    : results.filter(item => item.media_type === typeFilter);
+
+  const visibleTrending = typeFilter === 'all'
+    ? trending
+    : trending.filter(item => item.media_type === typeFilter);
+
+  const clearSearch = () => {
+    setQuery('');
+    setSubmittedQuery('');
+    setResults([]);
+  };
 
   return (
     <div className="av-explore">
       <section className="av-explore-head">
         <div>
           <span className="av-explore-kicker"><Sparkles size={12} /> DISCOVER</span>
-          <h1>Explore Anime</h1>
-          <p>Find your next obsession.</p>
+          <h1>Search</h1>
+          <p>Find movies, dramas, and shows.</p>
         </div>
       </section>
 
-      <div className="av-explore-search-wrap">
+      <form className="av-explore-search-wrap" onSubmit={handleSubmit} role="search">
         <Search size={19} />
-        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search anime, characters, titles..." aria-label="Search anime" />
-        {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><X size={17} /></button>}
-        <button type="button" className={filtersOpen ? 'active' : ''} onClick={() => setFiltersOpen(v => !v)} aria-label="Toggle filters"><SlidersHorizontal size={18} /></button>
+        <input
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+          placeholder="Search movies, dramas & shows..."
+          aria-label="Search movies, dramas and shows"
+          autoComplete="off"
+        />
+        {query && (
+          <button type="button" onClick={clearSearch} aria-label="Clear search">
+            <X size={17} />
+          </button>
+        )}
+        <button
+          type="submit"
+          aria-label="Search"
+          disabled={!query.trim() || loading}
+          style={{
+            minWidth: 42,
+            height: 36,
+            padding: '0 12px',
+            border: 0,
+            borderRadius: 9,
+            background: query.trim() && !loading ? 'var(--brand, #ff1a75)' : 'rgba(255,255,255,.08)',
+            color: '#fff',
+            cursor: query.trim() && !loading ? 'pointer' : 'default',
+            fontWeight: 800,
+          }}
+        >
+          <Search size={16} />
+        </button>
+      </form>
+
+      <div className="av-filter-scroll" style={{ margin: '14px 0' }}>
+        <button className={typeFilter === 'all' ? 'active' : ''} onClick={() => setTypeFilter('all')} type="button">All</button>
+        <button className={typeFilter === 'movie' ? 'active' : ''} onClick={() => setTypeFilter('movie')} type="button"><Film size={13} /> Movies</button>
+        <button className={typeFilter === 'tv' ? 'active' : ''} onClick={() => setTypeFilter('tv')} type="button"><Tv size={13} /> Dramas & Shows</button>
       </div>
 
-      {filtersOpen && (
-        <section className="av-explore-filters">
-          <div className="av-filter-row">
-            <span>Sort</span>
-            <div className="av-filter-scroll">{SORT_OPTIONS.map(o => <button key={o.value} className={sort === o.value ? 'active' : ''} onClick={() => setSort(o.value)}>{o.label}</button>)}</div>
-          </div>
-          <div className="av-filter-row">
-            <span>Status</span>
-            <div className="av-filter-scroll">{STATUS_OPTIONS.map(o => <button key={o.value} className={status === o.value ? 'active' : ''} onClick={() => setStatus(o.value)}>{o.label}</button>)}</div>
-          </div>
-          <div className="av-filter-row">
-            <span>Year</span>
-            <div className="av-filter-scroll">{YEARS.map(y => <button key={y} className={year === y ? 'active' : ''} onClick={() => setYear(y)}>{y}</button>)}</div>
-          </div>
-          <div className="av-filter-row genre-row">
-            <span>Genre</span>
-            <div className="av-filter-scroll">{GENRES.map(g => <button key={g} className={genre === g ? 'active' : ''} onClick={() => setGenre(genre === g ? '' : g)}>{g}</button>)}</div>
-          </div>
-        </section>
-      )}
-
-      {!searched && history.length > 0 && (
+      {!submittedQuery && history.length > 0 && (
         <section className="av-explore-section av-history">
-          <header><h2>Recent searches</h2><button onClick={() => { setHistory([]); localStorage.removeItem('av_search_history'); }}>Clear</button></header>
-          <div>{history.map(item => <button key={item} onClick={() => setQuery(item)}>{item}<Search size={12} /></button>)}</div>
+          <header>
+            <h2>Recent searches</h2>
+            <button type="button" onClick={() => { setHistory([]); localStorage.removeItem('av_media_search_history'); }}>Clear</button>
+          </header>
+          <div>{history.map(item => <button key={item} type="button" onClick={() => { setQuery(item); executeSearch(item); }}>{item}<Search size={12} /></button>)}</div>
         </section>
       )}
 
-      {searched ? (
+      {submittedQuery ? (
         <section className="av-explore-section">
-          <header><div><h2>{loading ? 'Searching…' : `${results.length} results`}</h2><p>{query.trim()}</p></div></header>
-          {loading ? <div className="av-explore-grid">{Array.from({ length: 6 }, (_, i) => <div className="av-explore-skeleton" key={i} />)}</div>
-            : results.length ? <div className="av-explore-grid">{results.map(item => <Poster key={item.id} item={item} onClick={openAnime} />)}</div>
-            : <div className="av-explore-empty"><Search size={34} /><h3>No anime found</h3><p>Try another title, genre, or year.</p></div>}
+          <header>
+            <div>
+              <h2>{loading ? 'Searching…' : `${visibleResults.length} results`}</h2>
+              <p>{submittedQuery}</p>
+            </div>
+          </header>
+          {loading ? (
+            <div className="av-explore-grid">{Array.from({ length: 6 }, (_, i) => <div className="av-explore-skeleton" key={i} />)}</div>
+          ) : visibleResults.length ? (
+            <div className="av-explore-grid">{visibleResults.map((item, index) => <Poster key={`${item.media_type}-${item.id}-${index}`} item={item} onClick={openMedia} />)}</div>
+          ) : (
+            <div className="av-explore-empty"><Search size={34} /><h3>No results found</h3><p>Try another movie, drama, or show title.</p></div>
+          )}
         </section>
       ) : (
         <section className="av-explore-section">
-          <header><div><h2><TrendingUp size={18} /> Trending now</h2><p>What everyone is watching</p></div><button className="av-sort-mini" onClick={() => setFiltersOpen(true)}>{SORT_OPTIONS.find(o => o.value === sort)?.label}<ChevronDown size={13} /></button></header>
-          <div className="av-explore-grid">{trending.slice(0, 12).map(item => <Poster key={item.id} item={item} onClick={openAnime} />)}</div>
+          <header>
+            <div><h2><TrendingUp size={18} /> Trending now</h2><p>Movies and dramas people are watching</p></div>
+          </header>
+          {initialLoading ? (
+            <div className="av-explore-grid">{Array.from({ length: 8 }, (_, i) => <div className="av-explore-skeleton" key={i} />)}</div>
+          ) : visibleTrending.length ? (
+            <div className="av-explore-grid">{visibleTrending.slice(0, 20).map((item, index) => <Poster key={`${item.media_type}-${item.id}-${index}`} item={item} onClick={openMedia} />)}</div>
+          ) : (
+            <div className="av-explore-empty"><Search size={34} /><h3>Nothing to show</h3><p>Try searching for a movie or drama.</p></div>
+          )}
         </section>
       )}
     </div>
