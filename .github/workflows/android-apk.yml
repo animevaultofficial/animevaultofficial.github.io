@@ -73,19 +73,44 @@ jobs:
           npx cap sync android
           test -f android/app/build.gradle.kts || test -f android/app/build.gradle
           test -x android/gradlew
-      - name: Generate launcher icons
+      - name: Enforce Android app metadata
+        shell: bash
         run: |
           set -euo pipefail
-          test -s android.png
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          strings = Path('android/app/src/main/res/values/strings.xml')
+          if not strings.exists():
+              raise SystemExit('Android strings.xml not found')
+          text = strings.read_text()
+          updated, count = re.subn(
+              r'<string name="app_name">.*?</string>',
+              '<string name="app_name">Anime Vault</string>',
+              text,
+              count=1,
+              flags=re.DOTALL,
+          )
+          if count != 1:
+              raise SystemExit('Android app_name resource not found')
+          strings.write_text(updated)
+          print('Android application label set to Anime Vault')
+          PY
+          grep -q '<string name="app_name">Anime Vault</string>' android/app/src/main/res/values/strings.xml
+      - name: Generate launcher icons from AnimeVault logo
+        run: |
+          set -euo pipefail
+          test -s public/logo.png
           rm -rf resources
           mkdir -p resources
-          cp android.png resources/icon.png
+          cp public/logo.png resources/icon.png
           npx --yes @capacitor/assets@latest generate --android
-          test -f android/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          test -f android/app/src/main/res/mipmap-hdpi/ic_launcher.png
-          test -f android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
-          test -f android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-          test -f android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          test -s android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          test -s android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          test -s android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          test -s android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          test -s android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
       - name: Prepare release keystore
         shell: bash
         env:
@@ -139,13 +164,21 @@ jobs:
           APK=android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | grep -q "package: name='com.animevault.app'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | grep -q "application-label:'AnimeVault'"
+          BADGING="$($ANDROID_HOME/build-tools/35.0.0/aapt2 dump badging "$APK")"
+          printf '%s\n' "$BADGING" | grep -q "package: name='com.animevault.app'"
+          printf '%s\n' "$BADGING" | grep -q "application-label:'Anime Vault'"
+          echo "Verified package: com.animevault.app"
+          echo "Verified app label: Anime Vault"
+      - name: Rename APK for distribution
+        run: |
+          set -euo pipefail
+          cp android/app/build/outputs/apk/release/app-release.apk "android/app/build/outputs/apk/release/Anime Vault.apk"
+          test -s "android/app/build/outputs/apk/release/Anime Vault.apk"
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: animevault-Android-APK
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: android/app/build/outputs/apk/release/Anime Vault.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish Android APK to shared release
@@ -154,5 +187,5 @@ jobs:
           tag_name: animevault-build-${{ github.sha }}
           name: AnimeVault Build ${{ github.sha }}
           body: Automated Windows, macOS, Linux, and signed Android builds from the same commit.
-          files: android/app/build/outputs/apk/release/app-release.apk
+          files: android/app/build/outputs/apk/release/Anime Vault.apk
           fail_on_unmatched_files: true
