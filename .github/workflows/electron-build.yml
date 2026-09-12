@@ -48,28 +48,22 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-
       - name: Install ImageMagick (Ubuntu)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y imagemagick
-
       - name: Install ImageMagick (Windows)
         if: runner.os == 'Windows'
         run: choco install imagemagick --yes --no-progress
-
       - name: Install ImageMagick (macOS)
         if: runner.os == 'macOS'
         run: brew install imagemagick
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
       - name: Build desktop installer
         shell: bash
         env:
@@ -78,7 +72,6 @@ jobs:
           WIN_CSC_LINK: ${{ github.workspace }}/animevault-code-signing.pfx
           WIN_CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: npm run electron:build -- ${{ matrix.args }}
-
       - name: Verify desktop artifacts
         shell: bash
         run: |
@@ -87,19 +80,11 @@ jobs:
           found=0
           for pattern in '*.exe' '*.dmg' '*.zip' '*.AppImage' '*.deb' '*.yml' '*.blockmap'; do
             for file in release/$pattern; do
-              if [ -f "$file" ]; then
-                cp "$file" checked-release/
-                found=1
-              fi
+              if [ -f "$file" ]; then cp "$file" checked-release/; found=1; fi
             done
           done
-          if [ "$found" -ne 1 ]; then
-            echo 'ERROR: No desktop release files were produced.'
-            find release -maxdepth 2 -type f -print || true
-            exit 1
-          fi
+          if [ "$found" -ne 1 ]; then echo 'ERROR: No desktop release files were produced.'; find release -maxdepth 2 -type f -print || true; exit 1; fi
           find checked-release -maxdepth 1 -type f -print | sort
-
       - name: Upload desktop installer
         uses: actions/upload-artifact@v4
         with:
@@ -114,44 +99,44 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
       - name: Build web app
         run: npm run build
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-
       - name: Install Android platform and build tools
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
       - name: Create Capacitor Android project
         run: npx cap add android
-
+      - name: Generate Android launcher icon resources
+        run: |
+          set -e
+          mkdir -p resources
+          convert build/icon.ico -thumbnail 1024x1024 -background none -gravity center -extent 1024x1024 resources/icon.png
+          npx --yes @capacitor/assets generate --android --assetPath resources
       - name: Sync Capacitor Android
         run: npx cap sync android
-
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --stacktrace
-
       - name: Verify APK
-        run: test -f android/app/build/outputs/apk/debug/app-debug.apk
-
+        run: |
+          set -e
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | grep "com.animevault.app"
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
@@ -171,25 +156,21 @@ jobs:
         with:
           name: animevault-Windows-installer
           path: release/Windows
-
       - name: Download macOS installer
         uses: actions/download-artifact@v4
         with:
           name: animevault-macOS-installer
           path: release/macOS
-
       - name: Download Linux installer
         uses: actions/download-artifact@v4
         with:
           name: animevault-Linux-installer
           path: release/Linux
-
       - name: Download Android APK
         uses: actions/download-artifact@v4
         with:
           name: animevault-Android-APK
           path: release/Android
-
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
