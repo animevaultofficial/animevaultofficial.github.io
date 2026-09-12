@@ -45,54 +45,28 @@ export default function HomePage({ navigate }) {
   const openAnime = id => navigate('anime-detail', { id });
   const openSearch = () => navigate('/search');
 
-  if (loading) {
-    return <div className="av-mobile-page">
-      <LoadingCard variant="hero" />
-      <SectionRail title="Trending Now" icon={Flame} loading />
-      <SectionRail title="Most Popular" icon={Sparkles} loading />
-    </div>;
-  }
-
+  if (loading) return <div className="av-mobile-page"><LoadingCard variant="hero" /><SectionRail title="Trending Now" icon={Flame} loading /><SectionRail title="Most Popular" icon={Sparkles} loading /></div>;
   if (!data) return <EmptyState icon="📡" title="Unable to load AnimeVault" message="Check your connection and try again." action={() => window.location.reload()} actionText="Retry" />;
 
   return <div className="av-mobile-page">
     <MobileHero slides={trending.slice(0, 5)} onWatchClick={openAnime} onDetailsClick={openAnime} />
 
-    {continueWatching.length > 0 && (
-      <SectionRail title="Continue Watching" icon={Clock}>
-        {continueWatching.map(item => (
-          <AnimeCard key={item.id} anime={{ id: item.id, title: { romaji: item.title }, coverImage: item.image }} onClick={() => openAnime(item.id)} showRating={false} showEpisodes={false} />
-        ))}
-      </SectionRail>
-    )}
+    {continueWatching.length > 0 && <SectionRail title="Continue Watching" icon={Clock}>
+      {continueWatching.map(item => <AnimeCard key={item.id} anime={{ id: item.id, title: { romaji: item.title }, coverImage: { extraLarge: item.image } }} onClick={() => openAnime(item.id)} showRating={false} showEpisodes={false} />)}
+    </SectionRail>}
 
-    <SectionRail title="Trending Now" icon={Flame} onViewAll={openSearch}>
-      {trending.map(anime => <AnimeCard key={anime.id} anime={anime} onClick={openAnime} />)}
-    </SectionRail>
-
-    <SectionRail title="Most Popular" icon={Sparkles} onViewAll={openSearch}>
-      {popular.map(anime => <AnimeCard key={anime.id} anime={anime} onClick={openAnime} />)}
-    </SectionRail>
+    <SectionRail title="Trending Now" icon={Flame} onViewAll={openSearch}>{trending.map(anime => <AnimeCard key={anime.id} anime={anime} onClick={openAnime} />)}</SectionRail>
+    <SectionRail title="Most Popular" icon={Sparkles} onViewAll={openSearch}>{popular.map(anime => <AnimeCard key={anime.id} anime={anime} onClick={openAnime} />)}</SectionRail>
 
     <section className="av-mobile-section">
-      <header className="av-mobile-section-header">
-        <h2><Calendar size={15} /> Seasonal</h2>
-      </header>
+      <header className="av-mobile-section-header"><h2><Calendar size={15} /> Seasonal</h2></header>
       <div className="av-mobile-card-rail av-season-selector">
         {SEASONS.map(item => <button key={item} type="button" className={`av-filter-chip ${season === item ? 'is-selected' : ''}`} onClick={() => setSeason(item)}>{item.charAt(0) + item.slice(1).toLowerCase()}</button>)}
-        <select aria-label="Season year" value={year} onChange={event => setYear(Number(event.target.value))}>
-          {[CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2, CURRENT_YEAR - 3].map(item => <option key={item} value={item}>{item}</option>)}
-        </select>
+        <select aria-label="Season year" value={year} onChange={event => setYear(Number(event.target.value))}>{[CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2, CURRENT_YEAR - 3].map(item => <option key={item} value={item}>{item}</option>)}</select>
       </div>
-      {seasonLoading ? <div className="av-mobile-card-rail">{[1, 2, 3, 4, 5].map(item => <LoadingCard key={item} variant="anime" />)}</div> : (
-        <div className="av-mobile-card-rail">
-          {seasonal.map(anime => <AnimeCard key={anime.id} anime={anime} onClick={openAnime} />)}
-        </div>
-      )}
+      {seasonLoading ? <div className="av-mobile-card-rail">{[1, 2, 3, 4, 5].map(item => <LoadingCard key={item} variant="anime" />)}</div> : <div className="av-mobile-card-rail">{seasonal.map(anime => <AnimeCard key={anime.id} anime={anime} onClick={openAnime} />)}</div>}
     </section>
 
-    <SectionRail title="Upcoming" grid>
-      {upcoming.map(anime => <AnimeCard key={anime.id} anime={anime} onClick={openAnime} />)}
-    </SectionRail>
+    <SectionRail title="Upcoming" grid>{upcoming.map(anime => <AnimeCard key={anime.id} anime={anime} onClick={openAnime} />)}</SectionRail>
   </div>;
 }
