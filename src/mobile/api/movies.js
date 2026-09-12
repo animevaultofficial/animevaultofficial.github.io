@@ -1,6 +1,7 @@
 const TMDB_API_KEY = '288d312680f3117dd4c56964be6809dc';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const MEDIA_SOURCE_API = import.meta.env.VITE_MEDIA_SOURCE_API || '';
+const TMDB_TIMEOUT_MS = 10000;
 
 export const MEDIA_SOURCE_PROVIDERS = [
   { id: 'videasy', name: 'Videasy', default: true },
@@ -11,26 +12,32 @@ export const MEDIA_SOURCE_PROVIDERS = [
 export const DEFAULT_MEDIA_SOURCE_PROVIDER = 'videasy';
 
 async function tmdbFetch(endpoint) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TMDB_TIMEOUT_MS);
   try {
     const url = new URL(`${TMDB_BASE}${endpoint}`);
     url.searchParams.set('api_key', TMDB_API_KEY);
     url.searchParams.set('language', 'en-US');
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), { signal: controller.signal });
     if (!res.ok) return null;
     return await res.json();
-  } catch { return null; }
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function fetchMovieDetails(tmdbId) {
-  return tmdbFetch(`/movie/${tmdbId}`);
+  return tmdbFetch(`/movie/${encodeURIComponent(String(tmdbId))}`);
 }
 
 export async function fetchTVDetails(tmdbId) {
-  return tmdbFetch(`/tv/${tmdbId}`);
+  return tmdbFetch(`/tv/${encodeURIComponent(String(tmdbId))}`);
 }
 
 export async function fetchTVSeasonDetails(tmdbId, season) {
-  return tmdbFetch(`/tv/${tmdbId}/season/${season}`);
+  return tmdbFetch(`/tv/${encodeURIComponent(String(tmdbId))}/season/${encodeURIComponent(String(season))}`);
 }
 
 export async function fetchLatestMovies(page = 1) {
@@ -50,6 +57,18 @@ export async function fetchMediaMeta(mediaType, tmdbId) {
   return mediaType === 'movie' ? fetchMovieDetails(tmdbId) : fetchTVDetails(tmdbId);
 }
 
+// Resolve a title to a TMDB ID when a stale/provider-specific ID was supplied.
+export async function findMediaByTitle(title, mediaType) {
+  const query = String(title || '').trim();
+  if (!query) return null;
+  const results = await searchMoviesAndSeries(query);
+  const wanted = mediaType === 'movie' ? 'movie' : 'tv';
+  const typed = results.filter(item => item?.media_type === wanted && item?.id != null);
+  if (!typed.length) return null;
+  const normalized = query.toLowerCase();
+  return typed.find(item => String(item.title || item.name || '').toLowerCase() === normalized) || typed[0];
+}
+
 // AnimeVault source resolver.
 // Providers are selected by AnimeVault, while the backend must return a
 // direct media URL that the native player can legally play (MP4/HLS/etc.).
@@ -61,6 +80,8 @@ export async function resolveDirectMediaSource(mediaType, tmdbId, season = null,
     ? provider
     : DEFAULT_MEDIA_SOURCE_PROVIDER;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TMDB_TIMEOUT_MS);
   try {
     const url = new URL(MEDIA_SOURCE_API, window.location.origin);
     url.searchParams.set('type', mediaType === 'movie' ? 'movie' : 'tv');
@@ -71,11 +92,16 @@ export async function resolveDirectMediaSource(mediaType, tmdbId, season = null,
       url.searchParams.set('episode', String(episode || 1));
     }
 
-    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+    const res = await fetch(url.toString(), {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
     if (!res.ok) return null;
     const data = await res.json();
     return typeof data?.url === 'string' ? data.url : null;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
