@@ -19,7 +19,6 @@ import DramasMoviesPage from './pages/DramasMoviesPage';
 import LibraryPage from './pages/LibraryPage';
 import MobileBottomNav from './components/MobileBottomNav';
 import MangaHome from '../pages/MangaHome';
-import MovieWatch from '../pages/MovieWatch';
 import Collections from '../pages/Collections';
 import Stats from '../pages/Stats';
 import About from '../pages/About';
@@ -58,6 +57,7 @@ const VAULT = [
 function MobileAnimeDetails({ navigate }) { const { id } = useParams(); return <AnimeDetailsPage params={{ id }} goBack={() => navigate(-1)} navigate={navigate} />; }
 function MobileDramaDetails({ navigate }) { const { id } = useParams(); const query = new URLSearchParams(useLocation().search); const mediaType = query.get('type') || 'tv'; const title = query.get('title') || undefined; return <DramaDetailPage params={{ id, mediaType, title }} goBack={() => navigate(-1)} navigate={navigate} />; }
 function MobileMangaDetails({ navigate }) { const { id } = useParams(); return <MangaDetailsPage id={id} goBack={() => navigate(-1)} />; }
+function MobileWatchRoute({ navigate }) { const { kind, id } = useParams(); useEffect(() => { if (!id) return; const mediaType = kind === 'movie' ? 'movie' : 'tv'; navigate(`/drama/${id}?type=${mediaType}`); }, [kind, id, navigate]); return <div className="av-empty-state"><span className="av-loading-line" style={{ width: 160 }} /><p>Opening the native Android player…</p></div>; }
 function LegacyPage({ children, className = '' }) { return <div className={`av-mobile-legacy-page ${className}`}>{children}</div>; }
 
 export default function AppMobile() {
@@ -103,7 +103,7 @@ export default function AppMobile() {
   else if (location.pathname === '/request') content = <LegacyPage><StaticPages page="request" /></LegacyPage>;
   else if (location.pathname === '/forgot-password') content = <LegacyPage><ForgotPassword /></LegacyPage>;
   else if (location.pathname === '/set-new-password') content = <LegacyPage><SetNewPassword /></LegacyPage>;
-  else if (/^\/watch\/(movie|tv|series)\/[^/]+$/.test(location.pathname)) content = <RequireAuth><LegacyPage className="av-mobile-watch-page"><MovieWatch /></LegacyPage></RequireAuth>;
+  else if (/^\/watch\/(movie|tv|series)\/[^/]+$/.test(location.pathname)) content = <RequireAuth><MobileWatchRoute navigate={navigate} /></RequireAuth>;
   else if (/^\/admin(?:\/.*)?$/.test(location.pathname)) content = <RequireAdmin><LegacyPage><AdminDashboard /></LegacyPage></RequireAdmin>;
   else if (/^\/anime\/[^/]+$/.test(location.pathname)) content = <MobileAnimeDetails navigate={mobileNavigate} />;
   else if (/^\/drama\/[^/]+$/.test(location.pathname)) content = <MobileDramaDetails navigate={mobileNavigate} />;
