@@ -169,23 +169,16 @@ jobs:
       - name: Generate launcher icons
         run: |
           set -euo pipefail
-          test -f android.png
-          node <<'NODE'
-          import sharp from 'sharp';
-          import fs from 'fs';
-          import path from 'path';
-          const source = 'android.png';
-          const root = 'android/app/src/main/res';
-          const densities = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
-          for (const [density, size] of Object.entries(densities)) {
-            const dir = path.join(root, `mipmap-${density}`);
-            fs.mkdirSync(dir, { recursive: true });
-            const buffer = await sharp(source).resize(size, size, { fit: 'cover' }).png().toBuffer();
-            fs.writeFileSync(path.join(dir, 'ic_launcher.png'), buffer);
-            fs.writeFileSync(path.join(dir, 'ic_launcher_round.png'), buffer);
-          }
-          for (const file of ['android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml','android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml']) { try { fs.unlinkSync(file); } catch (_) {} }
-          NODE
+          test -s android.png
+          rm -rf resources
+          mkdir -p resources
+          cp android.png resources/icon.png
+          npx --yes @capacitor/assets@latest generate --android
+          test -f android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          test -f android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          test -f android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          test -f android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          test -f android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
       - name: Prepare release keystore
         shell: bash
         env:
