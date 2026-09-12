@@ -23,6 +23,8 @@ import './styles/typography.css';
 import './styles/animations.css';
 import './styles/utilities.css';
 import './styles/mobile-native.css';
+import './styles/account.css';
+import './styles/safe-area.css';
 import './mobile-android-design.css';
 
 const DISCOVER = [['Home', Home, '/'], ['Explore', Search, '/search'], ['Library', Library, '/collections'], ['Schedule', CalendarDays, '/schedule']];
@@ -42,22 +44,8 @@ function AccountSwitcher() {
   const name = current?.name || user.username || 'Account';
   const choose = profile => { setActiveSubAccount(user.id, profile); setActiveSubAccountState(profile); setOpen(false); };
   return <div className="av-account-wrap">
-    <button className="av-account-button" type="button" aria-label="Switch account profile" onClick={() => setOpen(value => !value)}>
-      <span className="av-account-avatar">{avatar ? <img src={avatar} alt="" /> : <span>{name.charAt(0).toUpperCase()}</span>}</span>
-    </button>
-    {open && <>
-      <button className="av-account-backdrop" type="button" aria-label="Close account switcher" onClick={() => setOpen(false)} />
-      <div className="av-account-menu" role="dialog" aria-label="Account profiles">
-        <strong>Who's watching?</strong>
-        {profiles.map(profile => <button key={profile.id} className={`av-profile-option ${current?.id === profile.id ? 'is-active' : ''}`} type="button" onClick={() => choose(profile)}>
-          <span className="av-profile-avatar">{profile.avatar ? <img src={profile.avatar} alt="" /> : <span>{profile.name?.charAt(0).toUpperCase() || 'A'}</span>}</span>
-          <span><b>{profile.name}</b><small>{profile.isMain ? 'Main profile' : 'Sub profile'}</small></span>
-          {current?.id === profile.id && <Check size={17} />}
-        </button>)}
-        {profiles.length < 5 && <button className="av-profile-option" type="button" onClick={() => { setOpen(false); window.location.hash = '#/profile'; }}><span className="av-profile-avatar av-add-avatar"><Plus size={18} /></span><span><b>Add profile</b><small>Create another profile</small></span></button>}
-        <button className="av-manage-profiles" type="button" onClick={() => { setOpen(false); window.location.hash = '#/profile'; }}><UserCircle size={16} /> Manage profiles</button>
-      </div>
-    </>}
+    <button className="av-account-button" type="button" aria-label="Switch account profile" onClick={() => setOpen(value => !value)}><span className="av-account-avatar">{avatar ? <img src={avatar} alt="" /> : <span>{name.charAt(0).toUpperCase()}</span>}</span></button>
+    {open && <><button className="av-account-backdrop" type="button" aria-label="Close account switcher" onClick={() => setOpen(false)} /><div className="av-account-menu" role="dialog" aria-label="Account profiles"><strong>Who's watching?</strong>{profiles.map(profile => <button key={profile.id} className={`av-profile-option ${current?.id === profile.id ? 'is-active' : ''}`} type="button" onClick={() => choose(profile)}><span className="av-profile-avatar">{profile.avatar ? <img src={profile.avatar} alt="" /> : <span>{profile.name?.charAt(0).toUpperCase() || 'A'}</span>}</span><span><b>{profile.name}</b><small>{profile.isMain ? 'Main profile' : 'Sub profile'}</small></span>{current?.id === profile.id && <Check size={17} />}</button>)}{profiles.length < 5 && <button className="av-profile-option" type="button" onClick={() => { setOpen(false); window.location.hash = '#/profile'; }}><span className="av-profile-avatar av-add-avatar"><Plus size={18} /></span><span><b>Add profile</b><small>Create another profile</small></span></button>}<button className="av-manage-profiles" type="button" onClick={() => { setOpen(false); window.location.hash = '#/profile'; }}><UserCircle size={16} /> Manage profiles</button></div></>}
   </div>;
 }
 
@@ -65,28 +53,10 @@ export default function AppMobile() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-
   useEffect(() => setDrawerOpen(false), [location.pathname, location.search]);
-  useEffect(() => {
-    const onKeyDown = event => { if (event.key === 'Escape') setDrawerOpen(false); };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-  useEffect(() => {
-    let active = true;
-    const listener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-      if (!active) return;
-      if (drawerOpen) return setDrawerOpen(false);
-      if (location.pathname !== '/') navigate(-1);
-      else if (canGoBack) CapacitorApp.exitApp();
-    });
-    return () => { active = false; listener.then(handle => handle.remove()).catch(() => {}); };
-  }, [drawerOpen, location.pathname, navigate]);
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = drawerOpen ? 'hidden' : previous;
-    return () => { document.body.style.overflow = previous; };
-  }, [drawerOpen]);
+  useEffect(() => { const onKeyDown = event => { if (event.key === 'Escape') setDrawerOpen(false); }; window.addEventListener('keydown', onKeyDown); return () => window.removeEventListener('keydown', onKeyDown); }, []);
+  useEffect(() => { let active = true; const listener = CapacitorApp.addListener('backButton', ({ canGoBack }) => { if (!active) return; if (drawerOpen) return setDrawerOpen(false); if (location.pathname !== '/') navigate(-1); else if (canGoBack) CapacitorApp.exitApp(); }); return () => { active = false; listener.then(handle => handle.remove()).catch(() => {}); }; }, [drawerOpen, location.pathname, navigate]);
+  useEffect(() => { const previous = document.body.style.overflow; document.body.style.overflow = drawerOpen ? 'hidden' : previous; return () => { document.body.style.overflow = previous; }; }, [drawerOpen]);
 
   const go = path => { setDrawerOpen(false); navigate(path); };
   const mobileNavigate = (route, params = {}) => {
@@ -114,27 +84,12 @@ export default function AppMobile() {
   else if (/^\/manga\/[^/]+$/.test(location.pathname)) content = <MobileMangaDetails navigate={navigate} />;
 
   return <div className="av-mobile-shell">
-    <header className="av-mobile-topbar">
-      <button className="av-mobile-icon-button" type="button" aria-label="Open menu" onClick={() => setDrawerOpen(true)}><Menu size={23} /></button>
-      <button className="av-mobile-brand" type="button" onClick={() => go('/')}><span className="av-mobile-brand-mark"><AccountSwitcher /></span><span>AnimeVault</span></button>
-      <button className="av-mobile-icon-button" type="button" aria-label="Notifications" onClick={() => go('/notifications')}><Bell size={21} /></button>
-    </header>
-
+    <header className="av-mobile-topbar"><button className="av-mobile-icon-button" type="button" aria-label="Open menu" onClick={() => setDrawerOpen(true)}><Menu size={23} /></button><button className="av-mobile-brand" type="button" onClick={() => go('/')}><span className="av-mobile-brand-mark"><AccountSwitcher /></span><span>AnimeVault</span></button><button className="av-mobile-icon-button" type="button" aria-label="Notifications" onClick={() => go('/notifications')}><Bell size={21} /></button></header>
     <button className={`av-mobile-drawer-backdrop ${drawerOpen ? 'is-open' : ''}`} type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)} />
     <aside className={`av-mobile-drawer ${drawerOpen ? 'is-open' : ''}`} aria-hidden={!drawerOpen}>
-      <div className="av-mobile-drawer-header">
-        <div className="av-mobile-drawer-brand"><span className="av-mobile-brand-mark"><AccountSwitcher /></span><div><strong>AnimeVault</strong><small>ANDROID</small></div></div>
-        <button className="av-mobile-icon-button" type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)}><X size={22} /></button>
-      </div>
-      <div className="av-mobile-drawer-scroll">
-        <p className="av-mobile-drawer-label">DISCOVER</p><nav>{DISCOVER.map(drawerItem)}</nav>
-        <p className="av-mobile-drawer-label">YOUR VAULT</p><nav>{VAULT.map(drawerItem)}</nav>
-        <div className="av-mobile-drawer-divider" />
-        <button className={`av-mobile-drawer-item ${location.pathname.startsWith('/profile') ? 'is-active' : ''}`} type="button" onClick={() => go('/profile')}><UserCircle size={19} /><span>Profile</span><ChevronRight className="av-mobile-drawer-chevron" size={16} /></button>
-        <button className={`av-mobile-drawer-item ${location.pathname === '/settings' ? 'is-active' : ''}`} type="button" onClick={() => go('/settings')}><Settings size={19} /><span>Settings</span><ChevronRight className="av-mobile-drawer-chevron" size={16} /></button>
-      </div>
+      <div className="av-mobile-drawer-header"><div className="av-mobile-drawer-brand"><span className="av-mobile-brand-mark"><AccountSwitcher /></span><div><strong>AnimeVault</strong><small>ANDROID</small></div></div><button className="av-mobile-icon-button" type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)}><X size={22} /></button></div>
+      <div className="av-mobile-drawer-scroll"><p className="av-mobile-drawer-label">DISCOVER</p><nav>{DISCOVER.map(drawerItem)}</nav><p className="av-mobile-drawer-label">YOUR VAULT</p><nav>{VAULT.map(drawerItem)}</nav><div className="av-mobile-drawer-divider" /><button className={`av-mobile-drawer-item ${location.pathname.startsWith('/profile') ? 'is-active' : ''}`} type="button" onClick={() => go('/profile')}><UserCircle size={19} /><span>Profile</span><ChevronRight className="av-mobile-drawer-chevron" size={16} /></button><button className={`av-mobile-drawer-item ${location.pathname === '/settings' ? 'is-active' : ''}`} type="button" onClick={() => go('/settings')}><Settings size={19} /><span>Settings</span><ChevronRight className="av-mobile-drawer-chevron" size={16} /></button></div>
     </aside>
-
     <main className="av-mobile-content">{content}</main>
     <MobileBottomNav pathname={location.pathname} navigate={go} />
   </div>;
