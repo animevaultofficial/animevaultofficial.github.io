@@ -1,0 +1,4 @@
+import React from 'react';
+import { Home, Search, Library, CalendarDays, UserCircle } from 'lucide-react';
+const ITEMS=[['Home',Home,'/'],['Discover',Search,'/search'],['Library',Library,'/collections'],['Schedule',CalendarDays,'/schedule'],['Profile',UserCircle,'/profile']];
+export default function AndroidBottomNav({pathname,navigate}){const active=path=>path==='/'?pathname==='/':pathname===path||pathname.startsWith(`${path}/`);return <nav className="av-android-bottom-nav" aria-label="Primary navigation">{ITEMS.map(([label,Icon,path])=><button key={path} type="button" className={`av-android-bottom-item ${active(path)?'is-active':''}`} aria-current={active(path)?'page':undefined} onClick={()=>navigate(path)}><span className="av-android-bottom-icon"><Icon size={20} strokeWidth={active(path)?2.4:2}/></span><span>{label}</span></button>)}</nav>}
