@@ -7,7 +7,6 @@ import RequireAdmin from '../components/RequireAdmin';
 import MixedHome from '../pages/MixedHome';
 import WebSearch from '../pages/Search';
 import AnimeUnavailable from '../pages/AnimeUnavailable';
-import SchedulePage from './pages/SchedulePage';
 import DownloadsPage from './pages/DownloadsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import CommunityPage from './pages/CommunityPage';
@@ -36,6 +35,7 @@ import './styles/account.css';
 import './styles/safe-area.css';
 import './mobile-android-design.css';
 import './styles/android-v3.css';
+import './styles/android-v4-fixes.css';
 
 const LogoMark = ({ className = '' }) => <img className={`av-v2-logo-img ${className}`} src="/logo.png" alt="" aria-hidden="true" />;
 
@@ -43,7 +43,6 @@ const DISCOVER = [
   ['Home', Home, '/'],
   ['Explore', Search, '/search'],
   ['Library', Library, '/collections'],
-  ['Schedule', CalendarDays, '/schedule'],
   ['Manga', BookOpen, '/manga'],
   ['Dramas & Movies', Tv, '/dramas-movies'],
   ['Collections', Layers, '/collections-web'],
