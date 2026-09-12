@@ -122,6 +122,7 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/animevault-release.keystore
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -191,12 +192,10 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/animevault-release.keystore
-          test -s android/app/animevault-release.keystore
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          test -s "$ANDROID_KEYSTORE_PATH"
       - name: Configure Android release signing
         shell: bash
-        env:
-          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/animevault-release.keystore
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -233,8 +232,6 @@ jobs:
         run: ./gradlew tasks --no-daemon --stacktrace
       - name: Build signed release APK
         working-directory: android
-        env:
-          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/animevault-release.keystore
         run: ./gradlew assembleRelease --no-daemon --stacktrace
       - name: Verify signed APK and package metadata
         shell: bash
