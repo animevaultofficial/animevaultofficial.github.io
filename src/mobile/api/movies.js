@@ -2,48 +2,18 @@ const TMDB_API_KEY = '288d312680f3117dd4c56964be6809dc';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const MEDIA_SOURCE_API = import.meta.env.VITE_MEDIA_SOURCE_API || '';
 const TMDB_TIMEOUT_MS = 10000;
-
-export const MEDIA_SOURCE_PROVIDERS = [
-  { id: 'vidsrc', name: 'VidSrc', default: true },
-  { id: 'vidnest', name: 'Vidnest', default: false },
-  { id: 'videasy', name: 'Videasy', default: false },
-];
-export const DEFAULT_MEDIA_SOURCE_PROVIDER = 'vidsrc';
-
-async function tmdbFetch(endpoint) {
-  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), TMDB_TIMEOUT_MS);
-  try { const url = new URL(`${TMDB_BASE}${endpoint}`); url.searchParams.set('api_key', TMDB_API_KEY); url.searchParams.set('language', 'en-US'); const res = await fetch(url.toString(), { signal: controller.signal }); if (!res.ok) return null; return await res.json(); }
-  catch { return null; } finally { clearTimeout(timer); }
-}
-export async function fetchMovieDetails(tmdbId) { return tmdbFetch(`/movie/${encodeURIComponent(String(tmdbId))}`); }
-export async function fetchTVDetails(tmdbId) { return tmdbFetch(`/tv/${encodeURIComponent(String(tmdbId))}`); }
-export async function fetchTVSeasonDetails(tmdbId, season) { return tmdbFetch(`/tv/${encodeURIComponent(String(tmdbId))}/season/${encodeURIComponent(String(season))}`); }
-export async function fetchLatestMovies(page = 1) { return tmdbFetch(`/trending/movie/week?page=${page}`); }
-export async function fetchLatestTVShows(page = 1) { return tmdbFetch(`/trending/tv/week?page=${page}`); }
-export async function searchMoviesAndSeries(query, page = 1) { const data = await tmdbFetch(`/search/multi?query=${encodeURIComponent(query)}&page=${page}`); return data?.results?.filter(r => r.media_type === 'movie' || r.media_type === 'tv') || []; }
-export async function fetchMediaMeta(mediaType, tmdbId) { return mediaType === 'movie' ? fetchMovieDetails(tmdbId) : fetchTVDetails(tmdbId); }
-export async function findMediaByTitle(title, mediaType) { const query = String(title || '').trim(); if (!query) return null; const results = await searchMoviesAndSeries(query); const wanted = mediaType === 'movie' ? 'movie' : 'tv'; const typed = results.filter(item => item?.media_type === wanted && item?.id != null); if (!typed.length) return null; const normalized = query.toLowerCase(); return typed.find(item => String(item.title || item.name || '').toLowerCase() === normalized) || typed[0]; }
-
-export function buildEmbedSource(mediaType, tmdbId, season = 1, episode = 1, provider = DEFAULT_MEDIA_SOURCE_PROVIDER) {
-  const id = String(tmdbId || '').trim(); if (!/^\d+$/.test(id)) return '';
-  const type = mediaType === 'movie' ? 'movie' : 'tv'; const s = Math.max(1, Number(season) || 1); const e = Math.max(1, Number(episode) || 1);
-  if (provider === 'vidnest') return type === 'movie' ? `https://vidnest.fun/movie/${id}` : `https://vidnest.fun/tv/${id}/${s}/${e}`;
-  if (provider === 'videasy') return type === 'movie' ? `https://player.videasy.net/movie/${id}` : `https://player.videasy.net/tv/${id}/${s}/${e}`;
-  return type === 'movie' ? `https://vidsrc.tw/embed/movie/${id}` : `https://vidsrc.tw/embed/tv/${id}/${s}/${e}`;
-}
-
-export async function resolveMediaSource(mediaType, tmdbId, season = null, episode = null, provider = DEFAULT_MEDIA_SOURCE_PROVIDER) {
-  const direct = await resolveDirectMediaSource(mediaType, tmdbId, season, episode, provider);
-  return direct || buildEmbedSource(mediaType, tmdbId, season, episode, provider);
-}
-
-export async function resolveDirectMediaSource(mediaType, tmdbId, season = null, episode = null, provider = DEFAULT_MEDIA_SOURCE_PROVIDER) {
-  if (!MEDIA_SOURCE_API) return null;
-  const selectedProvider = MEDIA_SOURCE_PROVIDERS.some(item => item.id === provider) ? provider : DEFAULT_MEDIA_SOURCE_PROVIDER;
-  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), TMDB_TIMEOUT_MS);
-  try {
-    const url = new URL(MEDIA_SOURCE_API, window.location.origin); url.searchParams.set('type', mediaType === 'movie' ? 'movie' : 'tv'); url.searchParams.set('tmdbId', String(tmdbId)); url.searchParams.set('provider', selectedProvider);
-    if (mediaType !== 'movie') { url.searchParams.set('season', String(season || 1)); url.searchParams.set('episode', String(episode || 1)); }
-    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' }, signal: controller.signal }); if (!res.ok) return null; const data = await res.json(); return typeof data?.url === 'string' ? data.url : null;
-  } catch { return null; } finally { clearTimeout(timer); }
-}
+export const MEDIA_SOURCE_PROVIDERS=[{id:'vidsrc',name:'VidSrc',default:true},{id:'vidnest',name:'Vidnest',default:false},{id:'videasy',name:'Videasy',default:false}];
+export const DEFAULT_MEDIA_SOURCE_PROVIDER='vidsrc';
+async function tmdbFetch(endpoint){const c=new AbortController();const t=setTimeout(()=>c.abort(),TMDB_TIMEOUT_MS);try{const u=new URL(`${TMDB_BASE}${endpoint}`);u.searchParams.set('api_key',TMDB_API_KEY);u.searchParams.set('language','en-US');const r=await fetch(u.toString(),{signal:c.signal});if(!r.ok)return null;return await r.json();}catch{return null}finally{clearTimeout(t)}}
+export async function fetchMovieDetails(id){return tmdbFetch(`/movie/${encodeURIComponent(String(id))}`)}
+export async function fetchTVDetails(id){return tmdbFetch(`/tv/${encodeURIComponent(String(id))}`)}
+export async function fetchTVSeasonDetails(id,s){return tmdbFetch(`/tv/${encodeURIComponent(String(id))}/season/${encodeURIComponent(String(s))}`)}
+export async function fetchLatestMovies(page=1){return tmdbFetch(`/trending/movie/week?page=${page}`)}
+export async function fetchLatestTVShows(page=1){return tmdbFetch(`/trending/tv/week?page=${page}`)}
+export async function searchMoviesAndSeries(query,page=1){const d=await tmdbFetch(`/search/multi?query=${encodeURIComponent(query)}&page=${page}`);return d?.results?.filter(r=>r.media_type==='movie'||r.media_type==='tv')||[]}
+export async function fetchMediaMeta(type,id){return type==='movie'?fetchMovieDetails(id):fetchTVDetails(id)}
+export async function findMediaByTitle(title,type){const q=String(title||'').trim();if(!q)return null;const rs=await searchMoviesAndSeries(q);const wanted=type==='movie'?'movie':'tv';const typed=rs.filter(x=>x?.media_type===wanted&&x?.id!=null);if(!typed.length)return null;const n=q.toLowerCase();return typed.find(x=>String(x.title||x.name||'').toLowerCase()===n)||typed[0]}
+export async function fetchReleaseSchedule(){const [movies,tv]=await Promise.all([tmdbFetch('/movie/upcoming'),tmdbFetch('/tv/on_the_air')]);return {movies:(movies?.results||[]).map(x=>({...x,media_type:'movie',releaseTimestamp:x.release_date?Date.parse(`${x.release_date}T00:00:00`):0})),tv:(tv?.results||[]).map(x=>({...x,media_type:'tv',releaseTimestamp:x.first_air_date?Date.parse(`${x.first_air_date}T00:00:00`):0}))}}
+export function buildEmbedSource(type,tmdbId,season=1,episode=1,provider=DEFAULT_MEDIA_SOURCE_PROVIDER){const id=String(tmdbId||'').trim();if(!/^\d+$/.test(id))return '';const t=type==='movie'?'movie':'tv',s=Math.max(1,Number(season)||1),e=Math.max(1,Number(episode)||1);if(provider==='vidnest')return t==='movie'?`https://vidnest.fun/movie/${id}`:`https://vidnest.fun/tv/${id}/${s}/${e}`;if(provider==='videasy')return t==='movie'?`https://player.videasy.net/movie/${id}`:`https://player.videasy.net/tv/${id}/${s}/${e}`;return t==='movie'?`https://vidsrc.tw/embed/movie/${id}`:`https://vidsrc.tw/embed/tv/${id}/${s}/${e}`}
+export async function resolveMediaSource(type,id,season=null,episode=null,provider=DEFAULT_MEDIA_SOURCE_PROVIDER){return await resolveDirectMediaSource(type,id,season,episode,provider)||buildEmbedSource(type,id,season,episode,provider)}
+export async function resolveDirectMediaSource(type,id,season=null,episode=null,provider=DEFAULT_MEDIA_SOURCE_PROVIDER){if(!MEDIA_SOURCE_API)return null;const p=MEDIA_SOURCE_PROVIDERS.some(x=>x.id===provider)?provider:DEFAULT_MEDIA_SOURCE_PROVIDER;const c=new AbortController();const t=setTimeout(()=>c.abort(),TMDB_TIMEOUT_MS);try{const u=new URL(MEDIA_SOURCE_API,window.location.origin);u.searchParams.set('type',type==='movie'?'movie':'tv');u.searchParams.set('tmdbId',String(id));u.searchParams.set('provider',p);if(type!=='movie'){u.searchParams.set('season',String(season||1));u.searchParams.set('episode',String(episode||1))}const r=await fetch(u.toString(),{headers:{Accept:'application/json'},signal:c.signal});if(!r.ok)return null;const d=await r.json();return typeof d?.url==='string'?d.url:null}catch{return null}finally{clearTimeout(t)}}
