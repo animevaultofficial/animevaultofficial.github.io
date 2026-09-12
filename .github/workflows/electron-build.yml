@@ -15,21 +15,11 @@ concurrency:
   group: desktop-build-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  # Keep desktop/Android builds aligned with the production GitHub Pages build.
-  # Secrets are supplied by the repository and github-pages environment.
-  VITE_API_URL: ${{ secrets.VITE_API_URL }}
-  VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
-  VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
-  VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
-  VITE_AUTH_PROXY_URL: ${{ secrets.VITE_AUTH_PROXY_URL }}
-  VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
-  VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
-
 jobs:
   desktop:
     name: Desktop installer (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
+    environment: github-pages
     strategy:
       fail-fast: false
       matrix:
@@ -43,6 +33,14 @@ jobs:
           - os: ubuntu-latest
             name: Linux
             args: --linux
+    env:
+      VITE_API_URL: ${{ secrets.VITE_API_URL }}
+      VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
+      VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
+      VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
+      VITE_AUTH_PROXY_URL: ${{ secrets.VITE_AUTH_PROXY_URL }}
+      VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+      VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -75,9 +73,7 @@ jobs:
               missing=1
             fi
           done
-          if [ "$missing" -ne 0 ]; then
-            exit 1
-          fi
+          if [ "$missing" -ne 0 ]; then exit 1; fi
       - name: Build desktop installer
         shell: bash
         env:
@@ -115,6 +111,17 @@ jobs:
     name: Android APK
     runs-on: ubuntu-latest
     environment: github-pages
+    env:
+      VITE_API_URL: ${{ secrets.VITE_API_URL }}
+      VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
+      VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
+      VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
+      VITE_AUTH_PROXY_URL: ${{ secrets.VITE_AUTH_PROXY_URL }}
+      VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+      VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -125,8 +132,10 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Validate production configuration
+      - name: Validate production and Android signing secrets
         shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
           missing=0
@@ -142,14 +151,7 @@ jobs:
               missing=1
             fi
           done
-          if [ "$missing" -ne 0 ]; then
-            exit 1
-          fi
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          if [ "$missing" -ne 0 ]; then exit 1; fi
       - name: Build web app
         run: npm run build
       - name: Setup Java
@@ -161,54 +163,86 @@ jobs:
         uses: android-actions/setup-android@v3
       - name: Install Android platform and build tools
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-      - name: Create Capacitor Android project
-        run: npx cap add android
-      - name: Generate Android launcher icon resources
+      - name: Create or sync Capacitor Android project
+        run: |
+          if [ -d android ]; then
+            npx cap sync android
+          else
+            npx cap add android
+            npx cap sync android
+          fi
+      - name: Generate Android launcher icons
         run: |
           set -euo pipefail
-          mkdir -p resources
-          cp bbe8df3b-a24d-4ec9-bf1b-21076a554fd7.png resources/icon.png
-          npx --yes @capacitor/assets generate --android --assetPath resources
-      - name: Configure Android release signing and version
+          test -f bbe8df3b-a24d-4ec9-bf1b-21076a554fd7.png
+          node <<'NODE'
+          import sharp from 'sharp';
+          import fs from 'fs';
+          import path from 'path';
+          const source = 'bbe8df3b-a24d-4ec9-bf1b-21076a554fd7.png';
+          const root = 'android/app/src/main/res';
+          const densities = {
+            mdpi: 48,
+            hdpi: 72,
+            xhdpi: 96,
+            xxhdpi: 144,
+            xxxhdpi: 192
+          };
+          for (const [density, size] of Object.entries(densities)) {
+            const dir = path.join(root, `mipmap-${density}`);
+            fs.mkdirSync(dir, { recursive: true });
+            const buffer = await sharp(source)
+              .resize(size, size, { fit: 'cover' })
+              .png()
+              .toBuffer();
+            fs.writeFileSync(path.join(dir, 'ic_launcher.png'), buffer);
+            fs.writeFileSync(path.join(dir, 'ic_launcher_round.png'), buffer);
+          }
+          for (const file of [
+            'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+            'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml'
+          ]) {
+            try { fs.unlinkSync(file); } catch (_) {}
+          }
+          NODE
+      - name: Configure Android release signing
         shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/animevault-release.keystore
+          test -s android/app/animevault-release.keystore
           python3 - <<'PY'
           from pathlib import Path
           p = Path('android/app/build.gradle')
           text = p.read_text()
-          marker = 'android {\n'
-          if marker not in text:
-              raise SystemExit('android/app/build.gradle does not contain an android block')
-          signing = '''android {\n    signingConfigs {\n        release {\n            storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n'''
-          text = text.replace(marker, signing, 1)
-          text = text.replace('versionCode 1', 'versionCode ' + '${{ github.run_number }}', 1)
-          text = text.replace('release {\n            minifyEnabled', 'release {\n            signingConfig signingConfigs.release\n            minifyEnabled', 1)
+          if 'signingConfigs {' not in text:
+              marker = 'android {\n'
+              if marker not in text:
+                  raise SystemExit('android block not found')
+              text = text.replace(marker, '''android {\n    signingConfigs {\n        release {\n            storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n''', 1)
+          if 'signingConfig signingConfigs.release' not in text:
+              text = text.replace('release {\n', 'release {\n            signingConfig signingConfigs.release\n', 1)
+          import re
+          text, n = re.subn(r'versionCode\s+\d+', 'versionCode ${{ github.run_number }}', text, count=1)
+          if n == 0:
+              raise SystemExit('versionCode not found')
           p.write_text(text)
           PY
-        env:
-          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/animevault-release.keystore
-      - name: Sync Capacitor Android
+      - name: Sync Capacitor after Android configuration
         run: npx cap sync android
       - name: Build signed release APK
         working-directory: android
         env:
           ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/animevault-release.keystore
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew assembleRelease --stacktrace
-      - name: Verify APK
+      - name: Verify signed APK and package metadata
+        shell: bash
         run: |
           set -euo pipefail
           APK=android/app/build/outputs/apk/release/app-release.apk
-          test -f "$APK"
+          test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | grep -q "package: name='com.animevault.app'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | grep -q "application-label:'AnimeVault'"
@@ -221,7 +255,7 @@ jobs:
           retention-days: 30
 
   release:
-    name: Publish desktop release
+    name: Publish AnimeVault release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [desktop, android]
     runs-on: ubuntu-latest
@@ -249,9 +283,9 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: desktop-build-${{ github.run_number }}
-          name: AnimeVault Desktop Build ${{ github.run_number }}
-          body: Automated desktop installers and signed Android APK built from main.
+          tag_name: animevault-build-${{ github.run_number }}
+          name: AnimeVault Build ${{ github.run_number }}
+          body: Automated Windows, macOS, Linux, and signed Android builds from main.
           files: |
             release/Windows/*
             release/macOS/*
