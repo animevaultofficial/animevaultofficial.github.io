@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, SkipBack, SkipForward, Maximize, Minimize } from 'lucide-react';
-import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails, resolveDirectMediaSource, MEDIA_SOURCE_PROVIDERS, DEFAULT_MEDIA_SOURCE_PROVIDER } from '../api/movies';
+import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails, findMediaByTitle, resolveDirectMediaSource, MEDIA_SOURCE_PROVIDERS, DEFAULT_MEDIA_SOURCE_PROVIDER } from '../api/movies';
 import AndroidVideoPlayer from '../components/AndroidVideoPlayer';
 import { useUser } from '../../api/UserContext';
 
@@ -11,6 +11,7 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
   const initialTitle = params?.title;
   const routeSourceUrl = params?.sourceUrl || params?.videoUrl || params?.streamUrl || '';
   const [details, setDetails] = useState(null);
+  const [resolvedId, setResolvedId] = useState(String(id || '').replace(/^tmdb-/i, '').trim());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showPlayer, setShowPlayer] = useState(false);
@@ -33,19 +34,43 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (!id) { setError('Missing movie or TV show ID.'); setLoading(false); return; }
-      setLoading(true); setError(''); setDetails(null); setEpisodes([]);
+      const rawId = String(id || '').replace(/^tmdb-/i, '').trim();
+      if (!rawId) {
+        if (!cancelled) { setError('Missing movie or TV show ID.'); setLoading(false); }
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+      setDetails(null);
+      setEpisodes([]);
+      setResolvedId(rawId);
+
       try {
-        const numericId = String(id).replace(/^tmdb-/i, '').trim();
-        const data = mediaType === 'movie' ? await fetchMovieDetails(numericId) : await fetchTVDetails(numericId);
+        let data = mediaType === 'movie' ? await fetchMovieDetails(rawId) : await fetchTVDetails(rawId);
+        let actualId = rawId;
+
+        // Some cards/providers can hand us a stale or non-TMDB ID. If the
+        // route also has a title, resolve the title through TMDB and retry.
+        if (!data && initialTitle) {
+          const match = await findMediaByTitle(initialTitle, mediaType);
+          if (match?.id != null) {
+            actualId = String(match.id);
+            data = mediaType === 'movie' ? await fetchMovieDetails(actualId) : await fetchTVDetails(actualId);
+          }
+        }
+
         if (cancelled) return;
-        if (!data) throw new Error('This title could not be loaded. The TMDB service may be temporarily unavailable.');
+        if (!data) throw new Error(`Movie/TV show not found. ID ${rawId} is not a valid TMDB ${mediaType} ID.`);
+
+        setResolvedId(actualId);
         setDetails(data);
+
         if (mediaType !== 'movie' && data.seasons?.length) {
           const firstSeason = data.seasons.find(s => s.season_number > 0)?.season_number || 1;
           setSelectedSeason(firstSeason);
           try {
-            const seasonData = await fetchTVSeasonDetails(numericId, firstSeason);
+            const seasonData = await fetchTVSeasonDetails(actualId, firstSeason);
             if (!cancelled) setEpisodes(seasonData?.episodes || []);
           } catch (seasonErr) {
             console.warn('[AnimeVault Mobile] TV season load failed:', seasonErr?.message || seasonErr);
@@ -59,29 +84,27 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
     }
     load();
     return () => { cancelled = true; };
-  }, [id, mediaType]);
+  }, [id, mediaType, initialTitle]);
 
   useEffect(() => {
     let cancelled = false;
-    if (mediaType !== 'movie' && details?.seasons && id) {
-      const numericId = String(id).replace(/^tmdb-/i, '').trim();
-      fetchTVSeasonDetails(numericId, selectedSeason)
+    if (mediaType !== 'movie' && details?.seasons && resolvedId) {
+      fetchTVSeasonDetails(resolvedId, selectedSeason)
         .then(d => { if (!cancelled) setEpisodes(d?.episodes || []); })
         .catch(err => console.warn('[AnimeVault Mobile] season fetch failed:', err?.message || err));
     }
     return () => { cancelled = true; };
-  }, [id, mediaType, details?.seasons, selectedSeason]);
+  }, [resolvedId, mediaType, details?.seasons, selectedSeason]);
 
   const loadSource = async (season = selectedSeason, episode = selectedEpisode, provider = selectedProvider) => {
-    const numericId = String(id || '').replace(/^tmdb-/i, '').trim();
-    if (!numericId) return;
+    if (!resolvedId) return;
     setSourceLoading(true);
     setSourceError('');
-    const resolved = await resolveDirectMediaSource(mediaType, numericId, season, episode, provider);
+    const resolved = await resolveDirectMediaSource(mediaType, resolvedId, season, episode, provider);
     if (resolved) setMediaSource(resolved);
     else if (!routeSourceUrl) {
       setMediaSource('');
-      setSourceError(`No direct media source is available from ${provider}. Configure VITE_MEDIA_SOURCE_API to return a direct MP4, WebM, OGG or HLS (.m3u8) URL.`);
+      setSourceError(`No direct media source is available from ${provider}.`);
     }
     setSourceLoading(false);
   };
@@ -117,7 +140,7 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
     if (idx > 0) changeEpisode(episodes[idx - 1].episode_number);
   };
 
-  if (loading) return <div className="mobile-content"><div className="loading-shimmer" style={{ width: '100%', height: 250, borderRadius: 12, marginBottom: 16 }} /><div className="loading-shimmer" style={{ width: '60%', height: 28, borderRadius: 8, marginBottom: 12 }} /></div>;
+  if (loading) return <div className="mobile-content"><div className="loading-shimmer" style={{ width: '100%', height: 250, borderRadius: 12, marginBottom: 16 }} /><div style={{ color: '#94a3b8', padding: '8px 0' }}>Loading details…</div><div className="loading-shimmer" style={{ width: '60%', height: 28, borderRadius: 8, marginBottom: 12 }} /></div>;
   if (error || !details) return <div className="mobile-content" style={{ textAlign: 'center', padding: '3rem 1rem' }}><p style={{ color: '#94a3b8' }}>{error || 'Failed to load details'}</p><button onClick={goBack} style={{ marginTop: 12, background: 'var(--brand-color)', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: 8 }}>Go Back</button></div>;
 
   const title = details.title || details.name || initialTitle || 'Unknown';
