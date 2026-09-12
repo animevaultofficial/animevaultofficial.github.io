@@ -1,5 +1,6 @@
 // Player sources for AnimeVault
 // User-selectable embed providers for movies and TV shows.
+// Keep these as iframe providers: they resolve the actual media server themselves.
 export const PLAYER_SOURCES = [
   {
     id: "vidsrc",
@@ -9,17 +10,35 @@ export const PLAYER_SOURCES = [
     supportsProgress: true,
     progressViaFrames: true,
     colorParam: null,
-    langParam: "ds_lang",
+    langParam: null,
     params: {},
-    movieUrl: (id) => `https://vsembed.su/embed/movie/${id}`,
+    movieUrl: (id) => `https://vidsrc.tw/embed/movie/${id}`,
     tvUrl: (id, season, ep) =>
-      `https://vsembed.su/embed/tv/${id}/${season}/${ep}`,
+      `https://vidsrc.tw/embed/tv/${id}/${season}/${ep}`,
   },
   {
     id: "videasy",
     label: "Videasy",
     tag: null,
-    note: null,
+    note: "Closing September 15, 2026; kept as a temporary provider.",
+    supportsProgress: true,
+    colorParam: "color",
+    langParam: null,
+    params: {
+      overlay: "true",
+    },
+    movieUrl: (id) => `https://player.videasy.net/movie/${id}`,
+    tvUrl: (id, season, ep) =>
+      `https://player.videasy.net/tv/${id}/${season}/${ep}`,
+  },
+  {
+    // Backwards-compatible id used by the movie player UI.
+    // The old UI referenced `vidking`; map it to the current Videasy player
+    // instead of generating a dead/non-existent provider URL.
+    id: "vidking",
+    label: "Videasy",
+    tag: "Legacy alias",
+    note: "Compatibility alias for Videasy.",
     supportsProgress: true,
     colorParam: "color",
     langParam: null,
@@ -32,7 +51,7 @@ export const PLAYER_SOURCES = [
   },
   {
     id: "vidnest",
-    label: "Vidnest",
+    label: "VidNest",
     tag: null,
     note: null,
     supportsProgress: true,
