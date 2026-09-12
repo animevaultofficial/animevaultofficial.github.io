@@ -1,11 +1,10 @@
 import React from 'react';
-import { CalendarDays, Home, Library, Search, UserCircle } from 'lucide-react';
+import { Home, Library, Search, UserCircle } from 'lucide-react';
 
 const ITEMS = [
   ['Home', Home, '/'],
   ['Explore', Search, '/search'],
   ['Library', Library, '/collections'],
-  ['Schedule', CalendarDays, '/schedule'],
   ['Profile', UserCircle, '/profile'],
 ];
 
