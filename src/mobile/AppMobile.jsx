@@ -121,7 +121,7 @@ export default function AppMobile() {
   else if (location.pathname === '/forgot-password') content = <LegacyPage><ForgotPassword /></LegacyPage>;
   else if (location.pathname === '/set-new-password') content = <LegacyPage><SetNewPassword /></LegacyPage>;
   else if (/^\/watch\/(movie|tv|series)\/[^/]+$/.test(location.pathname)) content = <RequireAuth><MobileWatchRoute navigate={navigate} /></RequireAuth>;
-  else if (/^\/admin(?:\/.*)?$/.test(location.pathname)) content = <RequireAdmin><LegacyPage><AdminDashboard /></LegacyPage></RequireAuth>;
+  else if (/^\/admin(?:\/.*)?$/.test(location.pathname)) content = <RequireAdmin><LegacyPage><AdminDashboard /></LegacyPage></RequireAdmin>;
   else if (location.pathname === '/anime' || /^\/anime\/[^/]+$/.test(location.pathname)) content = <MobileAnimeUnavailable />;
   else if (/^\/drama\/[^/]+$/.test(location.pathname)) content = <MobileDramaDetails navigate={mobileNavigate} />;
   else if (/^\/manga\/[^/]+$/.test(location.pathname)) content = <MobileMangaDetails />;
