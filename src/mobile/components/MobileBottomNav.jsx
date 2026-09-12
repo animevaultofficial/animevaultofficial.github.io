@@ -12,11 +12,11 @@ const ITEMS = [
 export default function MobileBottomNav({ pathname = '/', navigate }) {
   const active = path => path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(`${path}/`);
   return (
-    <nav className="av-mobile-bottom-nav" aria-label="Primary navigation">
+    <nav className="av-android-bottom-nav" aria-label="Primary navigation">
       {ITEMS.map(([label, Icon, path]) => {
         const isActive = active(path);
-        return <button key={path} type="button" className={`av-mobile-bottom-item ${isActive ? 'is-active' : ''}`} aria-current={isActive ? 'page' : undefined} aria-label={label} onClick={() => navigate(path)}>
-          <span className="av-mobile-bottom-icon"><Icon size={22} strokeWidth={isActive ? 2.4 : 2} /></span>
+        return <button key={path} type="button" className={`av-android-bottom-item ${isActive ? 'is-active' : ''}`} aria-current={isActive ? 'page' : undefined} aria-label={label} onClick={() => navigate(path)}>
+          <span className="av-android-bottom-icon"><Icon size={21} strokeWidth={isActive ? 2.4 : 2} /></span>
           <span>{label}</span>
         </button>;
       })}
