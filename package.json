@@ -21,8 +21,8 @@
     "bump-version": "npm version patch -m \"chore: bump version to %s\"",
     "electron:release": "npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --publish always",
     "electron:build:win": "npm run prebuild && npm run clean && npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --win --publish never",
-    "electron:build:mac": "npm run prebuild && npm run clean && npm run generate-icons && electron-builder --mac --publish never",
-    "electron:build:linux": "npm run prebuild && npm run clean && npm run generate-icons && electron-builder --linux --publish never",
+    "electron:build:mac": "npm run prebuild && npm run clean && npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --mac --publish never",
+    "electron:build:linux": "npm run prebuild && npm run clean && npm run generate-icons && cross-env ELECTRON=1 vite build && electron-builder --linux --publish never",
     "webos:build": "vite build --mode webos",
     "webos:package": "node scripts/build-webos.cjs"
   },
@@ -51,6 +51,7 @@
     "discord-rpc": "^4.0.1",
     "dotenv": "^9.0.2",
     "electron-updater": "^6.3.9",
+    "express": "^5.1.0",
     "framer-motion": "^12.38.0",
     "graphql-request": "^6.1.0",
     "hls.js": "^1.6.16",
