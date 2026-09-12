@@ -37,6 +37,8 @@ import './styles/safe-area.css';
 import './mobile-android-design.css';
 import './styles/android-v3.css';
 
+const LogoMark = ({ className = '' }) => <img className={`av-v2-logo-img ${className}`} src="/logo.png" alt="" aria-hidden="true" />;
+
 const DISCOVER = [
   ['Home', Home, '/'],
   ['Explore', Search, '/search'],
@@ -111,10 +113,10 @@ export default function AppMobile() {
   else if (/^\/manga\/[^/]+$/.test(location.pathname)) content = <MobileMangaDetails navigate={navigate} />;
 
   return <div className="av-v2-shell">
-    <header className="av-v2-topbar"><button className="av-v2-icon-button" type="button" aria-label="Open menu" onClick={() => setDrawerOpen(true)}><Menu size={23} /></button><button className="av-v2-brand" type="button" onClick={() => go('/')}><span className="av-v2-brand-mark"><span aria-hidden="true" /></span><span>AnimeVault</span></button><button className="av-v2-icon-button" type="button" aria-label="Notifications" onClick={() => go('/notifications')}><Bell size={21} /></button></header>
+    <header className="av-v2-topbar"><button className="av-v2-icon-button" type="button" aria-label="Open menu" onClick={() => setDrawerOpen(true)}><Menu size={23} /></button><button className="av-v2-brand" type="button" onClick={() => go('/')}><span className="av-v2-brand-mark"><LogoMark /></span><span>AnimeVault</span></button><button className="av-v2-icon-button" type="button" aria-label="Notifications" onClick={() => go('/notifications')}><Bell size={21} /></button></header>
     <button className={`av-v2-drawer-backdrop ${drawerOpen ? 'is-open' : ''}`} type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)} />
     <aside className={`av-v2-drawer ${drawerOpen ? 'is-open' : ''}`} aria-hidden={!drawerOpen}>
-      <div className="av-v2-drawer-header"><div className="av-v2-drawer-brand"><span className="av-v2-brand-mark"><span aria-hidden="true" /></span><div><strong>AnimeVault</strong><small>ANDROID</small></div></div><button className="av-v2-icon-button" type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)}><X size={22} /></button></div>
+      <div className="av-v2-drawer-header"><div className="av-v2-drawer-brand"><span className="av-v2-brand-mark"><LogoMark /></span><div><strong>AnimeVault</strong><small>ANDROID</small></div></div><button className="av-v2-icon-button" type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)}><X size={22} /></button></div>
       <div className="av-v2-drawer-scroll"><p className="av-v2-drawer-label">DISCOVER</p><nav>{DISCOVER.map(drawerItem)}</nav><p className="av-v2-drawer-label">YOUR VAULT</p><nav>{VAULT.map(drawerItem)}</nav><div className="av-v2-drawer-divider" /><button className={`av-v2-drawer-item ${location.pathname.startsWith('/profile') ? 'is-active' : ''}`} type="button" onClick={() => go('/profile')}><UserCircle size={19} /><span>Profile</span><ChevronRight className="av-v2-drawer-chevron" size={16} /></button><button className={`av-v2-drawer-item ${location.pathname === '/settings' ? 'is-active' : ''}`} type="button" onClick={() => go('/settings')}><Settings size={19} /><span>Settings</span><ChevronRight className="av-v2-drawer-chevron" size={16} /></button><button className="av-v2-drawer-item" type="button" onClick={() => go('/about')}><Info size={19} /><span>About</span><ChevronRight className="av-v2-drawer-chevron" size={16} /></button></div>
     </aside>
     <main className="av-v2-content">{content}</main>
