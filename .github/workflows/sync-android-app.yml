@@ -1,0 +1,54 @@
+name: Sync Android app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sync-android-app.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          path: target
+          fetch-depth: 1
+
+      - name: Checkout existing Android app
+        uses: actions/checkout@v4
+        with:
+          repository: adiyandev/animevault-mobile
+          path: source
+          fetch-depth: 1
+
+      - name: Copy Android project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf target/android
+          mkdir -p target/android
+          cp -R source/app target/android/app
+          cp -R source/gradle target/android/gradle
+          cp source/build.gradle.kts target/android/build.gradle.kts
+          cp source/settings.gradle.kts target/android/settings.gradle.kts
+          cp source/gradle.properties target/android/gradle.properties
+          cp source/.env.example target/android/.env.example
+          cp source/metadata.json target/android/metadata.json
+
+      - name: Commit Android project
+        working-directory: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat(android): add AnimeVault Android project [skip ci]"
+          git push origin HEAD:main
