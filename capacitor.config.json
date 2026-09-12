@@ -1,6 +1,6 @@
 {
   "appId": "com.animevault.app",
-  "appName": "AnimeVault",
+  "appName": "Anime Vault",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"
