@@ -79,7 +79,7 @@ export default function AppMobile() {
     return navigate(route);
   };
   const active = path => path === '/' ? location.pathname === '/' : location.pathname === path || location.pathname.startsWith(`${path}/`);
-  const drawerItem = ([label, Icon, path]) => <button key={`${label}-${path}`} type="button" className={`av-mobile-drawer-item ${active(path) ? 'is-active' : ''}`} onClick={() => go(path)}><Icon size={19} /><span>{label}</span><ChevronRight className="av-mobile-drawer-chevron" size={16} /></button>;
+  const drawerItem = ([label, Icon, path]) => <button key={`${label}-${path}`} type="button" className={`av-v2-drawer-item ${active(path) ? 'is-active' : ''}`} onClick={() => go(path)}><Icon size={19} /><span>{label}</span><ChevronRight className="av-v2-drawer-chevron" size={16} /></button>;
 
   let content = <MixedHome />;
   if (location.pathname === '/search') content = <WebSearch />;
@@ -109,14 +109,14 @@ export default function AppMobile() {
   else if (/^\/drama\/[^/]+$/.test(location.pathname)) content = <MobileDramaDetails navigate={mobileNavigate} />;
   else if (/^\/manga\/[^/]+$/.test(location.pathname)) content = <MobileMangaDetails navigate={navigate} />;
 
-  return <div className="av-mobile-shell">
-    <header className="av-mobile-topbar"><button className="av-mobile-icon-button" type="button" aria-label="Open menu" onClick={() => setDrawerOpen(true)}><Menu size={23} /></button><button className="av-mobile-brand" type="button" onClick={() => go('/')}><span className="av-mobile-brand-mark"><span aria-hidden="true" /></span><span>AnimeVault</span></button><button className="av-mobile-icon-button" type="button" aria-label="Notifications" onClick={() => go('/notifications')}><Bell size={21} /></button></header>
-    <button className={`av-mobile-drawer-backdrop ${drawerOpen ? 'is-open' : ''}`} type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)} />
-    <aside className={`av-mobile-drawer ${drawerOpen ? 'is-open' : ''}`} aria-hidden={!drawerOpen}>
-      <div className="av-mobile-drawer-header"><div className="av-mobile-drawer-brand"><span className="av-mobile-brand-mark"><span aria-hidden="true" /></span><div><strong>AnimeVault</strong><small>ANDROID</small></div></div><button className="av-mobile-icon-button" type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)}><X size={22} /></button></div>
-      <div className="av-mobile-drawer-scroll"><p className="av-mobile-drawer-label">DISCOVER</p><nav>{DISCOVER.map(drawerItem)}</nav><p className="av-mobile-drawer-label">YOUR VAULT</p><nav>{VAULT.map(drawerItem)}</nav><div className="av-mobile-drawer-divider" /><button className={`av-mobile-drawer-item ${location.pathname.startsWith('/profile') ? 'is-active' : ''}`} type="button" onClick={() => go('/profile')}><UserCircle size={19} /><span>Profile</span><ChevronRight className="av-mobile-drawer-chevron" size={16} /></button><button className={`av-mobile-drawer-item ${location.pathname === '/settings' ? 'is-active' : ''}`} type="button" onClick={() => go('/settings')}><Settings size={19} /><span>Settings</span><ChevronRight className="av-mobile-drawer-chevron" size={16} /></button><button className="av-mobile-drawer-item" type="button" onClick={() => go('/about')}><Info size={19} /><span>About</span><ChevronRight className="av-mobile-drawer-chevron" size={16} /></button></div>
+  return <div className="av-v2-shell">
+    <header className="av-v2-topbar"><button className="av-v2-icon-button" type="button" aria-label="Open menu" onClick={() => setDrawerOpen(true)}><Menu size={23} /></button><button className="av-v2-brand" type="button" onClick={() => go('/')}><span className="av-v2-brand-mark"><span aria-hidden="true" /></span><span>AnimeVault</span></button><button className="av-v2-icon-button" type="button" aria-label="Notifications" onClick={() => go('/notifications')}><Bell size={21} /></button></header>
+    <button className={`av-v2-drawer-backdrop ${drawerOpen ? 'is-open' : ''}`} type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)} />
+    <aside className={`av-v2-drawer ${drawerOpen ? 'is-open' : ''}`} aria-hidden={!drawerOpen}>
+      <div className="av-v2-drawer-header"><div className="av-v2-drawer-brand"><span className="av-v2-brand-mark"><span aria-hidden="true" /></span><div><strong>AnimeVault</strong><small>ANDROID</small></div></div><button className="av-v2-icon-button" type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)}><X size={22} /></button></div>
+      <div className="av-v2-drawer-scroll"><p className="av-v2-drawer-label">DISCOVER</p><nav>{DISCOVER.map(drawerItem)}</nav><p className="av-v2-drawer-label">YOUR VAULT</p><nav>{VAULT.map(drawerItem)}</nav><div className="av-v2-drawer-divider" /><button className={`av-v2-drawer-item ${location.pathname.startsWith('/profile') ? 'is-active' : ''}`} type="button" onClick={() => go('/profile')}><UserCircle size={19} /><span>Profile</span><ChevronRight className="av-v2-drawer-chevron" size={16} /></button><button className={`av-v2-drawer-item ${location.pathname === '/settings' ? 'is-active' : ''}`} type="button" onClick={() => go('/settings')}><Settings size={19} /><span>Settings</span><ChevronRight className="av-v2-drawer-chevron" size={16} /></button><button className="av-v2-drawer-item" type="button" onClick={() => go('/about')}><Info size={19} /><span>About</span><ChevronRight className="av-v2-drawer-chevron" size={16} /></button></div>
     </aside>
-    <main className="av-mobile-content">{content}</main>
+    <main className="av-v2-content">{content}</main>
     <MobileBottomNav pathname={location.pathname} navigate={go} />
   </div>;
 }
