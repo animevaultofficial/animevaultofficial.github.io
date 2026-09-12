@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename);
 // desktop/web Vite entry so the APK cannot accidentally package the web UI.
 export default defineConfig({
   root: path.resolve(__dirname, 'src/mobile'),
+  publicDir: path.resolve(__dirname, 'public'),
   plugins: [react()],
   base: './',
   resolve: {
