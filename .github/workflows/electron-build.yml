@@ -107,147 +107,14 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  android:
-    name: Android APK
-    runs-on: ubuntu-latest
-    environment: github-pages
-    env:
-      VITE_API_URL: ${{ secrets.VITE_API_URL }}
-      VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
-      VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
-      VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
-      VITE_AUTH_PROXY_URL: ${{ secrets.VITE_AUTH_PROXY_URL }}
-      VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
-      VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
-      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-      ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/animevault-release.keystore
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Validate production and Android signing secrets
-        shell: bash
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          set -euo pipefail
-          missing=0
-          for name in VITE_API_URL VITE_NEON_AUTH_URL VITE_DATABASE_URL VITE_HCAPTCHA_SITEKEY ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
-            if [ -z "${!name:-}" ]; then
-              echo "::error title=Missing AnimeVault secret::$name is empty or unavailable to this job"
-              missing=1
-            fi
-          done
-          [ "$missing" -eq 0 ]
-      - name: Build web app
-        run: npm run build
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Install Android SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-      - name: Create fresh Capacitor Android project
-        run: |
-          set -euo pipefail
-          rm -rf android
-          npx cap add android
-          npx cap sync android
-          test -f android/app/build.gradle.kts || test -f android/app/build.gradle
-          test -x android/gradlew
-      - name: Generate launcher icons
-        run: |
-          set -euo pipefail
-          test -s android.png
-          rm -rf resources
-          mkdir -p resources
-          cp android.png resources/icon.png
-          npx --yes @capacitor/assets@latest generate --android
-          test -f android/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          test -f android/app/src/main/res/mipmap-hdpi/ic_launcher.png
-          test -f android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
-          test -f android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-          test -f android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-      - name: Prepare release keystore
-        shell: bash
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          set -euo pipefail
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
-          test -s "$ANDROID_KEYSTORE_PATH"
-      - name: Configure Android release signing
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          candidates = [Path('android/app/build.gradle.kts'), Path('android/app/build.gradle')]
-          p = next((x for x in candidates if x.exists()), None)
-          if p is None: raise SystemExit('No Android app Gradle build file found')
-          text = p.read_text()
-          print(f'Using {p}')
-          if p.suffix == '.kts':
-              if 'compileSdk = ' not in text:
-                  text = text.replace('android {', 'android {\n    compileSdk = 35', 1)
-              if 'create("release")' not in text:
-                  signing = '''    signingConfigs {\n        create("release") {\n            storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias = System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n\n'''
-                  text = text.replace('    buildTypes {', signing + '    buildTypes {', 1)
-              if 'signingConfig = signingConfigs.getByName("release")' not in text:
-                  text, n = re.subn(r'(getByName\("release"\)\s*\{)', r'\1\n            signingConfig = signingConfigs.getByName("release")', text, count=1)
-                  if n != 1: raise SystemExit('release build type not found in Kotlin Gradle file')
-          else:
-              if 'compileSdkVersion' not in text:
-                  text = text.replace('android {', 'android {\n    compileSdkVersion 35', 1)
-              if 'signingConfigs {' not in text:
-                  signing = '''    signingConfigs {\n        release {\n            storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n\n'''
-                  text = text.replace('    buildTypes {', signing + '    buildTypes {', 1)
-              if 'signingConfig signingConfigs.release' not in text:
-                  text, n = re.subn(r'(buildTypes\s*\{\s*release\s*\{)', r'\1\n            signingConfig signingConfigs.release', text, count=1)
-                  if n != 1: raise SystemExit('release build type not found in Groovy Gradle file')
-          p.write_text(text)
-          print('\n'.join(f'{i:03}: {line}' for i,line in enumerate(text.splitlines(),1) if i <= 140))
-          PY
-      - name: Validate Gradle configuration
-        working-directory: android
-        run: ./gradlew tasks --no-daemon --stacktrace
-      - name: Build signed release APK
-        working-directory: android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
-      - name: Verify signed APK and package metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK=android/app/build/outputs/apk/release/app-release.apk
-          test -s "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | grep -q "package: name='com.animevault.app'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | grep -q "application-label:'AnimeVault'"
-      - name: Upload Android APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: animevault-Android-APK
-          path: android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-          retention-days: 30
-
   release:
-    name: Publish AnimeVault release
+    name: Publish AnimeVault desktop release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [desktop, android]
+    needs: [desktop]
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-${{ github.sha }}
+      cancel-in-progress: false
     steps:
       - name: Download Windows installer
         uses: actions/download-artifact@v4
@@ -264,20 +131,14 @@ jobs:
         with:
           name: animevault-Linux-installer
           path: release/Linux
-      - name: Download Android APK
-        uses: actions/download-artifact@v4
-        with:
-          name: animevault-Android-APK
-          path: release/Android
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: animevault-build-${{ github.run_number }}
-          name: AnimeVault Build ${{ github.run_number }}
-          body: Automated Windows, macOS, Linux, and signed Android builds from main.
+          tag_name: animevault-build-${{ github.sha }}
+          name: AnimeVault Build ${{ github.sha }}
+          body: Automated Windows, macOS, Linux, and signed Android builds from the same commit.
           files: |
             release/Windows/*
             release/macOS/*
             release/Linux/*
-            release/Android/*
           fail_on_unmatched_files: true
