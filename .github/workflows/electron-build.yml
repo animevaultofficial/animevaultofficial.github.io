@@ -181,31 +181,20 @@ jobs:
           import path from 'path';
           const source = 'bbe8df3b-a24d-4ec9-bf1b-21076a554fd7.png';
           const root = 'android/app/src/main/res';
-          const densities = {
-            mdpi: 48,
-            hdpi: 72,
-            xhdpi: 96,
-            xxhdpi: 144,
-            xxxhdpi: 192
-          };
+          const densities = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
           for (const [density, size] of Object.entries(densities)) {
             const dir = path.join(root, `mipmap-${density}`);
             fs.mkdirSync(dir, { recursive: true });
-            const buffer = await sharp(source)
-              .resize(size, size, { fit: 'cover' })
-              .png()
-              .toBuffer();
+            const buffer = await sharp(source).resize(size, size, { fit: 'cover' }).png().toBuffer();
             fs.writeFileSync(path.join(dir, 'ic_launcher.png'), buffer);
             fs.writeFileSync(path.join(dir, 'ic_launcher_round.png'), buffer);
           }
           for (const file of [
             'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
             'android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml'
-          ]) {
-            try { fs.unlinkSync(file); } catch (_) {}
-          }
+          ]) { try { fs.unlinkSync(file); } catch (_) {} }
           NODE
-      - name: Configure Android release signing
+      - name: Configure Android release signing and SDK
         shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -215,17 +204,19 @@ jobs:
           test -s android/app/animevault-release.keystore
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p = Path('android/app/build.gradle')
           text = p.read_text()
+          if 'compileSdkVersion' not in text:
+              text = text.replace('android {\n', 'android {\n    compileSdkVersion 35\n', 1)
           if 'signingConfigs {' not in text:
-              marker = 'android {\n'
-              if marker not in text:
-                  raise SystemExit('android block not found')
-              text = text.replace(marker, '''android {\n    signingConfigs {\n        release {\n            storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n''', 1)
+              signing = '''    signingConfigs {\n        release {\n            storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n\n'''
+              text = text.replace('    buildTypes {', signing + '    buildTypes {', 1)
           if 'signingConfig signingConfigs.release' not in text:
-              text = text.replace('release {\n', 'release {\n            signingConfig signingConfigs.release\n', 1)
-          import re
-          text, n = re.subn(r'versionCode\s+\d+', 'versionCode ${{ github.run_number }}', text, count=1)
+              text, n = re.subn(r'(buildTypes\s*\{\s*release\s*\{)', r'\1\n            signingConfig signingConfigs.release', text, count=1)
+              if n != 1:
+                  raise SystemExit('release build type not found')
+          text, n = re.subn(r'(?m)^\s*versionCode\s+\d+', '        versionCode ${{ github.run_number }}', text, count=1)
           if n == 0:
               raise SystemExit('versionCode not found')
           p.write_text(text)
