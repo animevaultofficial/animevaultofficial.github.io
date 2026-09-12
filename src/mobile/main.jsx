@@ -13,21 +13,6 @@ import '../styles/mobile-fixes.css';
 
 installChunkRecovery();
 
-try {
-  const FAVORITES_KEY = 'animevault_favorites';
-  const raw = localStorage.getItem(FAVORITES_KEY);
-  const parsed = raw ? JSON.parse(raw) : null;
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify({
-    animes: Array.isArray(parsed?.animes) ? parsed.animes : [],
-    studios: Array.isArray(parsed?.studios) ? parsed.studios : [],
-    characters: Array.isArray(parsed?.characters) ? parsed.characters : [],
-  }));
-} catch {
-  try {
-    localStorage.setItem('animevault_favorites', JSON.stringify({ animes: [], studios: [], characters: [] }));
-  } catch {}
-}
-
 init({ debug: false, visualDebug: false, nativeMode: false, throttle: 70 });
 
 if ('serviceWorker' in navigator) {
