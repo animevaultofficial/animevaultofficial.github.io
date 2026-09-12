@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserProvider } from '../api/UserContext';
 import { init } from '@noriginmedia/norigin-spatial-navigation';
 import ErrorBoundary from '../components/ErrorBoundary';
+import SubAccountGate from '../components/SubAccountGate';
 import { installChunkRecovery } from '../utils/chunkRecovery.js';
 import AppMobile from './AppMobile';
 import '../styles.css';
@@ -27,15 +28,7 @@ try {
   } catch {}
 }
 
-const isTouchDevice = typeof window !== 'undefined' &&
-  (navigator.maxTouchPoints > 0 || 'ontouchstart' in navigator);
-
-init({
-  debug: false,
-  visualDebug: false,
-  nativeMode: false,
-  throttle: 70,
-});
+init({ debug: false, visualDebug: false, nativeMode: false, throttle: 70 });
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -66,7 +59,9 @@ ReactDOM.createRoot(root).render(
       <QueryClientProvider client={queryClient}>
         <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <UserProvider>
-            <AppMobile />
+            <SubAccountGate>
+              <AppMobile />
+            </SubAccountGate>
           </UserProvider>
         </HashRouter>
       </QueryClientProvider>
