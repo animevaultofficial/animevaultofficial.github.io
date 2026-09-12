@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, CalendarDays, Check, ChevronRight, Download, Heart, Home, Library, Menu, Plus, Search, Settings, UserCircle, Users, X, History, Tv, BookOpen, BarChart3, Layers, Info } from 'lucide-react';
+import { Bell, CalendarDays, ChevronRight, Download, Heart, Home, Library, Menu, Search, Settings, UserCircle, Users, X, History, Tv, BookOpen, BarChart3, Layers, Info } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { CapacitorApp } from '@capacitor/app';
-import { useUser } from '../api/UserContext';
-import { setActiveSubAccount } from '../utils/subAccounts';
+import { App as CapacitorApp } from '@capacitor/app';
 import RequireAuth from '../components/RequireAuth';
 import RequireAdmin from '../components/RequireAdmin';
 import HomePage from './pages/HomePage';
@@ -61,21 +59,6 @@ function MobileAnimeDetails({ navigate }) { const { id } = useParams(); return <
 function MobileDramaDetails({ navigate }) { const { id } = useParams(); const query = new URLSearchParams(useLocation().search); const mediaType = query.get('type') || 'tv'; const title = query.get('title') || undefined; return <DramaDetailPage params={{ id, mediaType, title }} goBack={() => navigate(-1)} navigate={navigate} />; }
 function MobileMangaDetails({ navigate }) { const { id } = useParams(); return <MangaDetailsPage id={id} goBack={() => navigate(-1)} />; }
 function LegacyPage({ children, className = '' }) { return <div className={`av-mobile-legacy-page ${className}`}>{children}</div>; }
-
-function AccountSwitcher() {
-  const { user, subAccounts, activeSubAccount, setActiveSubAccountState } = useUser();
-  const [open, setOpen] = useState(false);
-  if (!user) return null;
-  const profiles = subAccounts.length ? subAccounts : [activeSubAccount].filter(Boolean);
-  const current = activeSubAccount || profiles[0];
-  const avatar = current?.avatar || user.avatar;
-  const name = current?.name || user.username || 'Account';
-  const choose = profile => { setActiveSubAccount(user.id, profile); setActiveSubAccountState(profile); setOpen(false); };
-  return <div className="av-account-wrap">
-    <button className="av-account-button" type="button" aria-label="Switch account profile" onClick={() => setOpen(value => !value)}><span className="av-account-avatar">{avatar ? <img src={avatar} alt="" /> : <span>{name.charAt(0).toUpperCase()}</span>}</span></button>
-    {open && <><button className="av-account-backdrop" type="button" aria-label="Close account switcher" onClick={() => setOpen(false)} /><div className="av-account-menu" role="dialog" aria-label="Account profiles"><strong>Who's watching?</strong>{profiles.map(profile => <button key={profile.id} className={`av-profile-option ${current?.id === profile.id ? 'is-active' : ''}`} type="button" onClick={() => choose(profile)}><span className="av-profile-avatar">{profile.avatar ? <img src={profile.avatar} alt="" /> : <span>{profile.name?.charAt(0).toUpperCase() || 'A'}</span>}</span><span><b>{profile.name}</b><small>{profile.isMain ? 'Main profile' : 'Sub profile'}</small></span>{current?.id === profile.id && <Check size={17} />}</button>)}{profiles.length < 5 && <button className="av-profile-option" type="button" onClick={() => { setOpen(false); navigate('/profile'); }}><span className="av-profile-avatar av-add-avatar"><Plus size={18} /></span><span><b>Add profile</b><small>Create another profile</small></span></button>}<button className="av-manage-profiles" type="button" onClick={() => { setOpen(false); navigate('/profile'); }}><UserCircle size={16} /> Manage profiles</button></div></>}
-  </div>;
-}
 
 export default function AppMobile() {
   const [drawerOpen, setDrawerOpen] = useState(false);
