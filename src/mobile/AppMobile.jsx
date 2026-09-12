@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, CalendarDays, ChevronRight, Download, Heart, Home, Library, Menu, Search, Settings, UserCircle, Users, X, History, Tv, BookOpen, BarChart3, Layers, Info } from 'lucide-react';
+import { Bell, ChevronRight, Download, Heart, Home, Library, Menu, Search, Settings, UserCircle, Users, X, History, Tv, BookOpen, BarChart3, Layers, Info } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { App as CapacitorApp } from '@capacitor/app';
 import RequireAuth from '../components/RequireAuth';
@@ -18,13 +18,12 @@ import DramasMoviesPage from './pages/DramasMoviesPage';
 import LibraryPage from './pages/LibraryPage';
 import MobileBottomNav from './components/MobileBottomNav';
 import MangaHome from '../pages/MangaHome';
-import Collections from '../pages/Collections';
-import Stats from '../pages/Stats';
 import About from '../pages/About';
 import StaticPages from '../pages/StaticPageRoute';
 import AdminDashboard from '../pages/AdminDashboard';
 import ForgotPassword from '../pages/ForgotPassword';
 import SetNewPassword from '../pages/SetNewPassword';
+import { useUser } from '../api/UserContext';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/typography.css';
@@ -58,9 +57,26 @@ const VAULT = [
 
 function MobileAnimeUnavailable() { return <AnimeUnavailable />; }
 function MobileDramaDetails({ navigate }) { const { id } = useParams(); const query = new URLSearchParams(useLocation().search); const mediaType = query.get('type') || 'tv'; const title = query.get('title') || undefined; return <DramaDetailPage params={{ id, mediaType, title }} goBack={() => navigate(-1)} navigate={navigate} />; }
-function MobileMangaDetails({ navigate }) { const { id } = useParams(); return <MangaDetailsPage id={id} goBack={() => navigate(-1)} />; }
+function MobileMangaDetails() { const { id } = useParams(); return <MangaDetailsPage id={id} goBack={() => window.history.back()} />; }
 function MobileWatchRoute({ navigate }) { const { kind, id } = useParams(); useEffect(() => { if (!id) return; const mediaType = kind === 'movie' ? 'movie' : 'tv'; navigate(`/drama/${id}?type=${mediaType}`); }, [kind, id, navigate]); return <div className="av-empty-state"><span className="av-loading-line" style={{ width: 160 }} /><p>Opening the native Android player…</p></div>; }
 function LegacyPage({ children, className = '' }) { return <div className={`av-mobile-legacy-page ${className}`}>{children}</div>; }
+
+function MobileStats() {
+  const { history = [], likes = [], continueWatching = [] } = useUser();
+  const countType = type => [...history, ...likes, ...continueWatching].filter(item => String(item?.media_type || item?.mediaType || item?.type || '').toLowerCase() === type).length;
+  return <div className="av-mobile-page" style={{ padding: 16 }}>
+    <span className="av-eyebrow-v2">YOUR VAULT</span>
+    <h1 style={{ margin: '4px 0 6px' }}>Stats</h1>
+    <p style={{ color: 'var(--av-muted)', marginTop: 0 }}>Your movie and series activity at a glance.</p>
+    <div className="av-profile-stats" style={{ marginTop: 18 }}>
+      <div className="av-profile-stat"><strong>{history.length}</strong><span>History</span></div>
+      <div className="av-profile-stat"><strong>{continueWatching.length}</strong><span>Progress</span></div>
+      <div className="av-profile-stat"><strong>{likes.length}</strong><span>Favorites</span></div>
+      <div className="av-profile-stat"><strong>{countType('movie') + countType('tv')}</strong><span>Movie / TV</span></div>
+    </div>
+    <div className="av-profile-empty" style={{ marginTop: 14 }}><BarChart3 size={28}/><strong>Keep watching to build your stats</strong><span>Anime statistics and anime-specific tracking are intentionally unavailable while that catalog is disabled.</span></div>
+  </div>;
+}
 
 export default function AppMobile() {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -85,8 +101,7 @@ export default function AppMobile() {
 
   let content = <MixedHome />;
   if (location.pathname === '/search') content = <WebSearch />;
-  else if (location.pathname === '/collections') content = <LibraryPage navigate={mobileNavigate} />;
-  else if (location.pathname === '/collections-web') content = <RequireAuth><LegacyPage><Collections /></LegacyPage></RequireAuth>;
+  else if (location.pathname === '/collections' || location.pathname === '/collections-web') content = <LibraryPage navigate={mobileNavigate} />;
   else if (location.pathname === '/schedule') content = <MobileAnimeUnavailable />;
   else if (location.pathname === '/download') content = <DownloadsPage navigate={mobileNavigate} />;
   else if (location.pathname === '/notifications') content = <NotificationsPage navigate={mobileNavigate} />;
@@ -95,7 +110,7 @@ export default function AppMobile() {
   else if (location.pathname === '/settings') content = <SettingsPage goBack={() => navigate(-1)} />;
   else if (location.pathname === '/manga') content = <LegacyPage><MangaHome /></LegacyPage>;
   else if (location.pathname === '/dramas-movies') content = <DramasMoviesPage navigate={mobileNavigate} />;
-  else if (location.pathname === '/stats') content = <RequireAuth><LegacyPage><Stats /></LegacyPage></RequireAuth>;
+  else if (location.pathname === '/stats') content = <RequireAuth><MobileStats /></RequireAuth>;
   else if (location.pathname === '/about') content = <LegacyPage><About /></LegacyPage>;
   else if (location.pathname === '/contact') content = <LegacyPage><StaticPages page="contact" /></LegacyPage>;
   else if (location.pathname === '/faq') content = <LegacyPage><StaticPages page="faq" /></LegacyPage>;
@@ -109,7 +124,7 @@ export default function AppMobile() {
   else if (/^\/admin(?:\/.*)?$/.test(location.pathname)) content = <RequireAdmin><LegacyPage><AdminDashboard /></LegacyPage></RequireAuth>;
   else if (location.pathname === '/anime' || /^\/anime\/[^/]+$/.test(location.pathname)) content = <MobileAnimeUnavailable />;
   else if (/^\/drama\/[^/]+$/.test(location.pathname)) content = <MobileDramaDetails navigate={mobileNavigate} />;
-  else if (/^\/manga\/[^/]+$/.test(location.pathname)) content = <MobileMangaDetails navigate={navigate} />;
+  else if (/^\/manga\/[^/]+$/.test(location.pathname)) content = <MobileMangaDetails />;
 
   return <div className="av-v2-shell">
     <header className="av-v2-topbar"><button className="av-v2-icon-button" type="button" aria-label="Open menu" onClick={() => setDrawerOpen(true)}><Menu size={23} /></button><button className="av-v2-brand" type="button" onClick={() => go('/')}><span className="av-v2-brand-mark"><LogoMark /></span><span>AnimeVault</span></button><button className="av-v2-icon-button" type="button" aria-label="Notifications" onClick={() => go('/notifications')}><Bell size={21} /></button></header>
