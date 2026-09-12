@@ -2,6 +2,7 @@ const TMDB_API_KEY = '288d312680f3117dd4c56964be6809dc';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const MEDIA_SOURCE_API = import.meta.env.VITE_MEDIA_SOURCE_API || '';
 const TMDB_TIMEOUT_MS = 10000;
+const MEDIA_SOURCE_TIMEOUT_MS = 20000;
 
 export const MEDIA_SOURCE_PROVIDERS = [
   { id: 'videasy', name: 'Videasy', default: true },
@@ -57,7 +58,6 @@ export async function fetchMediaMeta(mediaType, tmdbId) {
   return mediaType === 'movie' ? fetchMovieDetails(tmdbId) : fetchTVDetails(tmdbId);
 }
 
-// Resolve a title to a TMDB ID when a stale/provider-specific ID was supplied.
 export async function findMediaByTitle(title, mediaType) {
   const query = String(title || '').trim();
   if (!query) return null;
@@ -69,19 +69,44 @@ export async function findMediaByTitle(title, mediaType) {
   return typed.find(item => String(item.title || item.name || '').toLowerCase() === normalized) || typed[0];
 }
 
-// AnimeVault source resolver.
-// Providers are selected by AnimeVault, while the backend must return a
-// direct media URL that the native player can legally play (MP4/HLS/etc.).
-// The frontend never converts provider pages into media streams.
+function extractDirectUrl(data) {
+  if (!data || typeof data !== 'object') return '';
+  const candidates = [
+    data.url,
+    data.source,
+    data.stream,
+    data.file,
+    data.mediaUrl,
+    data.media_url,
+    data.playbackUrl,
+    data.playback_url,
+    data?.data?.url,
+    data?.data?.source,
+    data?.data?.stream,
+    data?.result?.url,
+    data?.result?.source,
+    Array.isArray(data.sources) ? data.sources.find(item => typeof item === 'string') : '',
+    Array.isArray(data.sources) ? data.sources.find(item => item && typeof item.url === 'string')?.url : '',
+    Array.isArray(data?.data?.sources) ? data.data.sources.find(item => typeof item === 'string') : '',
+    Array.isArray(data?.data?.sources) ? data.data.sources.find(item => item && typeof item.url === 'string')?.url : '',
+  ];
+  return candidates.find(value => typeof value === 'string' && /^https?:\/\//i.test(value)) || '';
+}
+
+// Resolve a direct media URL from AnimeVault's configured, authorized media-source backend.
+// The native Android player intentionally accepts only direct MP4/HLS/WebM/OGG media URLs;
+// provider pages/iframes are not converted in the client.
 export async function resolveDirectMediaSource(mediaType, tmdbId, season = null, episode = null, provider = DEFAULT_MEDIA_SOURCE_PROVIDER) {
-  if (!MEDIA_SOURCE_API) return null;
+  if (!MEDIA_SOURCE_API) {
+    throw new Error('Media source backend is not configured in this APK build (VITE_MEDIA_SOURCE_API is missing).');
+  }
 
   const selectedProvider = MEDIA_SOURCE_PROVIDERS.some(item => item.id === provider)
     ? provider
     : DEFAULT_MEDIA_SOURCE_PROVIDER;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TMDB_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), MEDIA_SOURCE_TIMEOUT_MS);
   try {
     const url = new URL(MEDIA_SOURCE_API, window.location.origin);
     url.searchParams.set('type', mediaType === 'movie' ? 'movie' : 'tv');
@@ -96,11 +121,22 @@ export async function resolveDirectMediaSource(mediaType, tmdbId, season = null,
       headers: { Accept: 'application/json' },
       signal: controller.signal,
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return typeof data?.url === 'string' ? data.url : null;
-  } catch {
-    return null;
+
+    let data = null;
+    try { data = await res.json(); } catch { data = null; }
+    if (!res.ok) {
+      const message = data?.error || data?.message || `Media source backend returned HTTP ${res.status}.`;
+      throw new Error(String(message));
+    }
+
+    const directUrl = extractDirectUrl(data);
+    if (!directUrl) {
+      throw new Error(`Media source backend returned no direct media URL for ${selectedProvider}.`);
+    }
+    return directUrl;
+  } catch (err) {
+    if (err?.name === 'AbortError') throw new Error(`Media source backend timed out after ${MEDIA_SOURCE_TIMEOUT_MS / 1000}s.`);
+    throw err;
   } finally {
     clearTimeout(timer);
   }
