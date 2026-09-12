@@ -16,13 +16,13 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  VITE_ANFIRE_API_URL: ${{ secrets.VITE_ANFIRE_API_URL || 'http://localhost:3000/api.php' }}
-  VITE_ANFIRE_API_KEY: ${{ secrets.VITE_ANFIRE_API_KEY || 'default-key' }}
-  VITE_ANFIRE_EPISODE_API_URL: ${{ secrets.VITE_ANFIRE_EPISODE_API_URL || 'http://localhost:3000/api.php' }}
-  VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
+  # Keep desktop/Android builds aligned with the production GitHub Pages build.
+  # Secrets are supplied by the repository and github-pages environment.
+  VITE_API_URL: ${{ secrets.VITE_API_URL }}
   VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
-  VITE_AUTH_PROXY_URL: ${{ secrets.VITE_AUTH_PROXY_URL || 'https://animevaultofficial-github-io.onrender.com' }}
+  VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
   VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
+  VITE_AUTH_PROXY_URL: ${{ secrets.VITE_AUTH_PROXY_URL }}
   VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
   VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
 
@@ -64,6 +64,20 @@ jobs:
         run: brew install imagemagick
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Validate production configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in VITE_API_URL VITE_NEON_AUTH_URL VITE_DATABASE_URL VITE_HCAPTCHA_SITEKEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error title=Missing AnimeVault production secret::$name is empty or unavailable to this job"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
       - name: Build desktop installer
         shell: bash
         env:
@@ -83,7 +97,11 @@ jobs:
               if [ -f "$file" ]; then cp "$file" checked-release/; found=1; fi
             done
           done
-          if [ "$found" -ne 1 ]; then echo 'ERROR: No desktop release files were produced.'; find release -maxdepth 2 -type f -print || true; exit 1; fi
+          if [ "$found" -ne 1 ]; then
+            echo 'ERROR: No desktop release files were produced.'
+            find release -maxdepth 2 -type f -print || true
+            exit 1
+          fi
           find checked-release -maxdepth 1 -type f -print | sort
       - name: Upload desktop installer
         uses: actions/upload-artifact@v4
@@ -96,6 +114,7 @@ jobs:
   android:
     name: Android APK
     runs-on: ubuntu-latest
+    environment: github-pages
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -106,6 +125,31 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Validate production configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in VITE_API_URL VITE_NEON_AUTH_URL VITE_DATABASE_URL VITE_HCAPTCHA_SITEKEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error title=Missing AnimeVault production secret::$name is empty or unavailable to this job"
+              missing=1
+            fi
+          done
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error title=Missing Android signing secret::$name is empty or unavailable to this job"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
       - name: Build web app
         run: npm run build
       - name: Setup Java
@@ -121,27 +165,58 @@ jobs:
         run: npx cap add android
       - name: Generate Android launcher icon resources
         run: |
-          set -e
+          set -euo pipefail
           mkdir -p resources
-          convert build/icon.ico -thumbnail 1024x1024 -background none -gravity center -extent 1024x1024 resources/icon.png
+          cp bbe8df3b-a24d-4ec9-bf1b-21076a554fd7.png resources/icon.png
           npx --yes @capacitor/assets generate --android --assetPath resources
+      - name: Configure Android release signing and version
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/animevault-release.keystore
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/build.gradle')
+          text = p.read_text()
+          marker = 'android {\n'
+          if marker not in text:
+              raise SystemExit('android/app/build.gradle does not contain an android block')
+          signing = '''android {\n    signingConfigs {\n        release {\n            storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n'''
+          text = text.replace(marker, signing, 1)
+          text = text.replace('versionCode 1', 'versionCode ' + '${{ github.run_number }}', 1)
+          text = text.replace('release {\n            minifyEnabled', 'release {\n            signingConfig signingConfigs.release\n            minifyEnabled', 1)
+          p.write_text(text)
+          PY
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/animevault-release.keystore
       - name: Sync Capacitor Android
         run: npx cap sync android
-      - name: Build debug APK
+      - name: Build signed release APK
         working-directory: android
-        run: ./gradlew assembleDebug --stacktrace
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/app/animevault-release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --stacktrace
       - name: Verify APK
         run: |
-          set -e
-          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/release/app-release.apk
           test -f "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | grep "com.animevault.app"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | grep -q "package: name='com.animevault.app'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$APK" | grep -q "application-label:'AnimeVault'"
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: animevault-Android-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -176,7 +251,7 @@ jobs:
         with:
           tag_name: desktop-build-${{ github.run_number }}
           name: AnimeVault Desktop Build ${{ github.run_number }}
-          body: Automated desktop installers and Android APK built from main.
+          body: Automated desktop installers and signed Android APK built from main.
           files: |
             release/Windows/*
             release/macOS/*
