@@ -1,10 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Build the dedicated mobile shell with src/mobile as the Vite root.
-// This guarantees the HTML entry is emitted directly as dist-mobile/index.html,
-// which is the directory Capacitor uses as its webDir.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Dedicated Android/mobile shell. This is intentionally separate from the
+// desktop/web Vite entry so the APK cannot accidentally package the web UI.
 export default defineConfig({
   root: path.resolve(__dirname, 'src/mobile'),
   plugins: [react()],
