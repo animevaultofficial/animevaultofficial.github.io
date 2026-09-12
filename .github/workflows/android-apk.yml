@@ -54,8 +54,12 @@ jobs:
             fi
           done
           [ "$missing" -eq 0 ]
-      - name: Build web app
-        run: npm run build
+      - name: Build dedicated Android web shell
+        run: |
+          set -euo pipefail
+          rm -rf dist-mobile
+          npx vite build --config vite.mobile.config.js
+          test -s dist-mobile/index.html
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
@@ -80,22 +84,11 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-
           strings = Path('android/app/src/main/res/values/strings.xml')
-          if not strings.exists():
-              raise SystemExit('Android strings.xml not found')
           text = strings.read_text()
-          updated, count = re.subn(
-              r'<string name="app_name">.*?</string>',
-              '<string name="app_name">Anime Vault</string>',
-              text,
-              count=1,
-              flags=re.DOTALL,
-          )
-          if count != 1:
-              raise SystemExit('Android app_name resource not found')
+          updated, count = re.subn(r'<string name="app_name">.*?</string>', '<string name="app_name">Anime Vault</string>', text, count=1, flags=re.DOTALL)
+          if count != 1: raise SystemExit('Android app_name resource not found')
           strings.write_text(updated)
-          print('Android application label set to Anime Vault')
           PY
           grep -q '<string name="app_name">Anime Vault</string>' android/app/src/main/res/values/strings.xml
       - name: Generate launcher icons from AnimeVault logo
@@ -106,11 +99,7 @@ jobs:
           mkdir -p resources
           cp public/logo.png resources/icon.png
           npx --yes @capacitor/assets@latest generate --android
-          test -s android/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          test -s android/app/src/main/res/mipmap-hdpi/ic_launcher.png
-          test -s android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
-          test -s android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-          test -s android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do test -s "android/app/src/main/res/mipmap-${density}/ic_launcher.png"; done
       - name: Prepare release keystore
         shell: bash
         env:
@@ -130,10 +119,8 @@ jobs:
           p = next((x for x in candidates if x.exists()), None)
           if p is None: raise SystemExit('No Android app Gradle build file found')
           text = p.read_text()
-          print(f'Using {p}')
           if p.suffix == '.kts':
-              if 'compileSdk = ' not in text:
-                  text = text.replace('android {', 'android {\n    compileSdk = 35', 1)
+              if 'compileSdk = ' not in text: text = text.replace('android {', 'android {\n    compileSdk = 35', 1)
               if 'create("release")' not in text:
                   signing = '''    signingConfigs {\n        create("release") {\n            storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias = System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n\n'''
                   text = text.replace('    buildTypes {', signing + '    buildTypes {', 1)
@@ -141,8 +128,7 @@ jobs:
                   text, n = re.subn(r'(getByName\("release"\)\s*\{)', r'\1\n            signingConfig = signingConfigs.getByName("release")', text, count=1)
                   if n != 1: raise SystemExit('release build type not found in Kotlin Gradle file')
           else:
-              if 'compileSdkVersion' not in text:
-                  text = text.replace('android {', 'android {\n    compileSdkVersion 35', 1)
+              if 'compileSdkVersion' not in text: text = text.replace('android {', 'android {\n    compileSdkVersion 35', 1)
               if 'signingConfigs {' not in text:
                   signing = '''    signingConfigs {\n        release {\n            storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }\n    }\n\n'''
                   text = text.replace('    buildTypes {', signing + '    buildTypes {', 1)
@@ -157,7 +143,7 @@ jobs:
       - name: Build signed release APK
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon --stacktrace
-      - name: Verify signed APK and package metadata
+      - name: Verify signed APK, package and mobile payload
         shell: bash
         run: |
           set -euo pipefail
@@ -167,11 +153,10 @@ jobs:
           BADGING="$($ANDROID_HOME/build-tools/35.0.0/aapt2 dump badging "$APK")"
           printf '%s\n' "$BADGING" | grep -q "package: name='com.animevault.app'"
           printf '%s\n' "$BADGING" | grep -q "application-label:'Anime Vault'"
-          echo "Verified package: com.animevault.app"
-          echo "Verified app label: Anime Vault"
+          unzip -l "$APK" | grep -q 'assets/public/index.html'
+          echo "Verified dedicated mobile web shell is packaged"
       - name: Rename APK for distribution
         run: |
-          set -euo pipefail
           cp android/app/build/outputs/apk/release/app-release.apk "android/app/build/outputs/apk/release/Anime Vault.apk"
           test -s "android/app/build/outputs/apk/release/Anime Vault.apk"
       - name: Upload Android APK
