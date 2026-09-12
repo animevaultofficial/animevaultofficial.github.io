@@ -2,8 +2,35 @@ import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { AlertTriangle, Maximize, Pause, Play, RefreshCw, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 
-// AnimeVault native player: direct media only.
+// Direct-media player with lightweight app-level ad/tracker filtering.
 // Supported: HLS (.m3u8), MP4, WebM and OGG. Iframe/embed URLs are rejected.
+const BLOCKED_HOSTS = new Set([
+  'doubleclick.net', 'googlesyndication.com', 'googletagmanager.com',
+  'google-analytics.com', 'adservice.google.com', 'adnxs.com', 'adsrvr.org',
+  'taboola.com', 'outbrain.com', 'criteo.com', 'scorecardresearch.com',
+  'mc.yandex.com', 'mc.yandex.ru', 'histats.com', 'profitableratecpm.com',
+  'adexchangeclear.com', 'protrafficinspector.com',
+]);
+
+const BLOCKED_PATH_PARTS = [
+  '/ads/', '/adserver/', '/advert/', '/advertising/', '/banner/',
+  '/popunder/', '/popup/', '/tracking/', '/tracker/', '/analytics/',
+];
+
+function shouldBlockRequest(requestUrl) {
+  if (!requestUrl || typeof requestUrl !== 'string') return false;
+  try {
+    const url = new URL(requestUrl, window.location.origin);
+    const host = url.hostname.toLowerCase();
+    if ([...BLOCKED_HOSTS].some(domain => host === domain || host.endsWith(`.${domain}`))) return true;
+    const path = url.pathname.toLowerCase();
+    if (BLOCKED_PATH_PARTS.some(part => path.includes(part))) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function isDirectMediaUrl(sourceUrl) {
   if (!sourceUrl || typeof sourceUrl !== 'string') return false;
   if (sourceUrl.startsWith('blob:')) return true;
@@ -22,6 +49,32 @@ function isHlsUrl(sourceUrl) {
   } catch {
     return false;
   }
+}
+
+function createHlsConfig() {
+  return {
+    enableWorker: true,
+    lowLatencyMode: true,
+    backBufferLength: 30,
+    maxBufferLength: 30,
+    manifestLoadingMaxRetry: 2,
+    levelLoadingMaxRetry: 2,
+    fragLoadingMaxRetry: 2,
+    // Filter HLS requests before hls.js sends them.
+    xhrSetup: (xhr, url) => {
+      if (shouldBlockRequest(url)) {
+        xhr.abort();
+        return;
+      }
+      xhr.setRequestHeader('X-AnimeVault-Client', 'mobile');
+    },
+    fetchSetup: (context, initParams) => {
+      if (shouldBlockRequest(context?.url)) {
+        throw new Error('AnimeVault blocked an advertising/tracking request');
+      }
+      return new Request(context.url, initParams);
+    },
+  };
 }
 
 export default function AndroidVideoPlayer({ sourceUrl, poster, title, onNextEpisode, onPrevEpisode }) {
@@ -64,15 +117,7 @@ export default function AndroidVideoPlayer({ sourceUrl, poster, title, onNextEpi
     };
 
     if (isHlsUrl(sourceUrl) && Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 30,
-        maxBufferLength: 30,
-        manifestLoadingMaxRetry: 2,
-        levelLoadingMaxRetry: 2,
-        fragLoadingMaxRetry: 2,
-      });
+      const hls = new Hls(createHlsConfig());
       hlsRef.current = hls;
       hls.loadSource(sourceUrl);
       hls.attachMedia(video);
