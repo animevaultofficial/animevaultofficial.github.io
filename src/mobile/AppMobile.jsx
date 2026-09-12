@@ -35,6 +35,7 @@ import './styles/mobile-native.css';
 import './styles/account.css';
 import './styles/safe-area.css';
 import './mobile-android-design.css';
+import './styles/android-v3.css';
 
 const DISCOVER = [
   ['Home', Home, '/'],
