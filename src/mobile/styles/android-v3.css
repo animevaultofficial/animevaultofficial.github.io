@@ -1,0 +1,49 @@
+/* AnimeVault Android v3 unified page layer. Presentation only; feature logic stays in existing pages. */
+.av-v2-shell{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--av-radius:14px}
+.av-v2-content{background:transparent;min-width:0;overflow-x:hidden}
+.av-v2-content > *{min-width:0}
+.av-mobile-legacy-page{min-height:calc(100dvh - 58px);padding:14px 13px calc(104px + env(safe-area-inset-bottom));color:var(--av-text);background:transparent}
+.av-mobile-legacy-page > *{max-width:100%;min-width:0}
+.av-mobile-legacy-page h1,.av-mobile-legacy-page h2,.av-mobile-legacy-page h3{color:var(--av-text);letter-spacing:-.45px}
+.av-mobile-legacy-page p,.av-mobile-legacy-page label,.av-mobile-legacy-page small{color:var(--av-text2)}
+.av-mobile-legacy-page a{color:inherit}
+.av-mobile-legacy-page button{font:inherit}
+.av-mobile-legacy-page img{max-width:100%}
+.av-mobile-legacy-page input,.av-mobile-legacy-page select,.av-mobile-legacy-page textarea{width:100%;min-height:44px;padding:0 12px;border:1px solid var(--av-line2)!important;border-radius:12px!important;background:var(--av-surface)!important;color:var(--av-text)!important;outline:none}
+.av-mobile-legacy-page textarea{padding:11px 12px;min-height:100px}
+.av-mobile-legacy-page input:focus,.av-mobile-legacy-page select:focus,.av-mobile-legacy-page textarea:focus{border-color:rgba(255,47,134,.5)!important;box-shadow:0 0 0 3px rgba(255,47,134,.1)}
+.av-mobile-legacy-page button,.av-mobile-legacy-page [role="button"]{border-radius:11px}
+.av-mobile-legacy-page .btn-primary,.av-mobile-legacy-page button[type="submit"],.av-mobile-legacy-page .primary-button{background:var(--av-pink)!important;color:#08080b!important;border:0!important;font-weight:850;min-height:42px;padding:0 15px;box-shadow:0 8px 22px rgba(255,47,134,.16)}
+.av-mobile-legacy-page .btn-secondary,.av-mobile-legacy-page .secondary-button{background:var(--av-surface2)!important;color:var(--av-text)!important;border:1px solid var(--av-line2)!important;min-height:42px;padding:0 14px}
+.av-v2-content .page{max-width:100%;padding:14px 13px calc(104px + env(safe-area-inset-bottom));background:transparent;color:var(--av-text);min-height:calc(100dvh - 58px)}
+.av-v2-content .premium-search-page{min-height:calc(100dvh - 58px);padding:14px 13px calc(104px + env(safe-area-inset-bottom));background:transparent;color:var(--av-text)}
+.av-v2-content .premium-layout{width:100%;max-width:100%;margin:0 auto}
+.av-v2-content .premium-search-page main{min-width:0}
+.av-v2-content .search-input{width:100%;height:46px;padding:0 13px;border:1px solid var(--av-line2)!important;border-radius:14px!important;background:var(--av-surface)!important;color:var(--av-text)!important;outline:none}
+.av-v2-content .search-input:focus{border-color:rgba(255,47,134,.45)!important;box-shadow:0 0 0 3px rgba(255,47,134,.08)}
+.av-v2-content .trending-grid-v2,.av-v2-content .g3{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.av-v2-content .gcard,.av-v2-content .card{min-width:0;overflow:hidden;border:1px solid var(--av-line);border-radius:13px;background:linear-gradient(180deg,#15151b,#101015);box-shadow:0 8px 22px rgba(0,0,0,.18);cursor:pointer}
+.av-v2-content .gcard-img,.av-v2-content .card-img{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:#101014}
+.av-v2-content .gcard-title,.av-v2-content .card-title{padding:8px 8px 0;color:var(--av-text);font-size:11px;font-weight:800;line-height:1.25;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.av-v2-content .card-body{padding:0 0 9px}.av-v2-content .card-sub{padding:4px 8px 0;color:var(--av-muted);font-size:9px}
+.av-v2-content .section-header-v2,.av-v2-content .shdr{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.av-v2-content .section-header-v2 h2,.av-v2-content .shdr .sttl{color:var(--av-text);font-size:16px;font-weight:850}
+.av-v2-content .section-header-v2 p{color:var(--av-muted)}
+.av-v2-content .sec{padding:0!important;margin:0 0 18px}
+.av-v2-content .tbar{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px!important;border:1px solid var(--av-line);border-radius:14px;background:var(--av-surface);margin:0 0 14px!important}
+.av-v2-content .titem{min-height:40px;border:0;border-radius:10px;background:transparent;color:var(--av-muted);font-size:11px;font-weight:800}
+.av-v2-content .titem.active{background:rgba(255,47,134,.15);color:var(--av-pink2)}
+.av-v2-content .hscroll{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(125px,38vw);gap:9px;overflow-x:auto;padding:1px 1px 5px;scroll-snap-type:x proximity}
+.av-v2-content .hscroll > *{scroll-snap-align:start}
+.av-v2-content .shimmer,.av-v2-content .skel{border-radius:12px;background:linear-gradient(100deg,#111117,#1b1b23,#111117);min-height:150px}
+.av-v2-content .empty{border:1px solid var(--av-line);border-radius:14px;background:var(--av-surface);padding:22px;text-align:center;color:var(--av-muted)}
+.av-v2-content .hero{position:relative;overflow:hidden;border-radius:17px;border:1px solid var(--av-line);min-height:300px;background:var(--av-surface);box-shadow:0 14px 35px rgba(0,0,0,.28)}
+.av-v2-content .hc{position:absolute;inset:auto 0 0;padding:20px 17px;background:linear-gradient(180deg,transparent,rgba(7,7,10,.98));color:#fff}
+.av-v2-content .hbadge{display:inline-flex;align-items:center;gap:5px;color:#ff86b8;font-size:9px;font-weight:850}
+.av-v2-content .htitle{margin-top:6px;font-size:24px;font-weight:900;letter-spacing:-.8px}
+.av-v2-content .hsub{margin-top:5px;color:#c9c9d2;font-size:10px}
+.av-v2-content .hero button{border-radius:10px!important;min-height:40px}
+.av-v2-content .hero button:first-child{background:var(--av-pink)!important;color:#08080b!important}
+.av-v2-content .hero button:last-child{background:rgba(255,255,255,.09)!important;color:#fff!important;border-color:var(--av-line2)!important}
+.av-v2-content .av-empty-state{min-height:45vh;display:grid;place-items:center;align-content:center;gap:10px;padding:30px;text-align:center;color:var(--av-muted)}
+@media (min-width:600px){.av-v2-content .trending-grid-v2,.av-v2-content .g3{grid-template-columns:repeat(3,minmax(0,1fr))}.av-v2-content .home-main-v2{padding-left:20px;padding-right:20px}.av-mobile-legacy-page,.av-v2-content .page,.av-v2-content .premium-search-page{padding-left:20px;padding-right:20px}}
