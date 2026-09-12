@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Film, Tv, TrendingUp, Search, X, Play, Info, Sparkles, Hash } from 'lucide-react';
 import { fetchLatestMovies, fetchLatestTVShows, searchMoviesAndSeries } from '../api/movies';
-import { searchAnime, getTitle as getAnimeTitle, getImage as getAnimeImage } from '../api/anilist';
 
 const GENRES = ['Action', 'Romance', 'Thriller', 'Horror', 'Comedy', 'Drama', 'Sci-Fi', 'Crime', 'Fantasy', 'Mystery', 'Adventure', 'Animation'];
 const FEATURED_SHOWS = [
@@ -12,13 +11,6 @@ const FEATURED_SHOWS = [
   { id: 693134, name: 'Dune: Part Two', media_type: 'movie', year: '2024', rating: '8.6', banner: 'https://images.metahub.space/background/medium/tt15239678/img', description: 'Paul Atreides unites with Chani and the Fremen seeking revenge.', genre: 'Sci-Fi, Adventure, Action' }
 ];
 
-function normalizeAnimeResults(data) {
-  if (Array.isArray(data)) return data.filter(Boolean);
-  if (Array.isArray(data?.Page?.media)) return data.Page.media.filter(Boolean);
-  if (Array.isArray(data?.media)) return data.media.filter(Boolean);
-  return [];
-}
-
 function safeTitle(value) {
   if (!value) return 'Unknown';
   if (typeof value === 'string') return value;
@@ -26,14 +18,13 @@ function safeTitle(value) {
 }
 
 function MediaCard({ item, onClick }) {
-  const isAnime = item?._type === 'anime';
-  const title = isAnime ? getAnimeTitle(item) : safeTitle(item?.title || item?.name);
-  const image = isAnime ? getAnimeImage(item) : (item?.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : null);
-  const date = isAnime ? item?.seasonYear : (item?.release_date || item?.first_air_date || '');
+  const title = safeTitle(item?.title || item?.name);
+  const image = item?.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : null;
+  const date = item?.release_date || item?.first_air_date || '';
   const year = date ? String(date).split('-')[0] : '';
-  const type = isAnime ? '✨' : item?.media_type === 'movie' ? '🎬' : '📺';
-  const numericRating = Number(isAnime ? item?.averageScore : item?.vote_average);
-  const rating = Number.isFinite(numericRating) && numericRating > 0 ? (isAnime ? `${numericRating}%` : numericRating.toFixed(1)) : '';
+  const type = item?.media_type === 'movie' ? '🎬' : '📺';
+  const numericRating = Number(item?.vote_average);
+  const rating = Number.isFinite(numericRating) && numericRating > 0 ? numericRating.toFixed(1) : '';
 
   return (
     <div className="gcard" onClick={() => onClick?.(item)}>
@@ -42,7 +33,7 @@ function MediaCard({ item, onClick }) {
       <div style={{ padding: '0 0.5rem 0.5rem', fontSize: '0.62rem', color: 'var(--text3)', display: 'flex', gap: '.35rem', alignItems: 'center' }}>
         <span>{year || '—'}</span>
         {rating ? <span>⭐ {rating}</span> : null}
-        <span>{isAnime ? 'Anime' : item?.media_type === 'movie' ? 'Movie' : 'Drama/Show'}</span>
+        <span>{item?.media_type === 'movie' ? 'Movie' : 'Drama/Show'}</span>
       </div>
     </div>
   );
@@ -112,16 +103,11 @@ export default function DramasMoviesPage({ navigate }) {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const [tmdbResults, animeData] = await Promise.all([
-          searchMoviesAndSeries(trimmed),
-          searchAnime(trimmed).catch(() => [])
-        ]);
+        const tmdbResults = await searchMoviesAndSeries(trimmed);
         if (cancelled) return;
-        const animeResults = normalizeAnimeResults(animeData).map(item => ({ ...item, _type: 'anime' }));
-        const safeTmdb = Array.isArray(tmdbResults) ? tmdbResults.filter(Boolean) : [];
-        setSearchResults([...safeTmdb, ...animeResults]);
+        setSearchResults(Array.isArray(tmdbResults) ? tmdbResults.filter(Boolean) : []);
       } catch (error) {
-        console.warn('[AnimeVault Mobile] combined search failed:', error?.message || error);
+        console.warn('[AnimeVault Mobile] media search failed:', error?.message || error);
         if (!cancelled) setSearchResults([]);
       } finally {
         if (!cancelled) setSearching(false);
@@ -131,12 +117,7 @@ export default function DramasMoviesPage({ navigate }) {
   }, [searchQuery]);
 
   const handleMediaClick = (item) => {
-    if (!item) return;
-    if (item._type === 'anime') {
-      if (item.id != null) navigate('anime-detail', { id: item.id });
-      return;
-    }
-    if (item.id == null) return;
+    if (!item || item.id == null) return;
     const mediaType = item.media_type === 'movie' ? 'movie' : 'tv';
     navigate('drama-detail', { id: item.id, mediaType, title: item.title || item.name || 'Unknown', poster: item.poster_path || null });
   };
@@ -158,7 +139,7 @@ export default function DramasMoviesPage({ navigate }) {
       <div className="sec">
         <div className="search-bar" style={{ marginBottom: 0 }}>
           <Search size={16} color="var(--text3)" />
-          <input type="text" placeholder="Search anime, movies, dramas & shows..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+          <input type="text" placeholder="Search movies, dramas & shows..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
           {searchQuery && <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer' }}><X size={16} /></button>}
         </div>
       </div>
@@ -170,7 +151,7 @@ export default function DramasMoviesPage({ navigate }) {
       {searchQuery ? (
         <div className="sec" style={{ padding: '0 .75rem' }}>
           <div className="shdr"><span className="sttl"><Search size={14} /> Results ({searchResults.length})</span></div>
-          {searching ? <div className="hscroll">{[1,2,3,4,5,6].map(i => <div key={i} className="skel shimmer" />)}</div> : searchResults.length > 0 ? <div className="g3">{searchResults.map((item, idx) => <MediaCard key={item._type === 'anime' ? `anime-${item.id ?? idx}` : `${item.media_type || 'media'}-${item.id ?? idx}`} item={item} onClick={handleMediaClick} />)}</div> : <div className="empty compact" style={{ minHeight: 80 }}><p>No results found</p></div>}
+          {searching ? <div className="hscroll">{[1,2,3,4,5,6].map(i => <div key={i} className="skel shimmer" />)}</div> : searchResults.length > 0 ? <div className="g3">{searchResults.map((item, idx) => <MediaCard key={`${item.media_type || 'media'}-${item.id ?? idx}`} item={item} onClick={handleMediaClick} />)}</div> : <div className="empty compact" style={{ minHeight: 80 }}><p>No results found</p></div>}
         </div>
       ) : (
         <>
