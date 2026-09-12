@@ -5,7 +5,13 @@ import { getUserStats as dbGetUserStats } from '../../api/db';
 import { getFavorites, getContinueWatching } from '../api/storage';
 
 const FALLBACK = '/logo.png';
-const normalize = (items = []) => items.map(item => ({ id: item.media_id || item.id || item.tmdb_id, title: item.media_title || item.title || 'Untitled', image: item.media_poster || item.image || item.poster || FALLBACK, mediaType: item.media_type || item.mediaType || item.type || (item.tmdb_id ? 'tv' : 'tv'), tmdbId: item.tmdb_id || item.tmdbId })).filter(x => x.id);
+const normalize = (items = []) => items.map(item => ({
+  id: item.tmdb_id || item.tmdbId || item.media_id || item.id,
+  title: item.media_title || item.title || 'Untitled',
+  image: item.media_poster || item.image || item.poster || FALLBACK,
+  mediaType: item.media_type || item.mediaType || item.type || '',
+  tmdbId: item.tmdb_id || item.tmdbId,
+})).filter(x => x.id && (String(x.mediaType).toLowerCase() === 'movie' || String(x.mediaType).toLowerCase() === 'tv'));
 
 function AuthPrompt() {
   const { setShowAuthModal, setAuthTab } = useUser();
