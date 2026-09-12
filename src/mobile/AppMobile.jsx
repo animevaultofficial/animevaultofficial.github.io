@@ -4,15 +4,15 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { App as CapacitorApp } from '@capacitor/app';
 import RequireAuth from '../components/RequireAuth';
 import RequireAdmin from '../components/RequireAdmin';
-import HomePage from './pages/HomePage';
-import SearchPage from './pages/SearchPage';
+import MixedHome from '../pages/MixedHome';
+import WebSearch from '../pages/Search';
+import AnimeUnavailable from '../pages/AnimeUnavailable';
 import SchedulePage from './pages/SchedulePage';
 import DownloadsPage from './pages/DownloadsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import CommunityPage from './pages/CommunityPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
-import AnimeDetailsPage from './pages/AnimeDetailsPage';
 import MangaDetailsPage from './pages/MangaDetailsPage';
 import DramaDetailPage from './pages/DramaDetailPage';
 import DramasMoviesPage from './pages/DramasMoviesPage';
@@ -54,7 +54,7 @@ const VAULT = [
   ['Community', Users, '/community'],
 ];
 
-function MobileAnimeDetails({ navigate }) { const { id } = useParams(); return <AnimeDetailsPage params={{ id }} goBack={() => navigate(-1)} navigate={navigate} />; }
+function MobileAnimeUnavailable() { return <AnimeUnavailable />; }
 function MobileDramaDetails({ navigate }) { const { id } = useParams(); const query = new URLSearchParams(useLocation().search); const mediaType = query.get('type') || 'tv'; const title = query.get('title') || undefined; return <DramaDetailPage params={{ id, mediaType, title }} goBack={() => navigate(-1)} navigate={navigate} />; }
 function MobileMangaDetails({ navigate }) { const { id } = useParams(); return <MangaDetailsPage id={id} goBack={() => navigate(-1)} />; }
 function MobileWatchRoute({ navigate }) { const { kind, id } = useParams(); useEffect(() => { if (!id) return; const mediaType = kind === 'movie' ? 'movie' : 'tv'; navigate(`/drama/${id}?type=${mediaType}`); }, [kind, id, navigate]); return <div className="av-empty-state"><span className="av-loading-line" style={{ width: 160 }} /><p>Opening the native Android player…</p></div>; }
@@ -81,8 +81,8 @@ export default function AppMobile() {
   const active = path => path === '/' ? location.pathname === '/' : location.pathname === path || location.pathname.startsWith(`${path}/`);
   const drawerItem = ([label, Icon, path]) => <button key={`${label}-${path}`} type="button" className={`av-mobile-drawer-item ${active(path) ? 'is-active' : ''}`} onClick={() => go(path)}><Icon size={19} /><span>{label}</span><ChevronRight className="av-mobile-drawer-chevron" size={16} /></button>;
 
-  let content = <HomePage navigate={mobileNavigate} />;
-  if (location.pathname === '/search') content = <SearchPage navigate={mobileNavigate} />;
+  let content = <MixedHome />;
+  if (location.pathname === '/search') content = <WebSearch />;
   else if (location.pathname === '/collections') content = <LibraryPage navigate={mobileNavigate} />;
   else if (location.pathname === '/collections-web') content = <RequireAuth><LegacyPage><Collections /></LegacyPage></RequireAuth>;
   else if (location.pathname === '/schedule') content = <SchedulePage navigate={mobileNavigate} />;
@@ -104,8 +104,8 @@ export default function AppMobile() {
   else if (location.pathname === '/forgot-password') content = <LegacyPage><ForgotPassword /></LegacyPage>;
   else if (location.pathname === '/set-new-password') content = <LegacyPage><SetNewPassword /></LegacyPage>;
   else if (/^\/watch\/(movie|tv|series)\/[^/]+$/.test(location.pathname)) content = <RequireAuth><MobileWatchRoute navigate={navigate} /></RequireAuth>;
-  else if (/^\/admin(?:\/.*)?$/.test(location.pathname)) content = <RequireAdmin><LegacyPage><AdminDashboard /></LegacyPage></RequireAdmin>;
-  else if (/^\/anime\/[^/]+$/.test(location.pathname)) content = <MobileAnimeDetails navigate={mobileNavigate} />;
+  else if (/^\/admin(?:\/.*)?$/.test(location.pathname)) content = <RequireAdmin><LegacyPage><AdminDashboard /></LegacyPage></RequireAuth>;
+  else if (location.pathname === '/anime' || /^\/anime\/[^/]+$/.test(location.pathname)) content = <MobileAnimeUnavailable />;
   else if (/^\/drama\/[^/]+$/.test(location.pathname)) content = <MobileDramaDetails navigate={mobileNavigate} />;
   else if (/^\/manga\/[^/]+$/.test(location.pathname)) content = <MobileMangaDetails navigate={navigate} />;
 
