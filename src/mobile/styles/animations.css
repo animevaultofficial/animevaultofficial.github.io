@@ -1,0 +1,40 @@
+@keyframes av-slide-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes av-slide-out-down {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(20px); }
+}
+
+@keyframes av-tap-press {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(.96); }
+}
+
+@keyframes av-shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+@keyframes av-heart-beat {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.2); }
+  50% { transform: scale(1); }
+  75% { transform: scale(1.1); }
+}
+
+.av-page-enter { animation: av-slide-in-up 300ms cubic-bezier(.22,.8,.25,1); }
+.av-tap { transition: transform 150ms ease-out, background 150ms ease-out; }
+.av-tap:active { animation: av-tap-press 150ms ease-out; }
+.av-skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,.07) 25%, rgba(255,255,255,.14) 50%, rgba(255,255,255,.07) 75%);
+  background-size: 1000px 100%;
+  animation: av-shimmer 2000ms linear infinite;
+}
+.av-heart:active { animation: av-heart-beat 400ms ease; color: var(--accent-primary); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
