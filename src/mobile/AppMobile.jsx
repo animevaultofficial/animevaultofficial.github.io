@@ -88,7 +88,7 @@ export default function AppMobile() {
   if (location.pathname === '/search') content = <WebSearch />;
   else if (location.pathname === '/collections') content = <LibraryPage navigate={mobileNavigate} />;
   else if (location.pathname === '/collections-web') content = <RequireAuth><LegacyPage><Collections /></LegacyPage></RequireAuth>;
-  else if (location.pathname === '/schedule') content = <SchedulePage navigate={mobileNavigate} />;
+  else if (location.pathname === '/schedule') content = <MobileAnimeUnavailable />;
   else if (location.pathname === '/download') content = <DownloadsPage navigate={mobileNavigate} />;
   else if (location.pathname === '/notifications') content = <NotificationsPage navigate={mobileNavigate} />;
   else if (location.pathname === '/community') content = <CommunityPage navigate={mobileNavigate} />;
