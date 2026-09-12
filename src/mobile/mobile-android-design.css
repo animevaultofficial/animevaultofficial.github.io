@@ -1,0 +1,69 @@
+/* AnimeVault Android app design layer — keeps the real data/pages, changes only presentation. */
+:root {
+  --av-android-bg: #050507;
+  --av-android-surface: #0d0d11;
+  --av-android-surface-2: #141419;
+  --av-android-pink: #ff176f;
+  --av-android-pink-soft: #ff4d91;
+  --av-android-text: #fff;
+  --av-android-muted: #a3a3ad;
+  --av-android-border: rgba(255,255,255,.08);
+}
+.av-v2-shell { background:var(--av-android-bg); color:var(--av-android-text); }
+.av-v2-topbar { background:rgba(5,5,7,.92); border-bottom:1px solid var(--av-android-border); }
+.av-v2-brand { font-size:14px; letter-spacing:-.01em; }
+.av-v2-brand-mark { background:linear-gradient(135deg,var(--av-android-pink),var(--av-android-pink-soft)); box-shadow:0 0 30px rgba(255,23,111,.24); }
+.av-v2-content { padding-bottom:calc(78px + env(safe-area-inset-bottom)); }
+.av-v2-content > .app-shell > .content { padding-bottom:24px; }
+.av-v2-drawer { background:linear-gradient(180deg,#111116,#08080b); }
+.av-v2-drawer-item.is-active { background:rgba(255,23,111,.13); box-shadow:inset 3px 0 var(--av-android-pink); }
+.av-v2-drawer-item.is-active svg:first-child { color:var(--av-android-pink-soft); }
+
+/* Shared Android cards/buttons */
+.av-v2-content button { -webkit-tap-highlight-color:transparent; }
+.av-v2-content .btn-play-v2,
+.av-v2-content .btn-primary,
+.av-v2-content .primary-button { border-radius:12px; }
+
+/* Five-destination Android navigation. Secondary destinations remain in the drawer. */
+.av-android-bottom-nav {
+  position:fixed;
+  left:0; right:0; bottom:0;
+  z-index:1250;
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:2px;
+  padding:7px 8px calc(7px + env(safe-area-inset-bottom));
+  background:rgba(8,8,11,.94);
+  border-top:1px solid var(--av-android-border);
+  backdrop-filter:blur(22px) saturate(1.5);
+}
+.av-android-bottom-item {
+  min-width:0; min-height:52px;
+  border:0; border-radius:13px;
+  background:transparent; color:#777780;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:4px; padding:4px 2px;
+  font-size:9px; font-weight:800; letter-spacing:.1px;
+}
+.av-android-bottom-icon { width:28px; height:24px; display:grid; place-items:center; }
+.av-android-bottom-item.is-active { color:#fff; }
+.av-android-bottom-item.is-active .av-android-bottom-icon {
+  color:var(--av-android-pink-soft);
+  filter:drop-shadow(0 0 7px rgba(255,23,111,.32));
+}
+.av-android-bottom-item:active { background:rgba(255,255,255,.06); transform:scale(.97); }
+
+/* Make existing Android home/feed content feel like the supplied app designs. */
+.av-v2-content .home-v2 { background:var(--av-android-bg); }
+.av-v2-content .trending-grid-v2 { gap:10px !important; }
+.av-v2-content .anime-card-v2 { border-color:var(--av-android-border); border-radius:13px; background:var(--av-android-surface); }
+.av-v2-content .anime-card-v2 .card-info { padding:9px; }
+
+@media (min-width:700px) {
+  .av-android-bottom-nav { display:none; }
+  .av-v2-content { padding-bottom:0; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .av-android-bottom-item { transition:none !important; }
+}
