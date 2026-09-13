@@ -122,8 +122,8 @@ export default function AndroidVideoPlayer({ sourceUrl, poster, title, onNextEpi
 
   if (!direct && !embed) return <div ref={wrapRef} className="av-native-player-v2"><div className="av-native-error-v2"><AlertTriangle size={30}/><span>Unsupported media source.</span><button onClick={retry}><RefreshCw size={15}/> Retry</button></div></div>;
 
-  return <div ref={wrapRef} className="av-native-player-v2" style={{position:'relative',background:'#000',overflow:'hidden'}}>
-    {direct ? <video ref={videoRef} poster={poster} playsInline preload="metadata" onClick={togglePlay}/> : <iframe key={retryKey} title={title || 'AnimeVault player'} src={sourceUrl} style={{width:'100%',height:'100%',minHeight:220,border:0,display:'block',background:'#000'}} allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowFullScreen referrerPolicy="no-referrer" onLoad={()=>setLoading(false)} />}
+  return <div ref={wrapRef} className="av-native-player-v2" style={{position:'relative',width:'100%',aspectRatio:'16 / 9',minHeight:220,background:'#000',overflow:'hidden'}}>
+    {direct ? <video ref={videoRef} poster={poster} playsInline preload="metadata" style={{width:'100%',height:'100%',display:'block',objectFit:'contain',background:'#000'}} onClick={togglePlay}/> : <iframe key={retryKey} title={title || 'AnimeVault player'} src={sourceUrl} style={{width:'100%',height:'100%',minHeight:220,border:0,display:'block',background:'#000'}} allow="autoplay; fullscreen; encrypted-media; picture-in-picture; web-share" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" onLoad={()=>setLoading(false)} />}
     <div className="av-native-player-overlay-v2">
       <div className="av-native-player-title-v2">{title}</div>
       {loading&&<div className="av-native-loading-v2"><RefreshCw className="av-spin" size={30}/><span>{direct?'Loading media…':'Loading player…'}</span></div>}
