@@ -11,6 +11,10 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+html[data-av-theme='light'] {
+  color-scheme: light;
+}
+
 body {
   margin: 0;
   background: var(--bg-primary);
@@ -51,4 +55,4 @@ img { max-width: 100%; }
   outline-offset: 2px;
 }
 
-::selection { background: rgba(255,47,134,.3); color: #fff; }
+::selection { background: color-mix(in srgb, var(--accent-primary) 30%, transparent); color: var(--text-primary); }
