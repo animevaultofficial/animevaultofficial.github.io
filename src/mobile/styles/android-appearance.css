@@ -1,0 +1,83 @@
+/* Android Appearance bridge. Keeps the existing Android presentation layer but makes its semantic tokens follow Settings > Appearance. */
+:root {
+  --av-bg: var(--bg-primary);
+  --av-bg2: var(--bg-secondary);
+  --av-surface: var(--bg-surface);
+  --av-surface2: var(--bg-surface-elevated);
+  --av-pink: var(--accent-primary);
+  --av-pink2: var(--accent-secondary);
+  --av-text: var(--text-primary);
+  --av-text2: var(--text-secondary);
+  --av-muted: var(--text-tertiary);
+  --av-line: var(--border-light);
+  --av-line2: var(--border-normal);
+  --av-v2-bg: var(--bg-primary);
+  --av-v2-surface: var(--bg-surface);
+  --av-v2-surface-2: var(--bg-surface-elevated);
+  --av-v2-pink: var(--accent-primary);
+  --av-v2-pink-2: var(--accent-secondary);
+  --av-v2-text: var(--text-primary);
+  --av-v2-muted: var(--text-tertiary);
+  --av-v2-border: var(--border-light);
+  --av-v2-glow: var(--accent-glow);
+  --background: var(--bg-primary);
+  --dark-bg: var(--bg-primary);
+  --brand-color: var(--accent-primary);
+  --text-primary: var(--text-primary);
+  --text-secondary: var(--text-secondary);
+  --text-tertiary: var(--text-tertiary);
+  --pink-variant-2: var(--accent-secondary);
+  --white-05: var(--border-light);
+  --white-10: var(--border-normal);
+  --white-20: var(--border-strong);
+  --glass: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  --glass-border: var(--border-light);
+  --accent-glow: var(--accent-glow);
+}
+
+html,
+body,
+#root {
+  background-color: var(--bg-primary);
+}
+
+html {
+  color-scheme: var(--av-color-scheme, dark);
+}
+
+html[data-av-theme='light'] {
+  color-scheme: light;
+}
+
+/* The older V2 layer has its own semantic token names; bridge them too. */
+.av-v2-shell,
+.av-mobile-v2,
+.av-v2-content {
+  color: var(--text-primary);
+}
+
+.av-v2-shell {
+  background: var(--bg-primary);
+}
+
+.av-v2-topbar,
+.av-v2-drawer,
+.av-v2-account-menu,
+.av-android-bottom-nav {
+  border-color: var(--border-normal);
+}
+
+/* Make the legacy stylesheet's global surface variables follow Appearance. */
+body,
+.app-shell,
+.av-mobile-legacy-page {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+button,
+input,
+select,
+textarea {
+  color: var(--text-primary);
+}
