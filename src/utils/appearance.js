@@ -14,11 +14,18 @@ export function applyAccentColor(presetId) {
   root.style.setProperty('--red2', preset.color2);
   root.style.setProperty('--red-dim', preset.dim);
   root.style.setProperty('--red-glow', preset.glow);
-  // The dedicated mobile shell uses --brand variables.
   root.style.setProperty('--brand', preset.color);
   root.style.setProperty('--brand2', preset.color2);
   root.style.setProperty('--brand-dim', preset.dim);
   root.style.setProperty('--brand-glow', preset.glow);
+
+  // Mobile Android design tokens consume their own accent variables.
+  root.style.setProperty('--accent-primary', preset.color);
+  root.style.setProperty('--accent-secondary', preset.color2);
+  root.style.setProperty('--accent-brand', preset.color);
+  root.style.setProperty('--accent-brand-2', preset.color2);
+  root.style.setProperty('--accent-dim', preset.dim);
+  root.style.setProperty('--accent-glow', preset.glow);
 }
 
 export const THEME_PRESETS = [
@@ -37,4 +44,20 @@ export function applyTheme(themeId, customVars = null) {
   const vars = themeId === 'custom' ? (customVars || DEFAULT_CUSTOM_VARS) : preset.vars;
   const root = document.documentElement;
   for (const [prop, value] of Object.entries(vars)) root.style.setProperty(prop, value);
+
+  // Keep the mobile Android shell synchronized with the same Appearance choice.
+  const mobileMap = {
+    '--bg-primary': vars['--bg'],
+    '--bg-secondary': vars['--surface'],
+    '--bg-surface': vars['--surface'],
+    '--bg-surface-elevated': vars['--surface2'],
+    '--text-primary': vars['--text'],
+    '--text-secondary': vars['--text2'],
+    '--text-tertiary': vars['--text3'],
+    '--text-muted': vars['--text3'],
+    '--border-light': themeId === 'light' ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.075)',
+    '--border-normal': themeId === 'light' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)',
+    '--border-strong': themeId === 'light' ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.18)',
+  };
+  for (const [prop, value] of Object.entries(mobileMap)) root.style.setProperty(prop, value);
 }
