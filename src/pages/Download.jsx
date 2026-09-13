@@ -14,19 +14,19 @@ const platforms = [
   {
     id: 'windows',
     name: 'Windows',
-    badge: 'Windows 10 / 11',
-    description: 'Fast native desktop installer with automatic updates and Discord Rich Presence support.',
+    badge: 'Windows 10 / 11 • x64',
+    description: 'Native desktop installer for 64-bit Windows PCs.',
     icon: windowsIcon,
     iconAlt: 'Windows logo',
     fileName: `AnimeVault Windows x64 v${VERSION}.exe`,
     url: releaseAssetUrl('AnimeVault-Windows-x64.exe'),
-    note: 'Recommended for most PCs',
+    note: 'Latest Windows installer',
   },
   {
-    id: 'mac',
+    id: 'mac-arm64',
     name: 'macOS',
-    badge: 'macOS 12+',
-    description: 'Universal desktop downloads for Intel and Apple Silicon Macs with a polished native shell.',
+    badge: 'Apple Silicon • arm64',
+    description: 'DMG installer for Macs with Apple Silicon processors.',
     icon: 'https://img.icons8.com/color/512/mac-os.png',
     iconAlt: 'macOS logo',
     fileName: `AnimeVault macOS Apple Silicon v${VERSION}.dmg`,
@@ -34,34 +34,56 @@ const platforms = [
     note: 'Apple Silicon DMG',
   },
   {
+    id: 'mac-x64',
+    name: 'macOS Intel',
+    badge: 'Intel • x64',
+    description: 'DMG installer for Intel-based Mac computers.',
+    icon: 'https://img.icons8.com/color/512/mac-os.png',
+    iconAlt: 'macOS logo',
+    fileName: `AnimeVault macOS Intel v${VERSION}.dmg`,
+    url: releaseAssetUrl('AnimeVault-macOS-x64.dmg'),
+    note: 'Intel DMG',
+  },
+  {
     id: 'linux',
     name: 'Linux',
-    badge: 'Ubuntu / Debian / AppImage',
-    description: 'Portable AppImage build for modern Linux distributions without a complicated install flow.',
+    badge: 'x86_64 • AppImage',
+    description: 'Portable AppImage for modern 64-bit Linux distributions.',
     icon: 'https://cdn.simpleicons.org/linux/f5c300',
     iconAlt: 'Linux logo',
     fileName: `AnimeVault Linux x64 v${VERSION}.AppImage`,
-    url: releaseAssetUrl('AnimeVault-Linux-x64.AppImage'),
+    url: releaseAssetUrl('AnimeVault-Linux-x86_64.AppImage'),
     note: 'Make executable, then run',
+  },
+  {
+    id: 'linux-deb',
+    name: 'Linux Debian',
+    badge: 'Debian / Ubuntu • amd64',
+    description: 'Native Debian package for Debian and Ubuntu-based systems.',
+    icon: 'https://cdn.simpleicons.org/linux/f5c300',
+    iconAlt: 'Linux logo',
+    fileName: `AnimeVault Linux amd64 v${VERSION}.deb`,
+    url: releaseAssetUrl('AnimeVault-Linux-amd64.deb'),
+    note: 'Install with your package manager',
   },
   {
     id: 'android',
     name: 'Android',
     badge: 'Android 6+',
-    description: 'Take AnimeVault anywhere with a mobile APK built from the same release pipeline.',
+    description: 'Official Android APK built from the AnimeVault release pipeline.',
     icon: androidIcon,
     iconAlt: 'Android logo',
     fileName: `AnimeVault Android v${VERSION}.apk`,
-    url: releaseAssetUrl('AnimeVault-Android.apk'),
+    url: releaseAssetUrl('Anime.Vault.apk'),
     note: 'Side-load APK release',
   },
 ];
 
 const features = [
   { icon: Sparkles, title: 'Fast Streaming', text: 'Watch anime instantly with ultra-low latency and a modern playback layout.' },
-  { icon: Tv, title: 'Huge Library', text: 'Explore anime, dramas, movies, and manga from one responsive experience.' },
+  { icon: Tv, title: 'Huge Library', text: 'Explore anime, dramas, movies, and TV shows from one responsive experience.' },
   { icon: Bookmark, title: 'Track Progress', text: 'Save watch history and continue from where you left off across sessions.' },
-  { icon: Laptop, title: 'Desktop First', text: 'Installers are produced by CI, auto-tagged from package.json, and uploaded to GitHub Releases.' },
+  { icon: Laptop, title: 'Always Up To Date', text: 'Every download button targets the latest GitHub Release asset.' },
 ];
 
 const Download = () => (
@@ -85,7 +107,7 @@ const Download = () => (
       <div className="download-section-heading">
         <span className="download-eyebrow">Choose your platform</span>
         <h2>Install AnimeVault</h2>
-        <p>Each button points at the latest GitHub Release asset, so downloads update automatically after every successful main-branch installer build.</p>
+        <p>Every button points to the matching asset in the latest GitHub Release, so the download page stays current after successful builds.</p>
       </div>
 
       <div className="platform-cards">
