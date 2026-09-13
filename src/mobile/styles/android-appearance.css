@@ -23,16 +23,12 @@
   --background: var(--bg-primary);
   --dark-bg: var(--bg-primary);
   --brand-color: var(--accent-primary);
-  --text-primary: var(--text-primary);
-  --text-secondary: var(--text-secondary);
-  --text-tertiary: var(--text-tertiary);
   --pink-variant-2: var(--accent-secondary);
   --white-05: var(--border-light);
   --white-10: var(--border-normal);
   --white-20: var(--border-strong);
   --glass: color-mix(in srgb, var(--bg-surface) 88%, transparent);
   --glass-border: var(--border-light);
-  --accent-glow: var(--accent-glow);
 }
 
 html,
@@ -42,7 +38,7 @@ body,
 }
 
 html {
-  color-scheme: var(--av-color-scheme, dark);
+  color-scheme: dark;
 }
 
 html[data-av-theme='light'] {
