@@ -1,10 +1,11 @@
 :root {
+  /* Appearance is controlled at runtime by src/utils/appearance.js. These are the Android/mobile defaults. */
   --bg-primary: #07070A;
   --bg-secondary: #0B0B10;
   --bg-surface: #111117;
   --bg-surface-elevated: #17171E;
-  --accent-primary: #FF2F86;
-  --accent-secondary: #FF5CA3;
+  --accent-primary: #e50914;
+  --accent-secondary: #ff1a24;
   --accent-success: #10B981;
   --accent-warning: #F59E0B;
   --accent-error: #EF4444;
