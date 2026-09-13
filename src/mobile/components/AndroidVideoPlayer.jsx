@@ -122,20 +122,36 @@ export default function AndroidVideoPlayer({ sourceUrl, poster, title, onNextEpi
 
   if (!direct && !embed) return <div ref={wrapRef} className="av-native-player-v2"><div className="av-native-error-v2"><AlertTriangle size={30}/><span>Unsupported media source.</span><button onClick={retry}><RefreshCw size={15}/> Retry</button></div></div>;
 
+  if (embed) {
+    return <div ref={wrapRef} className="av-native-player-v2" style={{position:'relative',width:'100%',aspectRatio:'16 / 9',minHeight:220,background:'#000',overflow:'hidden'}}>
+      <iframe
+        key={retryKey}
+        title={title || 'AnimeVault player'}
+        src={sourceUrl}
+        style={{position:'absolute',inset:0,width:'100%',height:'100%',border:0,display:'block',background:'#000'}}
+        allow="autoplay; fullscreen; encrypted-media; picture-in-picture; web-share"
+        allowFullScreen
+        referrerPolicy="strict-origin-when-cross-origin"
+        onLoad={()=>setLoading(false)}
+      />
+      <button onClick={retry} aria-label="Reload player" style={{position:'absolute',right:10,top:10,zIndex:2,width:38,height:38,border:0,borderRadius:10,background:'rgba(20,20,27,.8)',color:'#fff',display:'grid',placeItems:'center'}}><RefreshCw size={18}/></button>
+      <button onClick={toggleFullscreen} aria-label="Fullscreen" style={{position:'absolute',right:10,bottom:10,zIndex:2,width:38,height:38,border:0,borderRadius:10,background:'rgba(20,20,27,.8)',color:'#fff',display:'grid',placeItems:'center'}}><Maximize size={18}/></button>
+    </div>;
+  }
+
   return <div ref={wrapRef} className="av-native-player-v2" style={{position:'relative',width:'100%',aspectRatio:'16 / 9',minHeight:220,background:'#000',overflow:'hidden'}}>
-    {direct ? <video ref={videoRef} poster={poster} playsInline preload="metadata" style={{width:'100%',height:'100%',display:'block',objectFit:'contain',background:'#000'}} onClick={togglePlay}/> : <iframe key={retryKey} title={title || 'AnimeVault player'} src={sourceUrl} style={{width:'100%',height:'100%',minHeight:220,border:0,display:'block',background:'#000'}} allow="autoplay; fullscreen; encrypted-media; picture-in-picture; web-share" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" onLoad={()=>setLoading(false)} />}
+    <video ref={videoRef} poster={poster} playsInline preload="metadata" style={{width:'100%',height:'100%',display:'block',objectFit:'contain',background:'#000'}} onClick={togglePlay}/>
     <div className="av-native-player-overlay-v2">
       <div className="av-native-player-title-v2">{title}</div>
-      {loading&&<div className="av-native-loading-v2"><RefreshCw className="av-spin" size={30}/><span>{direct?'Loading media…':'Loading player…'}</span></div>}
+      {loading&&<div className="av-native-loading-v2"><RefreshCw className="av-spin" size={30}/><span>Loading media…</span></div>}
       {error&&<div className="av-native-error-v2"><AlertTriangle size={30}/><span>{error}</span><button onClick={retry}><RefreshCw size={15}/> Retry</button></div>}
       <div className="av-native-controls-v2">
         {onPrevEpisode&&<button onClick={onPrevEpisode} aria-label="Previous episode"><SkipBack size={20}/></button>}
-        {direct&&<button onClick={()=>seek(-10)} aria-label="Back 10 seconds"><SkipBack size={18}/></button>}
-        {direct&&<button className="av-native-main-btn-v2" onClick={togglePlay} aria-label={paused?'Play':'Pause'}>{paused?<Play size={24} fill="currentColor"/>:<Pause size={24} fill="currentColor"/>}</button>}
-        {direct&&<button onClick={()=>seek(10)} aria-label="Forward 10 seconds"><SkipForward size={18}/></button>}
+        <button onClick={()=>seek(-10)} aria-label="Back 10 seconds"><SkipBack size={18}/></button>
+        <button className="av-native-main-btn-v2" onClick={togglePlay} aria-label={paused?'Play':'Pause'}>{paused?<Play size={24} fill="currentColor"/>:<Pause size={24} fill="currentColor"/>}</button>
+        <button onClick={()=>seek(10)} aria-label="Forward 10 seconds"><SkipForward size={18}/></button>
         {onNextEpisode&&<button onClick={onNextEpisode} aria-label="Next episode"><SkipForward size={20}/></button>}
-        {direct&&<button onClick={()=>{const v=videoRef.current;if(v){v.muted=!v.muted;setMuted(v.muted);}}} aria-label="Mute">{muted?<VolumeX size={20}/>:<Volume2 size={20}/>}</button>}
-        {embed&&<button onClick={retry} aria-label="Reload player"><RefreshCw size={19}/></button>}
+        <button onClick={()=>{const v=videoRef.current;if(v){v.muted=!v.muted;setMuted(v.muted);}}} aria-label="Mute">{muted?<VolumeX size={20}/>:<Volume2 size={20}/>}</button>
         <button onClick={toggleFullscreen} aria-label={fullscreen?'Exit fullscreen':'Fullscreen'}><Maximize size={20}/></button>
       </div>
     </div>
