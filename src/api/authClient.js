@@ -33,6 +33,17 @@ function createUnavailableAuthClient() {
   };
 }
 
+function browserAuthFetch(input, init = {}) {
+  // Keep the native browser fetch as the final transport. This avoids the
+  // deployed Better Fetch path passing a Promise-valued HTTP method to
+  // window.fetch and preserves Neon Auth cookies for cross-origin requests.
+  const requestInit = {
+    ...init,
+    credentials: init.credentials || 'include',
+  };
+  return window.fetch(input, requestInit);
+}
+
 export function createAnimeVaultAuthClient() {
   const authUrl = import.meta.env.VITE_NEON_AUTH_URL;
   if (!authUrl) {
@@ -40,5 +51,9 @@ export function createAnimeVaultAuthClient() {
     return createUnavailableAuthClient();
   }
 
-  return createAuthClient(authUrl);
+  return createAuthClient(authUrl, {
+    fetchOptions: {
+      customFetchImpl: browserAuthFetch,
+    },
+  });
 }
