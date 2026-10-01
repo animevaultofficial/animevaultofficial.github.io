@@ -100,7 +100,7 @@ export default function AnimeDetails() {
   );
 
   const watchPath = firstPlayableEpisode
-    ? `/anime/${encodeURIComponent(id)}?episode=${encodeURIComponent(firstPlayableEpisode.number)}&lang=${firstPlayableEpisode.available?.sub ? 'sub' : 'dub'}`
+    ? `/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(firstPlayableEpisode.number)}&lang=${firstPlayableEpisode.available?.sub ? 'sub' : 'dub'}`
     : null;
 
   if (loading) {
