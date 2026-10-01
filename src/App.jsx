@@ -3,7 +3,6 @@ import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-d
 import { Search as SearchIcon, Home as HomeIcon, PlayCircle, Tv as TvIcon, Menu, X, Bell, Download as DownloadIcon, Users, Award, BookOpen, User, CalendarDays, BarChart3, Library, Settings as SettingsIcon, Info } from 'lucide-react';
 import './styles/designTokens.css';
 import { useUser } from './api/UserContext';
-import { fetchSiteSettings } from './api/db';
 import { applyTheme, applyAccentColor } from './utils/appearance';
 import { storage } from './utils/storage';
 import { applyTvModeClass } from './utils/tvMode';
@@ -60,17 +59,12 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isTvMode, setIsTvMode] = useState(false);
-  const [announcement, setAnnouncement] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => { setIsTvMode(applyTvModeClass()); }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const run = () => fetchSiteSettings().then(settings => {
-      if (!cancelled && settings?.announcement) setAnnouncement(settings.announcement);
-    }).catch(() => {});
     applyAccentColor(storage.get('accentColor') || 'red');
     applyTheme(storage.get('theme') || 'dark', storage.get('customThemeVars'));
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
@@ -114,7 +108,6 @@ function App() {
   const openLogin = () => { setAuthTab('login'); setShowAuthModal(true); setIsMobileMenuOpen(false); };
 
   return <Suspense fallback={<RouteFallback />}><SubAccountGate><div className={`app-shell ${isTvMode ? 'tv-app-shell' : ''}`}>
-    {announcement && <div className="site-announcement"><span>{announcement}</span></div>}
     {isTvMode && <div className="tv-welcome-strip"><span>LG webOS TV mode</span><strong>Use the Magic Remote pointer or arrow keys to browse. Press OK/Enter to select.</strong></div>}
 
     <header className="topbar">
