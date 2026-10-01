@@ -1,24 +1,10 @@
 import { createAuthClient } from '@neondatabase/auth';
 
-const AUTH_TIMEOUT_MS = 8000;
-
 function getFallbackOrigin() {
   if (typeof window === 'undefined') return 'https://animevaultofficial.fun';
   const origin = window.location.origin;
   const isNativeShell = !origin || origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('file://');
   return !isNativeShell ? origin : 'https://localhost';
-}
-
-function withAuthRequestDefaults(context) {
-  const headers = context?.headers instanceof Headers ? context.headers : new Headers(context?.headers);
-  if (!headers.has('Origin') && !headers.has('origin')) {
-    try {
-      headers.set('Origin', getFallbackOrigin());
-    } catch {
-      // Browser Request guards may reject manually setting Origin.
-    }
-  }
-  return { ...context, headers };
 }
 
 function createUnavailableAuthClient() {
@@ -54,10 +40,5 @@ export function createAnimeVaultAuthClient() {
     return createUnavailableAuthClient();
   }
 
-  return createAuthClient(authUrl, {
-    fetchOptions: {
-      timeout: AUTH_TIMEOUT_MS,
-      onRequest: withAuthRequestDefaults,
-    },
-  });
+  return createAuthClient(authUrl);
 }
