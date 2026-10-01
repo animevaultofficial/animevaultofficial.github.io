@@ -65,7 +65,7 @@ export default function AdminDashboard() {
   const [editingTrendingId, setEditingTrendingId] = useState(null);
 
   // Site settings
-  const [siteSettings, setSiteSettings] = useState({ announcement: '', maintenance: 'false' });
+  const [siteSettings, setSiteSettings] = useState({ announcement: '', announcement_title: '', announcement_popup_enabled: 'false', announcement_id: '', maintenance: 'false' });
 
   // Sessions
   const [sessions, setSessions] = useState([]);
@@ -817,10 +817,33 @@ export default function AdminDashboard() {
           </h3>
           <div style={{ display: 'grid', gap: '1rem', maxWidth: '500px' }}>
             <div>
-              <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', fontWeight: '700', marginBottom: '6px' }}>Announcement Banner</label>
-              <input type="text" value={siteSettings.announcement}
+              <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', fontWeight: '700', marginBottom: '6px' }}>Announcement Title</label>
+              <input type="text" value={siteSettings.announcement_title || ''}
+                onChange={e => setSiteSettings({ ...siteSettings, announcement_title: e.target.value })}
+                placeholder="AnimeVault Update"
+                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontSize: '0.85rem' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', fontWeight: '700', marginBottom: '6px' }}>Announcement Message</label>
+              <textarea value={siteSettings.announcement || ''}
                 onChange={e => setSiteSettings({ ...siteSettings, announcement: e.target.value })}
-                placeholder="Leave empty to hide"
+                placeholder="Write the announcement..."
+                rows={4}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontSize: '0.85rem', resize: 'vertical' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', fontWeight: '700', marginBottom: '6px' }}>Announcement Popup</label>
+              <select value={siteSettings.announcement_popup_enabled || 'false'}
+                onChange={e => setSiteSettings({ ...siteSettings, announcement_popup_enabled: e.target.value })}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontSize: '0.85rem' }}>
+                <option value="false">Disabled</option><option value="true">Enabled</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', fontWeight: '700', marginBottom: '6px' }}>Announcement ID</label>
+              <input type="text" value={siteSettings.announcement_id || ''}
+                onChange={e => setSiteSettings({ ...siteSettings, announcement_id: e.target.value })}
+                placeholder="Change this value to show it again"
                 style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none', fontSize: '0.85rem' }} />
             </div>
             <div>
