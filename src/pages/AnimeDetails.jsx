@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getAniPMSeries, getAniPMTitle } from '../api/anipm';
 import { useUser } from '../api/UserContext';
 import { isBlockedForProfile } from '../utils/ageRating';
+import '../styles/animeDetails.css';
 
 const firstValue = (...values) => values.find(value => value !== undefined && value !== null && value !== '');
 
