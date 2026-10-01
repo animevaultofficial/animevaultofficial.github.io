@@ -126,19 +126,24 @@ export default function SearchModal({ onClose }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="search-box">
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Search AnimeVault" onMouseDown={(e) => e.target === e.currentTarget && onClose()} onTouchStart={(e) => e.target === e.currentTarget && onClose()} style={{ zIndex: 10000, pointerEvents: "auto", touchAction: "none" }}>
+      <div className="search-box" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} style={{ touchAction: "auto" }}>
         <div className="search-input-wrap">
           <Search className="search-icon" />
           <input
             ref={inputRef}
             className="search-input"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
             placeholder="Search movies and series..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKey}
           />
-          <button className="btn-clear" onClick={query ? () => setQuery('') : onClose}><X size={20} /></button>
+          <button type="button" className="btn-clear" onClick={query ? () => setQuery('') : onClose} aria-label={query ? "Clear search" : "Close search"}><X size={20} /></button>
         </div>
 
         <div className="search-results">
@@ -177,6 +182,16 @@ export default function SearchModal({ onClose }) {
           {!query && history.length === 0 && <div className="search-hint">Search movies or series · <kbd>ESC</kbd> to close</div>}
         </div>
       </div>
+      <style>{`
+@media (max-width: 600px) {
+.modal-overlay { position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100dvh !important; padding: 0 !important; display: flex !important; align-items: flex-start !important; justify-content: center !important; overflow: hidden !important; }
+.search-box { width: 100% !important; max-width: none !important; height: 100dvh !important; max-height: none !important; margin: 0 !important; border-radius: 0 !important; display: flex !important; flex-direction: column !important; }
+.search-input-wrap { position: sticky; top: 0; z-index: 2; flex: 0 0 auto; display: flex !important; align-items: center; width: 100%; }
+.search-input { min-width: 0 !important; flex: 1 1 auto !important; font-size: 16px !important; -webkit-user-select: text !important; user-select: text !important; touch-action: manipulation !important; }
+.search-results { flex: 1 1 auto !important; min-height: 0 !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; touch-action: pan-y !important; }
+.search-result, .search-history-item, .search-history-clear, .search-history-remove, .btn-clear { touch-action: manipulation !important; }
+}
+`}</style>
     </div>
   );
 }
