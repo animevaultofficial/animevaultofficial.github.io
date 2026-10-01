@@ -67,12 +67,6 @@ function App() {
   useEffect(() => {
     applyAccentColor(storage.get('accentColor') || 'red');
     applyTheme(storage.get('theme') || 'dark', storage.get('customThemeVars'));
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      const id = window.requestIdleCallback(run, { timeout: 2000 });
-      return () => { cancelled = true; window.cancelIdleCallback(id); };
-    }
-    const id = window.setTimeout(run, 1200);
-    return () => { cancelled = true; window.clearTimeout(id); };
   }, []);
 
   useEffect(() => { void import('./pages/MixedHome'); }, []);
