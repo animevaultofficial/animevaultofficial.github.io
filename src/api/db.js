@@ -869,7 +869,7 @@ export async function fetchSiteSettings() {
       )
     `;
     const rows = await db`SELECT key, value FROM site_settings`;
-    const settings = { announcement: '', maintenance: 'false' };
+    const settings = { announcement: '', announcement_title: '', announcement_popup_enabled: 'false', announcement_id: '', maintenance: 'false' };
     rows.forEach(r => { settings[r.key] = r.value; });
     return settings;
   } catch (e) {

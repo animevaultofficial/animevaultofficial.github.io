@@ -1,9 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { Search as SearchIcon, Home as HomeIcon, Tv as TvIcon, Menu, X, Bell, Download as DownloadIcon, Users, Award, BookOpen, User, CalendarDays, BarChart3, Library, Settings as SettingsIcon, Info } from 'lucide-react';
+import { Search as SearchIcon, Home as HomeIcon, PlayCircle, Tv as TvIcon, Menu, X, Bell, Download as DownloadIcon, Users, Award, BookOpen, User, CalendarDays, BarChart3, Library, Settings as SettingsIcon, Info } from 'lucide-react';
 import './styles/designTokens.css';
 import { useUser } from './api/UserContext';
-import { fetchSiteSettings } from './api/db';
 import { applyTheme, applyAccentColor } from './utils/appearance';
 import { storage } from './utils/storage';
 import { applyTvModeClass } from './utils/tvMode';
@@ -17,6 +16,8 @@ import { useReminderNotifications } from './hooks/useReminderNotifications';
 const MixedHome = lazy(() => import('./pages/MixedHome'));
 const Search = lazy(() => import('./pages/Search'));
 const AnimeWatch = lazy(() => import('./pages/AnimeWatch'));
+const AnimeHome = lazy(() => import('./pages/AnimeHome'));
+const AnnouncementPopup = lazy(() => import('./components/AnnouncementPopup'));
 const MangaHome = lazy(() => import('./pages/MangaHome'));
 const MangaDetails = lazy(() => import('./pages/MangaDetails'));
 const DramasMovies = lazy(() => import('./pages/DramasMovies'));
@@ -43,7 +44,7 @@ const SubAccountGate = lazy(() => import('./components/SubAccountGate'));
 function RouteFallback() { return <div className="route-loading" role="status" aria-live="polite"><span className="loading-dot" /> Loading…</div>; }
 
 const primaryNav = [
-  ['/', 'Home', HomeIcon], ['/manga', 'Manga', BookOpen],
+  ['/', 'Home', HomeIcon], ['/anime', 'Anime', PlayCircle], ['/manga', 'Manga', BookOpen],
   ['/dramas-movies', 'Dramas & Movies', TvIcon], ['/schedule', 'Schedule', CalendarDays],
   ['/collections', 'Collections', Library], ['/community', 'Community', Users], ['/stats', 'Stats', BarChart3],
   ['/notifications', 'Notifications', Bell], ['/download', 'Download', DownloadIcon],
@@ -58,17 +59,12 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isTvMode, setIsTvMode] = useState(false);
-  const [announcement, setAnnouncement] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => { setIsTvMode(applyTvModeClass()); }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const run = () => fetchSiteSettings().then(settings => {
-      if (!cancelled && settings?.announcement) setAnnouncement(settings.announcement);
-    }).catch(() => {});
     applyAccentColor(storage.get('accentColor') || 'red');
     applyTheme(storage.get('theme') || 'dark', storage.get('customThemeVars'));
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
@@ -112,7 +108,6 @@ function App() {
   const openLogin = () => { setAuthTab('login'); setShowAuthModal(true); setIsMobileMenuOpen(false); };
 
   return <Suspense fallback={<RouteFallback />}><SubAccountGate><div className={`app-shell ${isTvMode ? 'tv-app-shell' : ''}`}>
-    {announcement && <div className="site-announcement"><span>{announcement}</span></div>}
     {isTvMode && <div className="tv-welcome-strip"><span>LG webOS TV mode</span><strong>Use the Magic Remote pointer or arrow keys to browse. Press OK/Enter to select.</strong></div>}
 
     <header className="topbar">
@@ -139,10 +134,10 @@ function App() {
     </>}
 
     <main className="content"><Routes>
-      <Route path="/" element={<MixedHome />} /><Route path="/search" element={<Search />} /><Route path="/anime" element={<Search />} /><Route path="/anime/:id" element={<RequireAuth><AnimeWatch /></RequireAuth>} /><Route path="/manga" element={<MangaHome />} /><Route path="/manga/:id" element={<MangaDetails />} /><Route path="/dramas-movies" element={<DramasMovies />} /><Route path="/watch/:type/:id" element={<RequireAuth><MovieWatch /></RequireAuth>} /><Route path="/schedule" element={<Schedule />} /><Route path="/collections" element={<RequireAuth><Collections /></RequireAuth>} /><Route path="/community" element={<Community />} /><Route path="/stats" element={<RequireAuth><Stats /></RequireAuth>} /><Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} /><Route path="/about" element={<About />} /><Route path="/contact" element={<StaticPages page="contact" />} /><Route path="/faq" element={<StaticPages page="faq" />} /><Route path="/terms" element={<StaticPages page="terms" />} /><Route path="/privacy" element={<StaticPages page="privacy" />} /><Route path="/dmca" element={<StaticPages page="dmca" />} /><Route path="/request" element={<StaticPages page="request" />} /><Route path="/profile/:userid/*" element={<Profile />} /><Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} /><Route path="/forgot-password" element={<ForgotPassword />} /><Route path="/set-new-password" element={<SetNewPassword />} /><Route path="/download" element={<Download />} /><Route path="/admin/*" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} /><Route path="*" element={<NotFound />} />
+      <Route path="/" element={<MixedHome />} /><Route path="/search" element={<Search />} /><Route path="/anime" element={<AnimeHome />} /><Route path="/anime/:id" element={<RequireAuth><AnimeWatch /></RequireAuth>} /><Route path="/manga" element={<MangaHome />} /><Route path="/manga/:id" element={<MangaDetails />} /><Route path="/dramas-movies" element={<DramasMovies />} /><Route path="/watch/:type/:id" element={<RequireAuth><MovieWatch /></RequireAuth>} /><Route path="/schedule" element={<Schedule />} /><Route path="/collections" element={<RequireAuth><Collections /></RequireAuth>} /><Route path="/community" element={<Community />} /><Route path="/stats" element={<RequireAuth><Stats /></RequireAuth>} /><Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} /><Route path="/about" element={<About />} /><Route path="/contact" element={<StaticPages page="contact" />} /><Route path="/faq" element={<StaticPages page="faq" />} /><Route path="/terms" element={<StaticPages page="terms" />} /><Route path="/privacy" element={<StaticPages page="privacy" />} /><Route path="/dmca" element={<StaticPages page="dmca" />} /><Route path="/request" element={<StaticPages page="request" />} /><Route path="/profile/:userid/*" element={<Profile />} /><Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} /><Route path="/forgot-password" element={<ForgotPassword />} /><Route path="/set-new-password" element={<SetNewPassword />} /><Route path="/download" element={<Download />} /><Route path="/admin/*" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} /><Route path="*" element={<NotFound />} />
     </Routes></main><Footer />
     <nav className="bottom-nav" aria-label="Mobile quick navigation"><NavLink to="/" end className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><HomeIcon size={20} /><span>Home</span></NavLink><NavLink to="/dramas-movies" className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><TvIcon size={20} /><span>Dramas</span></NavLink><NavLink to="/search" className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><SearchIcon size={20} /><span>Search</span></NavLink></nav>
-    <AuthModal /><UpdateCenter />{isSearchOpen && <SearchModal onClose={() => setIsSearchOpen(false)} />}
+    <AuthModal /><UpdateCenter /><AnnouncementPopup />{isSearchOpen && <SearchModal onClose={() => setIsSearchOpen(false)} />}
     <style>{`
       .topbar-brand-wrap{display:flex;align-items:center;gap:.65rem;min-width:0;flex:0 0 auto}.topbar .brand{display:flex;align-items:center;gap:.65rem;min-width:0;white-space:nowrap}.topbar .brand img{height:34px;width:auto;display:block;flex:0 0 auto}.topbar .brand span{font-weight:900}.hamburger-btn{display:none;align-items:center;justify-content:center;background:transparent!important;border:1px solid transparent!important;color:#fff;cursor:pointer;padding:.45rem;border-radius:10px;flex:0 0 auto}.hamburger-btn:hover,.hamburger-btn:focus-visible{background:var(--white-05)!important;border-color:var(--white-10)!important}.header-profile{display:inline-flex;align-items:center;gap:.4rem;min-width:0;max-width:150px;white-space:nowrap;overflow:hidden}.header-profile span{overflow:hidden;text-overflow:ellipsis}.session-status{font-size:.78rem;color:var(--text-secondary);white-space:nowrap}.route-loading{min-height:35vh;display:grid;place-items:center;color:var(--text-secondary)}.loading-dot{width:9px;height:9px;border-radius:50%;background:var(--brand-color);box-shadow:0 0 18px rgba(255,26,117,.55)}
       .mobile-menu-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.68);backdrop-filter:blur(3px)}.mobile-menu{position:fixed;inset:0 auto 0 0;z-index:1000;width:min(86vw,350px);height:100dvh;display:flex;flex-direction:column;overflow:hidden;background:rgba(10,16,25,.985);border-right:1px solid var(--white-10);box-shadow:24px 0 70px rgba(0,0,0,.45);animation:mobileNavIn .18s ease-out}.mobile-menu-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1rem .85rem;border-bottom:1px solid var(--white-10);flex:0 0 auto}.mobile-menu-title{display:flex;align-items:center;gap:.7rem;min-width:0}.mobile-menu-title img{width:34px;height:34px;object-fit:contain}.mobile-menu-title div{display:flex;flex-direction:column;min-width:0}.mobile-menu-title strong{font-size:1rem}.mobile-menu-title span{font-size:.72rem;color:var(--text-tertiary)}.mobile-menu-close{display:flex;align-items:center;justify-content:center;padding:.5rem;border-radius:9px;background:var(--white-05);border:1px solid var(--white-10);color:#fff;cursor:pointer}.mobile-menu-links{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:.7rem .65rem;display:flex;flex-direction:column;gap:.2rem;touch-action:pan-y}.mobile-nav-link{display:flex;align-items:center;gap:.8rem;padding:.75rem .8rem;border-radius:10px;color:var(--text-secondary);text-decoration:none;font-weight:650;min-height:44px}.mobile-nav-link:hover{background:var(--white-05);color:#fff}.mobile-nav-link.active{background:rgba(255,26,117,.13);color:var(--brand-color)}.mobile-nav-link.admin-link{margin-top:.45rem;border-top:1px solid var(--white-10);border-radius:0 0 10px 10px;padding-top:1rem}.mobile-menu-account{flex:0 0 auto;border-top:1px solid var(--white-10);padding:.65rem;display:flex;flex-direction:column;gap:.25rem;padding-bottom:calc(.65rem + env(safe-area-inset-bottom))}.mobile-account-link{display:flex!important;align-items:center;gap:.75rem;width:100%;padding:.75rem .8rem;border-radius:10px;color:var(--text-secondary);text-decoration:none;min-height:44px}.mobile-account-link:hover{background:var(--white-05);color:#fff}.mobile-account-link span{display:flex;flex-direction:column;min-width:0}.mobile-account-link small{color:var(--text-tertiary);font-size:.7rem}@keyframes mobileNavIn{from{transform:translateX(-18px);opacity:.7}to{transform:translateX(0);opacity:1}}
