@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, Star, Film } from 'lucide-react';
+import { Search, X, Star, Film, Play as PlayIcon } from 'lucide-react';
 import { searchMoviesAndSeries } from '../api/movies';
+import { searchAniPM } from '../api/anipm';
 
 const HISTORY_KEY = 'animevault_search_history';
 const MAX_HISTORY = 12;
@@ -41,12 +42,26 @@ export default function SearchModal({ onClose }) {
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const movieData = await searchMoviesAndSeries(query.trim());
+        const term = query.trim();
+        const [movieData, animeData] = await Promise.all([
+          searchMoviesAndSeries(term).catch(() => []),
+          searchAniPM(term, 1, 8).catch(() => ({ data: [] })),
+        ]);
         if (mounted) {
-          setResults((movieData || []).map(item => ({
+          const movies = (movieData || []).map(item => ({
             ...item,
             _type: item.mediaType === 'series' ? 'series' : 'movie',
-          })));
+          }));
+          const anime = (animeData?.data || []).map(item => ({
+            ...item,
+            id: item.anilistId,
+            _type: 'anime',
+            poster: item.poster || '',
+            title: item.title || item.nativeTitle,
+            year: item.year,
+            averageScore: item.score ? Math.round(item.score * 10) : undefined,
+          }));
+          setResults([...anime, ...movies]);
         }
       } catch (err) {
         console.error('Search error:', err);
@@ -88,7 +103,8 @@ export default function SearchModal({ onClose }) {
     const trimmed = query.trim();
     if (trimmed) addToHistory(trimmed);
     onClose();
-    if (media._type === 'movie') navigate(`/watch/movie/${media.tmdbId || media.id}`);
+    if (media._type === 'anime') navigate(`/anime/${media.anilistId || media.id}`);
+    else if (media._type === 'movie') navigate(`/watch/movie/${media.tmdbId || media.id}`);
     else navigate(`/watch/series/${media.tmdbId || media.id}`);
   };
 
@@ -118,7 +134,7 @@ export default function SearchModal({ onClose }) {
   }
 
   function getType(media) {
-    return media._type === 'movie' ? 'Movie' : 'Series';
+    return media._type === 'anime' ? 'Anime' : media._type === 'movie' ? 'Movie' : 'Series';
   }
 
   function getYear(media) {
@@ -138,7 +154,7 @@ export default function SearchModal({ onClose }) {
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
-            placeholder="Search movies and series..."
+            placeholder="Search anime, movies and series..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKey}
@@ -159,7 +175,7 @@ export default function SearchModal({ onClose }) {
                   {media.averageScore ? <> · <Star size={12} /> {media.averageScore / 10}</> : ''}
                 </div>
               </div>
-              <span className={`search-result-type type-${media._type}`}><Film size={12} /> {getType(media)}</span>
+              <span className={`search-result-type type-${media._type}`}>{media._type === 'anime' ? <PlayIcon /> : <Film size={12} />} {getType(media)}</span>
             </div>
           ))}
 
@@ -179,7 +195,7 @@ export default function SearchModal({ onClose }) {
             </div>
           )}
 
-          {!query && history.length === 0 && <div className="search-hint">Search movies or series · <kbd>ESC</kbd> to close</div>}
+          {!query && history.length === 0 && <div className="search-hint">Search anime, movies or series · <kbd>ESC</kbd> to close</div>}
         </div>
       </div>
       <style>{`
