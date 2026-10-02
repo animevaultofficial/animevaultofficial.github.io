@@ -3,6 +3,23 @@ import { CalendarDays, ChevronRight, Play, Search, Sparkles, TrendingUp } from '
 import { Link, useNavigate } from 'react-router-dom';
 import { getAniPMSchedule, getAniPMTop, getAniPMRecent } from '../api/anipm';
 
+
+function isHentai(item) {
+  const values = [
+    item?.genres,
+    item?.genre,
+    item?.tags,
+    item?.type,
+    item?.format,
+    item?.rating,
+    item?.contentRating,
+  ];
+  return values.some(value => {
+    if (Array.isArray(value)) return value.some(entry => String(entry?.name ?? entry).trim().toLowerCase() === 'hentai');
+    return String(value?.name ?? value ?? '').trim().toLowerCase() === 'hentai';
+  });
+}
+
 function Card({ item }) {
   const navigate = useNavigate();
   return <button type="button" onClick={() => navigate('/anime/' + item.anilistId)} style={styles.card}>
@@ -16,7 +33,7 @@ export default function AnimeHome() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([getAniPMTop('week', 24).catch(() => []), getAniPMRecent(1, 24).catch(() => []), getAniPMSchedule().catch(() => [])])
-      .then(([t,r,s]) => { if (cancelled) return; setTop(Array.isArray(t) ? t : []); setRecent(Array.isArray(r) ? r : []); setSchedule(Array.isArray(s) ? s : []); })
+      .then(([t,r,s]) => { if (cancelled) return; setTop(Array.isArray(t) ? t.filter(item => !isHentai(item)) : []); setRecent(Array.isArray(r) ? r.filter(item => !isHentai(item)) : []); setSchedule(Array.isArray(s) ? s.filter(item => !isHentai(item)) : []); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
