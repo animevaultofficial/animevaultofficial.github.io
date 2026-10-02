@@ -9,6 +9,18 @@ import '../styles/animeDetails.css';
 
 const firstValue = (...values) => values.find(value => value !== undefined && value !== null && value !== '');
 
+function numericValue(...values) {
+  const value = firstValue(...values);
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) return Number(value);
+  if (value && typeof value === 'object') {
+    const nested = firstValue(value.total, value.count, value.episodes);
+    if (typeof nested === 'number' && Number.isFinite(nested)) return nested;
+    if (typeof nested === 'string' && nested.trim() !== '' && Number.isFinite(Number(nested))) return Number(nested);
+  }
+  return undefined;
+}
+
 function normalizeAnime(titleData, seriesData, id) {
   const episodeList = seriesData?.episodeList || titleData?.episodeList || [];
   return {
@@ -22,7 +34,7 @@ function normalizeAnime(titleData, seriesData, id) {
     year: firstValue(titleData?.year, titleData?.releaseYear, seriesData?.year),
     type: firstValue(titleData?.type, titleData?.format, seriesData?.type),
     status: firstValue(titleData?.status, seriesData?.status),
-    episodesCount: firstValue(titleData?.episodes, episodeList.length),
+    episodesCount: numericValue(titleData?.episodes, titleData?.episodeCount, seriesData?.episodes, seriesData?.episodeCount, episodeList.length),
     duration: firstValue(titleData?.duration, seriesData?.duration),
     genres: titleData?.genres || seriesData?.genres || [],
     studio: firstValue(titleData?.studio, titleData?.studios?.[0], seriesData?.studio),
