@@ -45,7 +45,13 @@ export default function AnimeWatch() {
   const episodes = useMemo(() => series?.episodeList || [], [series]);
   const current = episodes.find(item => item.number === episode) || episodes[0];
   const effectiveLang = current?.available?.[lang] ? lang : (current?.available?.sub ? 'sub' : 'dub');
-  const progress = Number(localStorage.getItem(storageKey(id, episode, effectiveLang)) || 0);
+  // Read resume position only when the episode/language changes. The player emits
+  // timeupdate events frequently; reading live localStorage during every render
+  // would change the iframe src and remount the player repeatedly.
+  const progress = useMemo(
+    () => Number(localStorage.getItem(storageKey(id, episode, effectiveLang)) || 0),
+    [id, episode, effectiveLang]
+  );
 
   useEffect(() => {
     if (effectiveLang !== lang) setLang(effectiveLang);
@@ -84,14 +90,19 @@ export default function AnimeWatch() {
         if (data.event === 'episodechange' && data.data?.episode) {
           setEpisode(Number(data.data.episode));
           setParams(prev => {
-            prev.set('episode', String(data.data.episode));
-            prev.set('lang', data.data.lang || effectiveLang);
-            return prev;
+            const next = new URLSearchParams(prev);
+            next.set('episode', String(data.data.episode));
+            next.set('lang', data.data.lang || effectiveLang);
+            return next;
           }, { replace: true });
         }
         if (data.event === 'languagechange' && data.data?.lang) {
           setLang(data.data.lang);
-          setParams(prev => { prev.set('lang', data.data.lang); return prev; }, { replace: true });
+          setParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('lang', data.data.lang);
+            return next;
+          }, { replace: true });
         }
       }
     };
