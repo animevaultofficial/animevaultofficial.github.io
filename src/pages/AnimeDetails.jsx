@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getAniPMSeries, getAniPMTitle } from '../api/anipm';
 import { useUser } from '../api/UserContext';
 import { isBlockedForProfile } from '../utils/ageRating';
+import AnimeEpisodeExplorer from '../components/AnimeEpisodeExplorer';
 import '../styles/animeDetails.css';
 
 const firstValue = (...values) => values.find(value => value !== undefined && value !== null && value !== '');
@@ -42,6 +43,7 @@ export default function AnimeDetails() {
   const [seriesData, setSeriesData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedEpisode, setSelectedEpisode] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,9 +101,23 @@ export default function AnimeDetails() {
     [anime.episodeList]
   );
 
-  const watchPath = firstPlayableEpisode
-    ? `/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(firstPlayableEpisode.number)}&lang=${firstPlayableEpisode.available?.sub ? 'sub' : 'dub'}`
+  const selectedEpisodeNumber = selectedEpisode?.number || firstPlayableEpisode?.number;
+  const selectedEpisodeData = selectedEpisodeNumber
+    ? anime.episodeList.find(ep => Number(ep.number) === Number(selectedEpisodeNumber))
     : null;
+  const selectedLang = selectedEpisodeData?.available?.sub ? 'sub' : 'dub';
+
+  const watchPath = selectedEpisodeData
+    ? `/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(selectedEpisodeData.number)}&lang=${selectedLang}`
+    : firstPlayableEpisode
+      ? `/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(firstPlayableEpisode.number)}&lang=${firstPlayableEpisode.available?.sub ? 'sub' : 'dub'}`
+      : null;
+
+  const handleEpisodeSelect = episode => {
+    setSelectedEpisode(episode);
+    const lang = episode?.available?.sub ? 'sub' : 'dub';
+    navigate(`/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(episode.number)}&lang=${lang}`);
+  };
 
   if (loading) {
     return (
@@ -203,10 +219,16 @@ export default function AnimeDetails() {
           <section className="anime-details-phase1-panel">
             <div className="anime-details-panel-heading"><span>EPISODE SOURCE</span><small>{anime.episodeList.length} loaded</small></div>
             <p className="anime-details-source-copy">
-              Phase 1 connects the details route to the same Ani.pm series contract already used by the player. The episode explorer will build on this normalized data in Phase 2.
+              Live episode availability is read from the Ani.pm series contract already used by the player. Search, audio filters and pagination operate on that normalized episode list.
             </p>
           </section>
         </div>
+
+        <AnimeEpisodeExplorer
+          episodes={anime.episodeList}
+          activeEpisode={selectedEpisodeNumber || firstPlayableEpisode?.number}
+          onSelect={handleEpisodeSelect}
+        />
       </div>
     </section>
   );
