@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, Server } from 'lucide-react';
 import { fetchMediaMeta, fetchTVSeasonDetails } from '../api/movies';
@@ -13,6 +13,7 @@ export default function MovieWatch() {
   const { type, id } = useParams();
   const [params] = useSearchParams();
   const { activeSubAccount, addToHistory } = useUser();
+  const historyEntryKey = useRef('');
   const [meta, setMeta] = useState(null);
   const [seasonEpisodes, setSeasonEpisodes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +74,9 @@ export default function MovieWatch() {
 
   useEffect(() => {
     if (!meta || !addToHistory) return;
+    const entryKey = `${isMovie ? 'movie' : 'series'}:${id}:${activeSubAccount?.id || ''}`;
+    if (historyEntryKey.current === entryKey) return;
+    historyEntryKey.current = entryKey;
     addToHistory({
       id: String(id),
       type: isMovie ? 'movie' : 'series',
