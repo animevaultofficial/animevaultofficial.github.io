@@ -37,7 +37,7 @@ function EpisodeCard({ episode, active, fallbackImage, onSelect }) {
     <button type="button" className={`reference-episode-card ${active ? 'active' : ''}`} onClick={() => onSelect(episode)}>
       <div className="reference-episode-thumb">
         {image && <img src={image} alt="" loading="lazy" />}
-        <span className="reference-episode-number">Episode {episode.number}</span>
+        <span className="reference-episode-number">{String(episode.number).padStart(2, "0")}</span>
         {duration(episode?.duration) && <span className="reference-episode-duration">{duration(episode.duration)}</span>}
         <span className="reference-episode-audio">
           {audio.sub && <b>SUB</b>}{audio.dub && <b>DUB</b>}
