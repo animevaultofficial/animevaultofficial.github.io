@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getAniPMSeries, getAniPMTitle } from '../api/anipm';
+import { fetchEpisodeThumbnails } from '../api/jikan';
 import { useUser } from '../api/UserContext';
 import { isBlockedForProfile } from '../utils/ageRating';
 import AnimeEpisodeExplorer from '../components/AnimeEpisodeExplorer';
@@ -117,8 +118,35 @@ export default function AnimeDetails() {
         setLoading(false);
         return;
       }
-      setTitleData(title);
-      setSeriesData(series);
+      // MyAnimeList/Jikan is the source of episode thumbnails. Keep Ani.pm as
+      // the source of playable episodes, then enrich those same episodes by number.
+      if (normalized.malId && normalized.episodeList.length) {
+        try {
+          const thumbnails = await fetchEpisodeThumbnails(normalized.malId);
+          if (!cancelled && Object.keys(thumbnails).length) {
+            const enrich = source => source ? {
+              ...source,
+              episodeList: (source.episodeList || []).map(ep => ({
+                ...ep,
+                image: thumbnails[Number(ep?.number)] || ep?.image,
+                thumbnail: thumbnails[Number(ep?.number)] || ep?.thumbnail,
+              })),
+            } : source;
+            setTitleData(enrich(title));
+            setSeriesData(enrich(series));
+          } else {
+            setTitleData(title);
+            setSeriesData(series);
+          }
+        } catch (thumbnailError) {
+          console.warn('[AnimeVault] MyAnimeList episode thumbnails unavailable:', thumbnailError?.message || thumbnailError);
+          setTitleData(title);
+          setSeriesData(series);
+        }
+      } else {
+        setTitleData(title);
+        setSeriesData(series);
+      }
       setSelectedEpisode(null);
       setLoading(false);
       window.scrollTo({ top: 0, behavior: 'instant' });
