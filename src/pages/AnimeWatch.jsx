@@ -44,8 +44,9 @@ function isPlayableEpisode(episode) {
   return Boolean(episode?.available?.sub || episode?.available?.dub);
 }
 
-export default function AnimeWatch() {
-  const { id } = useParams();
+export default function AnimeWatch({ mediaId }) {
+  const { id: routeId } = useParams();
+  const id = mediaId || routeId;
   const [params, setParams] = useSearchParams();
   const { user, activeSubAccount, addToHistory, toggleLike, isLiked } = useUser();
   const frameRef = useRef(null);

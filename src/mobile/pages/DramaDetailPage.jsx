@@ -9,17 +9,20 @@ const normalizeType = value => String(value || '').toLowerCase() === 'movie' ? '
 
 const chipStyle = { background:'rgba(255,255,255,.07)', color:'#cbd5e1', border:'1px solid rgba(255,255,255,.08)', borderRadius:999, padding:'6px 10px', fontSize:'.72rem', whiteSpace:'nowrap' };
 
-export default function DramaDetailPage({ params = {}, goBack, navigate }) {
+export default function DramaDetailPage({ params = {}, initialWatch = false, goBack, navigate }) {
   const { user, setAuthTab } = useUser();
   const rawRouteId = params?.id ?? params?.tmdbId ?? params?.mediaId;
   const id = normalizeId(rawRouteId);
   const mediaType = normalizeType(params?.mediaType || params?.type);
   const initialTitle = String(params?.title || '').trim();
+  const initialSeason = Math.max(1, Number(params?.season) || 1);
+  const initialEpisode = Math.max(1, Number(params?.episode) || 1);
   const [details,setDetails] = useState(null), [resolvedId,setResolvedId] = useState(id), [loading,setLoading] = useState(true), [error,setError] = useState('');
-  const [showPlayer,setShowPlayer] = useState(false), [selectedSeason,setSelectedSeason] = useState(1), [selectedEpisode,setSelectedEpisode] = useState(1), [episodes,setEpisodes] = useState([]);
+  const [showPlayer,setShowPlayer] = useState(false), [selectedSeason,setSelectedSeason] = useState(initialSeason), [selectedEpisode,setSelectedEpisode] = useState(initialEpisode), [episodes,setEpisodes] = useState([]);
   const [mediaSource,setMediaSource] = useState(''), [sourceLoading,setSourceLoading] = useState(false), [sourceError,setSourceError] = useState('');
   const [selectedProvider,setSelectedProvider] = useState(DEFAULT_MEDIA_SOURCE_PROVIDER), [isFs,setIsFs] = useState(false), [expanded,setExpanded] = useState(false), [inList,setInList] = useState(false);
   const playerWrapperRef = useRef(null);
+  const initialWatchStarted = useRef(false);
 
   useEffect(() => { const h=()=>setIsFs(!!document.fullscreenElement); document.addEventListener('fullscreenchange',h); return()=>document.removeEventListener('fullscreenchange',h); }, []);
 
@@ -37,11 +40,12 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
         if(cancelled)return;
         if(!data || !actualId) throw new Error(initialTitle ? `Could not find this ${mediaType==='movie'?'movie':'TV show'} in TMDB.` : `Missing ${mediaType==='movie'?'movie':'TV show'} ID.`);
         setResolvedId(actualId); setDetails(data); setLoading(false);
-        if(mediaType!=='movie' && Array.isArray(data.seasons) && data.seasons.length){ const first=data.seasons.find(s=>Number(s?.season_number)>0)?.season_number||1; setSelectedSeason(first); }
+        if(mediaType!=='movie' && Array.isArray(data.seasons) && data.seasons.length){ const first=data.seasons.find(s=>Number(s?.season_number)>0)?.season_number||1; const requested=data.seasons.some(s=>Number(s?.season_number)===initialSeason); setSelectedSeason(requested?initialSeason:first); }
+        setSelectedEpisode(initialEpisode);
       } catch(err){ if(!cancelled){setError(err?.message||'Failed to load details.');setLoading(false);} }
     })();
     return()=>{cancelled=true;};
-  },[id,mediaType,initialTitle]);
+  },[id,mediaType,initialTitle,initialSeason,initialEpisode]);
 
   useEffect(() => {
     let cancelled=false;
@@ -67,6 +71,12 @@ export default function DramaDetailPage({ params = {}, goBack, navigate }) {
     if(!user){setAuthTab('login');navigate?.('profile');return;}
     setSelectedSeason(season); setSelectedEpisode(episode); setShowPlayer(true); await loadSource(season,episode,selectedProvider);
   };
+  useEffect(() => { initialWatchStarted.current = false; }, [id, mediaType]);
+  useEffect(() => {
+    if (!initialWatch || !details || !user || initialWatchStarted.current) return;
+    initialWatchStarted.current = true;
+    void requireWatch();
+  }, [details, initialWatch, selectedEpisode, selectedSeason, user]);
   const changeEpisode = async ep => { setSelectedEpisode(ep); if(showPlayer) await loadSource(selectedSeason,ep); };
   const goNextEp = () => { const i=episodes.findIndex(e=>e.episode_number===selectedEpisode); if(i>=0&&i<episodes.length-1)changeEpisode(episodes[i+1].episode_number); };
   const goPrevEp = () => { const i=episodes.findIndex(e=>e.episode_number===selectedEpisode); if(i>0)changeEpisode(episodes[i-1].episode_number); };

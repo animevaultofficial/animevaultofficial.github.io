@@ -1,9 +1,19 @@
 import { Mail, MessageSquare, Send } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import '../styles/staticPages.css';
+
+function sendEmailForm(event, recipient, subject) {
+  event.preventDefault();
+  const fields = new FormData(event.currentTarget);
+  const body = [...fields.entries()].map(([key, value]) => `${key}: ${value}`).join('\n');
+  window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
 
 export function Contact() {
   return (
     <div className="static-page-v2">
       <div className="static-header">
+        <span className="static-eyebrow">SUPPORT</span>
         <h1>Contact Us</h1>
         <p>Have questions or feedback? We'd love to hear from you.</p>
       </div>
@@ -12,30 +22,31 @@ export function Contact() {
           <div className="contact-card">
             <Mail className="icon" />
             <h3>Email Us</h3>
-            <p>support@animevault.com</p>
+            <a href="mailto:support@animevault.com">support@animevault.com</a>
           </div>
           <div className="contact-card">
             <MessageSquare className="icon" />
             <h3>Community</h3>
-            <p>Join our Discord server</p>
+            <Link to="/community">Visit the AnimeVault community</Link>
           </div>
         </div>
-        <form className="contact-form" onSubmit={e => e.preventDefault()}>
+        <form className="contact-form" onSubmit={event => sendEmailForm(event, 'support@animevault.com', 'AnimeVault support request')}>
           <div className="form-group">
-            <label>Name</label>
-            <input type="text" placeholder="Your name" />
+            <label htmlFor="contact-name">Name</label>
+            <input id="contact-name" name="Name" type="text" placeholder="Your name" autoComplete="name" required />
           </div>
           <div className="form-group">
-            <label>Email</label>
-            <input type="email" placeholder="Your email" />
+            <label htmlFor="contact-email">Email</label>
+            <input id="contact-email" name="Email" type="email" placeholder="Your email" autoComplete="email" required />
           </div>
           <div className="form-group">
-            <label>Message</label>
-            <textarea placeholder="How can we help?" rows={5}></textarea>
+            <label htmlFor="contact-message">Message</label>
+            <textarea id="contact-message" name="Message" placeholder="How can we help?" rows={5} required />
           </div>
-          <button className="btn-play-v2">
+          <button className="btn-play-v2" type="submit">
             <Send size={18} /> Send Message
           </button>
+          <p className="static-form-note">Your email app will open with your message ready to send.</p>
         </form>
       </div>
     </div>
@@ -53,15 +64,16 @@ export function FAQ() {
   return (
     <div className="static-page-v2">
       <div className="static-header">
+        <span className="static-eyebrow">HELP CENTER</span>
         <h1>Frequently Asked Questions</h1>
         <p>Everything you need to know about the platform.</p>
       </div>
       <div className="faq-list">
         {faqs.map((f, i) => (
-          <div key={i} className="faq-item">
-            <h3>{f.q}</h3>
+          <details key={i} className="faq-item">
+            <summary>{f.q}</summary>
             <p>{f.a}</p>
-          </div>
+          </details>
         ))}
       </div>
     </div>
@@ -73,7 +85,7 @@ export function Terms() {
     <div className="static-page-v2">
       <div className="static-header">
         <h1>Terms of Service</h1>
-        <p>Last updated: May 2026</p>
+        <p>Rules for using AnimeVault.</p>
       </div>
       <div className="legal-content">
         <h3>1. Acceptance of Terms</h3>
@@ -92,7 +104,7 @@ export function Privacy() {
     <div className="static-page-v2">
       <div className="static-header">
         <h1>Privacy Policy</h1>
-        <p>Last Updated: {new Date().toLocaleDateString()}</p>
+        <p>How we handle information when you use AnimeVault.</p>
         <p>Your privacy is of the utmost importance to us at AnimeVault.</p>
       </div>
       <div className="legal-content">
@@ -173,7 +185,7 @@ export function DMCA() {
         <p>Content removal requests.</p>
       </div>
       <div className="legal-content">
-        <p>AnimeVault respects the intellectual property rights of others. If you believe that your copyrighted work has been copied in a way that constitutes copyright infringement, please contact us at dmca@animevault.com.</p>
+        <p>AnimeVault respects the intellectual property rights of others. If you believe that your copyrighted work has been copied in a way that constitutes copyright infringement, contact us at <a href="mailto:dmca@animevault.com">dmca@animevault.com</a> with the work, the material in question, and your contact details.</p>
         <p>Please note that we do not host any content on our servers. We merely link to publicly available content.</p>
       </div>
     </div>
@@ -184,19 +196,21 @@ export function RequestAnime() {
   return (
     <div className="static-page-v2">
       <div className="static-header">
+        <span className="static-eyebrow">CONTENT REQUESTS</span>
         <h1>Request Anime</h1>
         <p>Missing your favorite series? Let us know.</p>
       </div>
-      <form className="contact-form" onSubmit={e => e.preventDefault()}>
+      <form className="contact-form" onSubmit={event => sendEmailForm(event, 'support@animevault.com', 'Anime request')}>
         <div className="form-group">
-          <label>Anime Title</label>
-          <input type="text" placeholder="e.g. One Piece" />
+          <label htmlFor="request-title">Anime Title</label>
+          <input id="request-title" name="Anime title" type="text" placeholder="e.g. One Piece" required />
         </div>
         <div className="form-group">
-          <label>Additional Details</label>
-          <textarea placeholder="Specific season or version?" rows={3}></textarea>
+          <label htmlFor="request-details">Additional Details</label>
+          <textarea id="request-details" name="Additional details" placeholder="Specific season or version?" rows={3} />
         </div>
-        <button className="btn-play-v2">Submit Request</button>
+        <button className="btn-play-v2" type="submit">Submit Request</button>
+        <p className="static-form-note">Your email app will open so you can review and send the request.</p>
       </form>
     </div>
   );

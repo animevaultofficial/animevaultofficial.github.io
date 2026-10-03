@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Globe, X, MessageSquare, Mail } from 'lucide-react';
+import { Mail } from 'lucide-react';
 
 function Footer() {
   return (
@@ -7,13 +7,8 @@ function Footer() {
       <div className="footer-content-v2">
         <div className="footer-brand">
           <Link to="/" className="brand">AnimeVault</Link>
-          <p>The best place to watch anime and read manga for free.</p>
-          <div className="footer-socials">
-            <a href="#"><X size={20} /></a>
-            <a href="#"><Globe size={20} /></a>
-            <a href="#"><MessageSquare size={20} /></a>
-            <a href="#"><Mail size={20} /></a>
-          </div>
+          <p>Discover anime, movies, and series in one place.</p>
+          <a className="footer-contact-link" href="mailto:support@animevault.com"><Mail size={17} /> Contact support</a>
         </div>
         
         <div className="footer-links-grid">

@@ -317,6 +317,54 @@
   flex: 1;
 }
 
+.anime-player-select select {
+  min-width: 0;
+  max-width: 58%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #eee;
+  font: inherit;
+}
+
+.anime-player-select select option {
+  background: #222;
+  color: #fff;
+}
+
+.anime-player-movie-servers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.anime-player-movie-servers button {
+  min-height: 25px;
+  padding: 3px 9px;
+  border: 1px solid #383838;
+  border-radius: 999px;
+  background: #282828;
+  color: #ededed;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.anime-player-movie-servers button.active {
+  border-color: #f3f3f3;
+  background: #f3f3f3;
+  color: #101010;
+}
+
+.anime-player-movie-info {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.anime-player-movie-info .anime-player-series-title h2 {
+  font-size: 14px;
+}
+
 .anime-player-search input {
   width: 100%;
   min-width: 0;
