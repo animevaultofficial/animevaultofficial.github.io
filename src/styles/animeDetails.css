@@ -1,6 +1,14 @@
 .anime-details-page{--details-bg:#171719;--details-panel:#222225;--details-text:#f5f5f6;--details-muted:#a9a9ae;--details-line:rgba(255,255,255,.09);position:relative;min-height:100vh;background:var(--details-bg);color:var(--details-text);overflow:hidden}
 .anime-details-page *{box-sizing:border-box}
-.details-hero{position:relative;min-height:520px}
+.details-player-wrap{max-width:1510px;margin:0 auto;padding:14px 24px 0}
+.details-player-shell{position:relative;width:100%;aspect-ratio:16/9;background:#050505;border:1px solid rgba(255,255,255,.1);border-radius:14px;overflow:hidden;box-shadow:0 18px 55px rgba(0,0,0,.42)}
+.details-player-iframe{display:block;width:100%;height:100%;border:0}
+.details-player-overlay{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:space-between;padding:18px;pointer-events:none;background:linear-gradient(180deg,transparent 72%,rgba(0,0,0,.48))}
+.details-player-pill-group{display:flex;gap:7px}
+.details-player-pill{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border-radius:999px;background:rgba(12,12,14,.78);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:10px;font-weight:850;backdrop-filter:blur(12px)}
+.details-player-empty{width:100%;height:100%;display:grid;place-items:center;align-content:center;gap:8px;color:#9c9ca2;font-size:12px}
+
+.details-hero{position:relative;min-height:520px;margin-top:0}
 .details-hero-image{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 18%;filter:saturate(.9)}
 .details-hero-vignette{position:absolute;inset:0;background:linear-gradient(90deg,rgba(9,10,12,.78) 0%,rgba(9,10,12,.48) 35%,rgba(9,10,12,.18) 75%,rgba(9,10,12,.42) 100%)}
 .details-hero-fade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,12,14,.05) 35%,#171719 100%)}
@@ -65,8 +73,8 @@
 .reference-episode-thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s ease,filter .2s ease}
 .reference-episode-card:hover .reference-episode-thumb img{transform:scale(1.025);filter:brightness(1.08)}
 .reference-episode-number{position:absolute;top:6px;left:7px;padding:3px 7px;border-radius:999px;background:rgba(9,9,10,.82);font-size:8px;font-weight:800}
-.reference-episode-duration{position:absolute;right:6px;bottom:6px;padding:2px 5px;border-radius:4px;background:rgba(9,9,10,.84);font-size:8px;font-weight:700}
-.reference-episode-audio{position:absolute;left:6px;bottom:6px;display:flex;gap:3px}
+.reference-episode-duration{position:absolute;left:6px;bottom:6px;padding:2px 5px;border-radius:4px;background:rgba(9,9,10,.84);font-size:8px;font-weight:700}
+.reference-episode-audio{position:absolute;right:6px;bottom:6px;display:flex;gap:3px}
 .reference-episode-audio b{padding:2px 5px;border-radius:5px;background:#161619;color:#fff;font-size:7px}
 .reference-episode-copy{min-width:0;padding-top:2px}
 .reference-episode-copy h3{font-size:12px;line-height:1.25;margin:0 0 5px;font-weight:800;color:#f3f3f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -105,5 +113,6 @@
 .details-skeleton.text.short{width:50%}
 @keyframes detailsPulse{50%{opacity:.55}}
 @media(max-width:1050px){.details-hero-grid{grid-template-columns:160px minmax(0,1fr)}.details-poster{width:160px}.reference-episode-grid{column-gap:20px}.reference-episode-card{grid-template-columns:minmax(150px,210px) minmax(0,1fr)}.details-title-block h1{font-size:clamp(2.8rem,6vw,4.8rem)}}
-@media(max-width:780px){.details-hero{min-height:0}.details-hero-inner{padding:14px 15px 0}.details-hero-grid{grid-template-columns:120px minmax(0,1fr);gap:16px;min-height:470px}.details-poster{width:120px}.details-side-info{padding-top:15px}.details-main{padding-bottom:20px}.details-title-block h1{font-size:clamp(2.2rem,9vw,4rem)}.details-native{font-size:13px}.details-meta-row>span{font-size:9px}.details-synopsis{font-size:11px}.details-action-row{flex-wrap:wrap}.details-tabs{gap:16px}.details-tabs button{font-size:10px}.details-body{padding:0 15px 50px}.reference-episode-grid{grid-template-columns:1fr}.details-related-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:780px){.details-player-wrap{padding:10px 15px 0}.details-player-shell{border-radius:10px}.details-player-overlay{padding:10px}.details-player-pill{min-height:24px;padding:0 8px;font-size:9px}
+.details-hero{min-height:0}.details-hero-inner{padding:14px 15px 0}.details-hero-grid{grid-template-columns:120px minmax(0,1fr);gap:16px;min-height:470px}.details-poster{width:120px}.details-side-info{padding-top:15px}.details-main{padding-bottom:20px}.details-title-block h1{font-size:clamp(2.2rem,9vw,4rem)}.details-native{font-size:13px}.details-meta-row>span{font-size:9px}.details-synopsis{font-size:11px}.details-action-row{flex-wrap:wrap}.details-tabs{gap:16px}.details-tabs button{font-size:10px}.details-body{padding:0 15px 50px}.reference-episode-grid{grid-template-columns:1fr}.details-related-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.details-hero-image{object-position:58% top}.details-hero-grid{grid-template-columns:1fr;min-height:0;padding-top:25px}.details-poster{width:145px}.details-side-info{display:grid;grid-template-columns:1fr 1fr;column-gap:18px;padding-bottom:4px}.details-info-row{margin-bottom:11px}.details-main{padding-bottom:0}.details-title-block h1{font-size:3rem}.details-action-row{position:sticky;bottom:9px;z-index:8;padding:8px;border-radius:16px;background:rgba(22,22,24,.9);backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(0,0,0,.3)}.details-primary-btn{flex:1}.details-tabs{margin-top:18px}.reference-episode-card{grid-template-columns:145px minmax(0,1fr);gap:9px}.reference-episode-copy p{display:none}.reference-episode-copy h3{font-size:11px}.details-related-grid{grid-template-columns:1fr}.details-loading-hero{grid-template-columns:120px 1fr}.details-skeleton.title{height:50px;width:100%}}
