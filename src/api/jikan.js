@@ -53,3 +53,26 @@ export async function fetchEpisodes(malId, page = 1) {
 export async function fetchAnimeFull(malId) {
   return await get(`/anime/${malId}/full`);
 }
+
+/**
+ * Fetch MyAnimeList episode-video metadata through Jikan.
+ * MAL exposes episode-related video thumbnails rather than a dedicated
+ * still-image field on the normal episode list, so these thumbnails are
+ * matched back to the real episode numbers.
+ */
+export async function fetchEpisodeThumbnails(malId) {
+  if (!malId) return {};
+  const data = await get(`/anime/${encodeURIComponent(malId)}/videos/episodes`);
+  const map = {};
+  for (const item of Array.isArray(data) ? data : []) {
+    const number = Number(item?.episode);
+    const image =
+      item?.images?.jpg?.image_url ||
+      item?.images?.webp?.image_url ||
+      item?.thumbnail ||
+      item?.images?.jpg?.large_image_url ||
+      item?.images?.webp?.large_image_url;
+    if (Number.isFinite(number) && image) map[number] = image;
+  }
+  return map;
+}
