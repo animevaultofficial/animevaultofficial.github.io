@@ -62,6 +62,7 @@ function App() {
   const [isTvMode, setIsTvMode] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const isAnimeDetailsPage = /^\/anime\/[^/]+$/.test(location.pathname);
 
   useEffect(() => { setIsTvMode(applyTvModeClass()); }, []);
 
@@ -102,10 +103,10 @@ function App() {
 
   const openLogin = () => { setAuthTab('login'); setShowAuthModal(true); setIsMobileMenuOpen(false); };
 
-  return <Suspense fallback={<RouteFallback />}><SubAccountGate><div className={`app-shell ${isTvMode ? 'tv-app-shell' : ''}`}>
+  return <Suspense fallback={<RouteFallback />}><SubAccountGate><div className={`app-shell ${isTvMode ? 'tv-app-shell' : ''} ${isAnimeDetailsPage ? 'anime-details-route' : ''}`}>
     {isTvMode && <div className="tv-welcome-strip"><span>LG webOS TV mode</span><strong>Use the Magic Remote pointer or arrow keys to browse. Press OK/Enter to select.</strong></div>}
 
-    <header className="topbar">
+    {!isAnimeDetailsPage && <header className="topbar">
       <div className="topbar-brand-wrap">
         <button className="hamburger-btn" type="button" aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-controls="mobile-navigation" aria-expanded={isMobileMenuOpen} onClick={() => setIsMobileMenuOpen(value => !value)}>
           {isMobileMenuOpen ? <X size={23} /> : <Menu size={23} />}
@@ -117,7 +118,7 @@ function App() {
         <button className="topbar-search-form" type="button" aria-label="Open search" onClick={() => setIsSearchOpen(true)}><SearchIcon size={18} /><span>Search anime...</span><kbd>⌘K</kbd></button>
         {user ? <FocusableLink to={ownProfilePath} className="header-profile"><User size={15} /><span>{user.username}</span></FocusableLink> : authLoading ? <div className="session-status">Checking session...</div> : <FocusableButton onClick={openLogin}><User size={15} /><span>Sign In</span></FocusableButton>}
       </div>
-    </header>
+    </header>}
 
     {isMobileMenuOpen && <>
       <div className="mobile-menu-overlay" role="presentation" onClick={() => setIsMobileMenuOpen(false)} />
@@ -128,10 +129,10 @@ function App() {
       </aside>
     </>}
 
-    <main className="content"><Routes>
+    <main className={`content ${isAnimeDetailsPage ? 'content-anime-details' : ''}`}><Routes>
       <Route path="/" element={<MixedHome />} /><Route path="/search" element={<Search />} /><Route path="/anime" element={<AnimeHome />} /><Route path="/anime/:id" element={<RequireAuth><AnimeDetails /></RequireAuth>} /><Route path="/anime/:id/watch" element={<RequireAuth><AnimeWatch /></RequireAuth>} /><Route path="/manga" element={<MangaHome />} /><Route path="/manga/:id" element={<MangaDetails />} /><Route path="/dramas-movies" element={<DramasMovies />} /><Route path="/watch/:type/:id" element={<RequireAuth><MovieWatch /></RequireAuth>} /><Route path="/schedule" element={<Schedule />} /><Route path="/collections" element={<RequireAuth><Collections /></RequireAuth>} /><Route path="/community" element={<Community />} /><Route path="/stats" element={<RequireAuth><Stats /></RequireAuth>} /><Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} /><Route path="/about" element={<About />} /><Route path="/contact" element={<StaticPages page="contact" />} /><Route path="/faq" element={<StaticPages page="faq" />} /><Route path="/terms" element={<StaticPages page="terms" />} /><Route path="/privacy" element={<StaticPages page="privacy" />} /><Route path="/dmca" element={<StaticPages page="dmca" />} /><Route path="/request" element={<StaticPages page="request" />} /><Route path="/profile/:userid/*" element={<Profile />} /><Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} /><Route path="/forgot-password" element={<ForgotPassword />} /><Route path="/set-new-password" element={<SetNewPassword />} /><Route path="/download" element={<Download />} /><Route path="/admin/*" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} /><Route path="*" element={<NotFound />} />
     </Routes></main><Footer />
-    <nav className="bottom-nav" aria-label="Mobile quick navigation"><NavLink to="/" end className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><HomeIcon size={20} /><span>Home</span></NavLink><NavLink to="/dramas-movies" className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><TvIcon size={20} /><span>Dramas</span></NavLink><NavLink to="/search" className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><SearchIcon size={20} /><span>Search</span></NavLink></nav>
+    {!isAnimeDetailsPage && <nav className="bottom-nav" aria-label="Mobile quick navigation"><NavLink to="/" end className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><HomeIcon size={20} /><span>Home</span></NavLink><NavLink to="/dramas-movies" className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><TvIcon size={20} /><span>Dramas</span></NavLink><NavLink to="/search" className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><SearchIcon size={20} /><span>Search</span></NavLink></nav>}
     <AuthModal /><UpdateCenter /><AnnouncementPopup />{isSearchOpen && <SearchModal onClose={() => setIsSearchOpen(false)} />}
     <style>{`
       .topbar-brand-wrap{display:flex;align-items:center;gap:.65rem;min-width:0;flex:0 0 auto}.topbar .brand{display:flex;align-items:center;gap:.65rem;min-width:0;white-space:nowrap}.topbar .brand img{height:34px;width:auto;display:block;flex:0 0 auto}.topbar .brand span{font-weight:900}.hamburger-btn{display:none;align-items:center;justify-content:center;background:transparent!important;border:1px solid transparent!important;color:#fff;cursor:pointer;padding:.45rem;border-radius:10px;flex:0 0 auto}.hamburger-btn:hover,.hamburger-btn:focus-visible{background:var(--white-05)!important;border-color:var(--white-10)!important}.header-profile{display:inline-flex;align-items:center;gap:.4rem;min-width:0;max-width:150px;white-space:nowrap;overflow:hidden}.header-profile span{overflow:hidden;text-overflow:ellipsis}.session-status{font-size:.78rem;color:var(--text-secondary);white-space:nowrap}.route-loading{min-height:35vh;display:grid;place-items:center;color:var(--text-secondary)}.loading-dot{width:9px;height:9px;border-radius:50%;background:var(--brand-color);box-shadow:0 0 18px rgba(255,26,117,.55)}
