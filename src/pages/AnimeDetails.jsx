@@ -88,7 +88,6 @@ export default function AnimeDetails() {
   const [seriesData, setSeriesData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedEpisode, setSelectedEpisode] = useState(null);
   const [activeTab, setActiveTab] = useState('episodes');
   const [overviewOpen, setOverviewOpen] = useState(false);
 
@@ -146,7 +145,6 @@ export default function AnimeDetails() {
         setTitleData(title);
         setSeriesData(series);
       }
-      setSelectedEpisode(null);
       setLoading(false);
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
@@ -159,10 +157,8 @@ export default function AnimeDetails() {
     () => anime.episodeList.find(ep => ep?.available?.sub || ep?.available?.dub) || anime.episodeList[0],
     [anime.episodeList]
   );
-  const currentEpisode = selectedEpisode || firstPlayableEpisode;
-  const currentLang = currentEpisode?.available?.sub ? 'sub' : 'dub';
-  const watchPath = currentEpisode
-    ? `/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(currentEpisode.number)}&lang=${currentLang}`
+  const watchPath = firstPlayableEpisode
+    ? `/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(firstPlayableEpisode.number)}&lang=${firstPlayableEpisode?.available?.sub ? 'sub' : 'dub'}`
     : null;
   const liked = isLiked?.(anime.id);
 
@@ -293,7 +289,7 @@ export default function AnimeDetails() {
             episodes={anime.episodeList}
             activeEpisode={currentEpisode?.number}
             fallbackImage={poster}
-            onSelect={episode => { setSelectedEpisode(episode); navigate(`/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(episode.number)}&lang=${episode?.available?.sub ? 'sub' : 'dub'}`); }}
+            onSelect={episode => navigate(`/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(episode.number)}&lang=${episode?.available?.sub ? 'sub' : 'dub'}`)}
           />
         )}
 
