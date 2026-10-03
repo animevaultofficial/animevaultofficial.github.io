@@ -5,7 +5,7 @@ import {
   Sparkles, Star
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { getAniPMSeries, getAniPMTitle, aniPMEmbedUrl } from '../api/anipm';
+import { getAniPMSeries, getAniPMTitle } from '../api/anipm';
 import { fetchEpisodeThumbnails } from '../api/jikan';
 import { useUser } from '../api/UserContext';
 import { isBlockedForProfile } from '../utils/ageRating';
@@ -89,7 +89,6 @@ export default function AnimeDetails() {
   const [seriesData, setSeriesData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedEpisode, setSelectedEpisode] = useState(null);
   const [activeTab, setActiveTab] = useState('episodes');
   const [overviewOpen, setOverviewOpen] = useState(false);
 
@@ -147,7 +146,6 @@ export default function AnimeDetails() {
         setTitleData(title);
         setSeriesData(series);
       }
-      setSelectedEpisode(null);
       setLoading(false);
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
@@ -160,10 +158,8 @@ export default function AnimeDetails() {
     () => anime.episodeList.find(ep => ep?.available?.sub || ep?.available?.dub) || anime.episodeList[0],
     [anime.episodeList]
   );
-  const currentEpisode = selectedEpisode || firstPlayableEpisode;
-  const currentLang = currentEpisode?.available?.sub ? 'sub' : 'dub';
-  const watchPath = currentEpisode
-    ? `/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(currentEpisode.number)}&lang=${currentLang}`
+  const watchPath = firstPlayableEpisode
+    ? `/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(firstPlayableEpisode.number)}&lang=${firstPlayableEpisode?.available?.sub ? 'sub' : 'dub'}`
     : null;
   const liked = isLiked?.(anime.id);
 
@@ -214,48 +210,8 @@ export default function AnimeDetails() {
   const score = formatScore(anime.score);
   const heroBackground = anime.banner || anime.poster;
   const poster = anime.poster || heroBackground;
-  const playerSrc = currentEpisode
-    ? aniPMEmbedUrl({
-        anilistId: anime.anilistId || id,
-        episode: currentEpisode.number,
-        lang: currentLang,
-        color: 'ff1a75',
-        autonext: 1,
-        autoskip: 0,
-        episodes: 1,
-        adult: 1,
-        api: 1,
-      })
-    : '';
-
   return (
     <section className="anime-details-page">
-      <div className="details-player-wrap">
-        <div className="details-player-shell">
-          {playerSrc ? (
-            <iframe
-              key={playerSrc}
-              src={playerSrc}
-              title={`${anime.title} episode ${currentEpisode.number}`}
-              className="details-player-iframe"
-              allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-              allowFullScreen
-            />
-          ) : (
-            <div className="details-player-empty"><Play size={30} /><span>No playable episode is available.</span></div>
-          )}
-          <div className="details-player-overlay">
-            <div className="details-player-pill-group">
-              <span className="details-player-pill">HD</span>
-              <span className="details-player-pill">Skip intro</span>
-            </div>
-            <div className="details-player-pill-group">
-              <span className="details-player-pill">{currentLang.toUpperCase()}</span>
-              <span className="details-player-pill">{currentEpisode ? `EP ${String(currentEpisode.number).padStart(2, '0')}` : '—'}</span>
-            </div>
-          </div>
-        </div>
-      </div>
       <div className="details-hero">
         {heroBackground && <img className="details-hero-image" src={heroBackground} alt="" aria-hidden="true" />}
         <div className="details-hero-vignette" />
@@ -333,7 +289,7 @@ export default function AnimeDetails() {
             episodes={anime.episodeList}
             activeEpisode={currentEpisode?.number}
             fallbackImage={poster}
-            onSelect={episode => { setSelectedEpisode(episode); navigate(`/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(episode.number)}&lang=${episode?.available?.sub ? 'sub' : 'dub'}`); }}
+            onSelect={episode => navigate(`/anime/${encodeURIComponent(id)}/watch?episode=${encodeURIComponent(episode.number)}&lang=${episode?.available?.sub ? 'sub' : 'dub'}`)}
           />
         )}
 
