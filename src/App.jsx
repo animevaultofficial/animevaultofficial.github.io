@@ -116,7 +116,10 @@ function App() {
     return () => { document.body.style.overflow = previousOverflow; };
   }, [isMobileMenuOpen]);
 
-  useEffect(() => { setIsMobileMenuOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   const openLogin = () => { setAuthTab('login'); setShowAuthModal(true); setIsMobileMenuOpen(false); };
   const closeAuthAndMenu = () => { setShowAuthModal(false); setIsMobileMenuOpen(false); };
