@@ -281,7 +281,8 @@ export default function Profile() {
         setActiveSubAccountState(result.profile);
       }
     } else {
-      success = await updateProfile(avatarUrl, bannerUrl);
+      await updateProfile({ avatar: avatarUrl, banner: bannerUrl });
+      success = true;
     }
     if (success) {
       setSaveStatus('Profile updated successfully!');

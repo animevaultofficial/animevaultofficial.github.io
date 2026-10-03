@@ -388,11 +388,11 @@ const DashboardView = ({ user, onGoToMyCollections, onGoToCollection, onGoToComm
 
         {featured && (
           <div style={{ position: 'relative', borderRadius: '20px', overflow: 'hidden', height: '280px', cursor: 'pointer' }} onClick={() => onGoToCollection(featured)}>
-            <img
-              src={featured.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=1200&auto=format&fit=crop'}
+            {featured.cover && <img
+              src={featured.cover}
               alt={featured.title}
               style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.6)' }}
-            />
+            />}
             <div style={{
               position: 'absolute',
               inset: 0,
@@ -450,7 +450,7 @@ const DashboardView = ({ user, onGoToMyCollections, onGoToCollection, onGoToComm
                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                  onClick={() => onGoToCollection(c)}
             >
-              <img src={c.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=400&auto=format&fit=crop'} alt={c.title} style={{ width: '100%', height: '180px', objectFit: 'cover' }} />
+              {c.cover && <img src={c.cover} alt={c.title} style={{ width: '100%', height: '180px', objectFit: 'cover' }} />}
               <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)' }}>
                 <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>{c.title}</h4>
                 <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', color: '#cfc2d6' }}>
@@ -571,8 +571,8 @@ const CommunityView = ({ user, onBack, onGoToCollection }) => {
                }}
                onClick={() => onGoToCollection(c)}
           >
-            <div style={{ position: 'relative' }}>
-              <img src={c.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=400&auto=format&fit=crop'} alt={c.title} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+            <div style={{ position: 'relative', minHeight: '200px', background: 'linear-gradient(135deg, rgba(255,26,117,.14), rgba(3,15,22,.95))' }}>
+              {c.cover && <img src={c.cover} alt={c.title} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />}
               <div style={{
                 position: 'absolute',
                 top: '1rem',
@@ -1105,8 +1105,8 @@ const MyCollectionsView = ({ user, onBack, onGoToCollection, onEditCollection })
                }}
                onClick={() => onGoToCollection(c)}
           >
-            <div style={{ position: 'relative' }}>
-              <img src={c.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=400&auto=format&fit=crop'} alt={c.title} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+            <div style={{ position: 'relative', minHeight: '200px', background: 'linear-gradient(135deg, rgba(255,26,117,.14), rgba(3,15,22,.95))' }}>
+              {c.cover && <img src={c.cover} alt={c.title} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />}
               <div style={{
                 position: 'absolute',
                 top: '1rem',
@@ -1217,12 +1217,12 @@ const CollectionDetailsView = ({ collection, user, onBack, onEdit, onDuplicate }
         <h1 style={{ margin: 0, fontSize: '1.8rem' }}>Collection Details & Analytics</h1>
       </div>
 
-      <div style={{ position: 'relative', borderRadius: '20px', overflow: 'hidden', marginBottom: '2.5rem' }}>
-        <img
-          src={collection.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=1200&auto=format&fit=crop'}
+      <div style={{ position: 'relative', minHeight: '320px', borderRadius: '20px', overflow: 'hidden', marginBottom: '2.5rem', background: 'linear-gradient(135deg, rgba(255,26,117,.14), rgba(3,15,22,.95))' }}>
+        {collection.cover && <img
+          src={collection.cover}
           alt={collection.title}
           style={{ width: '100%', height: '320px', objectFit: 'cover', filter: 'brightness(0.45)' }}
-        />
+        />}
         <div style={{
           position: 'absolute',
           inset: 0,

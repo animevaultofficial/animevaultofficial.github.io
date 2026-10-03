@@ -338,3 +338,194 @@
 .discord-toggle input:checked + .discord-toggle-slider:before {
   transform: translateX(20px);
 }
+
+.discord-settings-layout {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.discord-sidebar-item:focus-visible,
+.discord-btn-primary:focus-visible,
+.discord-btn-outline:focus-visible,
+.discord-btn-danger:focus-visible,
+.discord-input:focus-visible,
+.discord-select:focus-visible,
+.discord-toggle input:focus-visible + .discord-toggle-slider {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.discord-help-text {
+  margin: 12px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.discord-session-list {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.discord-session-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.discord-session-list span {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .discord-settings-sidebar {
+    width: 230px;
+    min-width: 210px;
+    padding-right: 12px;
+  }
+
+  .discord-settings-main {
+    padding: 36px 28px;
+  }
+}
+
+@media (max-width: 700px) {
+  .discord-settings-layout {
+    flex-direction: column;
+  }
+
+  .discord-settings-sidebar {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    max-height: 30dvh;
+    padding: 0;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .discord-sidebar-content {
+    width: max-content;
+    min-width: 100%;
+    padding: 10px 12px;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .discord-sidebar-category {
+    display: none !important;
+  }
+
+  .discord-sidebar-item {
+    flex: 0 0 auto;
+    margin: 0 !important;
+    padding: 9px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .discord-sidebar-item:hover {
+    transform: none;
+  }
+
+  .discord-settings-main {
+    min-height: 0;
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+  }
+
+  .discord-main-content {
+    max-width: none;
+    min-width: 0;
+  }
+
+  .discord-settings-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start !important;
+    position: sticky;
+    top: -24px;
+    z-index: 2;
+    margin: -24px -20px 22px !important;
+    padding: 12px 20px;
+    background: rgba(5, 5, 10, 0.94);
+    backdrop-filter: blur(16px);
+  }
+
+  .discord-settings-actions > button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .discord-section-title {
+    margin-bottom: 22px;
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .discord-settings-sidebar {
+    max-height: 34dvh;
+  }
+
+  .discord-sidebar-item {
+    gap: 7px;
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+
+  .discord-settings-main {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .discord-settings-actions {
+    gap: 8px !important;
+    margin-right: -14px !important;
+    margin-left: -14px !important;
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .discord-settings-actions > button {
+    min-width: 145px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .discord-card {
+    padding: 18px;
+  }
+
+  .discord-input,
+  .discord-select {
+    padding: 12px;
+  }
+
+  .discord-session-list li {
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .discord-settings-layout *,
+  .discord-settings-layout *::before,
+  .discord-settings-layout *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

@@ -1,13 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { Search as SearchIcon, Home as HomeIcon, PlayCircle, Tv as TvIcon, Menu, X, Bell, Download as DownloadIcon, Users, Award, BookOpen, User, CalendarDays, BarChart3, Library, Settings as SettingsIcon, Info } from 'lucide-react';
+import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Search as SearchIcon, Home as HomeIcon, PlayCircle, Tv as TvIcon, Menu, X, Bell, Download as DownloadIcon, Users, Award, BookOpen, User, CalendarDays, BarChart3, Library, Settings as SettingsIcon, Info, MessageSquare, MoreVertical } from 'lucide-react';
 import './styles/designTokens.css';
+import './styles/header.css';
 import { useUser } from './api/UserContext';
 import { applyTheme, applyAccentColor } from './utils/appearance';
 import { storage } from './utils/storage';
 import { applyTvModeClass } from './utils/tvMode';
 import { assetPath } from './utils/assetPath';
-import { FocusableNavLink, FocusableLink, FocusableButton } from './components/FocusableWrapper';
 import RequireAuth from './components/RequireAuth';
 import RequireAdmin from './components/RequireAdmin';
 import Footer from './components/Footer';
@@ -23,6 +23,7 @@ const MangaHome = lazy(() => import('./pages/MangaHome'));
 const MangaDetails = lazy(() => import('./pages/MangaDetails'));
 const DramasMovies = lazy(() => import('./pages/DramasMovies'));
 const MovieWatch = lazy(() => import('./pages/MovieWatch'));
+const MovieDetails = lazy(() => import('./pages/MovieDetails'));
 const About = lazy(() => import('./pages/About'));
 const StaticPages = lazy(() => import('./pages/StaticPageRoute'));
 const Download = lazy(() => import('./pages/Download'));
@@ -51,6 +52,17 @@ const primaryNav = [
   ['/notifications', 'Notifications', Bell], ['/download', 'Download', DownloadIcon],
 ];
 
+const referenceNav = [
+  ['/', 'Home'],
+  ['/anime', 'Browse'],
+  ['/schedule', 'Latest'],
+  ['/anime', 'Genres'],
+  ['/manga', 'Manga'],
+  ['/collections', 'Library'],
+  ['/community', 'Community'],
+  ['/community', 'Watch Together'],
+];
+
 function App() {
   useReminderNotifications();
   const { user, authLoading, setShowAuthModal, setAuthTab, activeSubAccount, subAccounts } = useUser();
@@ -62,7 +74,12 @@ function App() {
   const [isTvMode, setIsTvMode] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const isHomePage = location.pathname === '/';
   const isAnimeDetailsPage = /^\/anime\/[^/]+$/.test(location.pathname);
+  const isMediaDetailsPage = /^\/media\/(?:movie|tv|series)\/[^/]+$/.test(location.pathname);
+  const isAnimePlayerPage = /^\/anime\/[^/]+\/watch$/.test(location.pathname);
+  const isMoviePlayerPage = /^\/watch\/(?:movie|tv|series)\/[^/]+$/.test(location.pathname);
+  const isPlayerPage = isAnimePlayerPage || isMoviePlayerPage;
 
   useEffect(() => { setIsTvMode(applyTvModeClass()); }, []);
 
@@ -102,38 +119,40 @@ function App() {
   useEffect(() => { setIsMobileMenuOpen(false); }, [location.pathname]);
 
   const openLogin = () => { setAuthTab('login'); setShowAuthModal(true); setIsMobileMenuOpen(false); };
+  const closeAuthAndMenu = () => { setShowAuthModal(false); setIsMobileMenuOpen(false); };
 
-  return <Suspense fallback={<RouteFallback />}><SubAccountGate><div className={`app-shell ${isTvMode ? 'tv-app-shell' : ''} ${isAnimeDetailsPage ? 'anime-details-route' : ''}`}>
+  return <Suspense fallback={<RouteFallback />}><SubAccountGate><div className={`app-shell ${isTvMode ? 'tv-app-shell' : ''} ${isHomePage ? 'home-route' : ''} ${isAnimeDetailsPage ? 'anime-details-route' : ''} ${isAnimePlayerPage ? 'anime-player-route' : ''} ${isMoviePlayerPage ? 'movie-player-route' : ''}`}>
     {isTvMode && <div className="tv-welcome-strip"><span>LG webOS TV mode</span><strong>Use the Magic Remote pointer or arrow keys to browse. Press OK/Enter to select.</strong></div>}
 
-    {!isAnimeDetailsPage && <header className="topbar">
+    <header className={`topbar topbar-reference ${isAnimeDetailsPage ? 'topbar-anime-details' : ''} ${isPlayerPage ? 'topbar-player' : ''}`}>
       <div className="topbar-brand-wrap">
-        <button className="hamburger-btn" type="button" aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-controls="mobile-navigation" aria-expanded={isMobileMenuOpen} onClick={() => setIsMobileMenuOpen(value => !value)}>
-          {isMobileMenuOpen ? <X size={23} /> : <Menu size={23} />}
-        </button>
-        <FocusableLink to="/" className="brand" aria-label="AnimeVault home"><img src={assetPath('logo.png')} alt="AnimeVault" /><span>AnimeVault</span></FocusableLink>
+        <Link to="/" className="brand" aria-label="AnimeVault home" onClick={closeAuthAndMenu}><img src={assetPath('logo.png')} alt="" />{isPlayerPage && <span className="player-brand-name">AnimeVault</span>}</Link>
       </div>
-      <nav className="topnav" aria-label="Primary navigation">{primaryNav.map(([to, label, Icon]) => <FocusableNavLink key={to} to={to} end={to === '/'} className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>{Icon && <Icon size={15} />}<span>{label}</span></FocusableNavLink>)}{user?.is_admin && <FocusableNavLink to="/admin/dashboard" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}><Award size={15} /><span>Admin</span></FocusableNavLink>}</nav>
+      <nav className="topnav topnav-reference" aria-label="Primary navigation">{referenceNav.map(([to, label]) => <NavLink key={label} to={to} end={to === '/'} onClick={closeAuthAndMenu} className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>{label}</NavLink>)}</nav>
       <div className="topbar-actions">
-        <button className="topbar-search-form" type="button" aria-label="Open search" onClick={() => setIsSearchOpen(true)}><SearchIcon size={18} /><span>Search anime...</span><kbd>⌘K</kbd></button>
-        {user ? <FocusableLink to={ownProfilePath} className="header-profile"><User size={15} /><span>{user.username}</span></FocusableLink> : authLoading ? <div className="session-status">Checking session...</div> : <FocusableButton onClick={openLogin}><User size={15} /><span>Sign In</span></FocusableButton>}
+        <Link to="/community" className="topbar-icon-action" aria-label="Community messages" onClick={closeAuthAndMenu}><MessageSquare size={16} /></Link>
+        <button className="topbar-search-form" type="button" aria-label="Open search" onClick={() => { closeAuthAndMenu(); setIsSearchOpen(true); }}><SearchIcon size={17} /><span>Search anime...</span><kbd>⌘K</kbd></button>
+        <button className="hamburger-btn topbar-menu-button" type="button" aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-controls="mobile-navigation" aria-expanded={isMobileMenuOpen} onClick={() => { setShowAuthModal(false); setIsMobileMenuOpen(value => !value); }}>
+          {isMobileMenuOpen ? <X size={18} /> : <MoreVertical size={18} />}
+        </button>
+        {user ? <Link to={ownProfilePath} onClick={closeAuthAndMenu} className="header-profile"><User size={15} /><span>{user.username}</span></Link> : authLoading ? <div className="session-status">Checking session...</div> : <button type="button" onClick={openLogin} className="header-signin"><User size={14} /><span>Sign in</span></button>}
       </div>
-    </header>}
+    </header>
 
     {isMobileMenuOpen && <>
       <div className="mobile-menu-overlay" role="presentation" onClick={() => setIsMobileMenuOpen(false)} />
       <aside id="mobile-navigation" className="mobile-menu" aria-label="Mobile navigation">
         <div className="mobile-menu-header"><div className="mobile-menu-title"><img src={assetPath('logo.png')} alt="" aria-hidden="true" /><div><strong>AnimeVault</strong><span>Navigation</span></div></div><button className="mobile-menu-close" type="button" aria-label="Close navigation menu" onClick={() => setIsMobileMenuOpen(false)}><X size={22} /></button></div>
-        <div className="mobile-menu-links">{primaryNav.map(([to, label, Icon]) => <FocusableNavLink key={to} to={to} end={to === '/'} onClick={() => setIsMobileMenuOpen(false)} className={({ isActive }) => isActive ? 'mobile-nav-link active' : 'mobile-nav-link'}>{Icon && <Icon size={18} />}<span>{label}</span></FocusableNavLink>)}<FocusableNavLink to="/about" onClick={() => setIsMobileMenuOpen(false)} className={({ isActive }) => isActive ? 'mobile-nav-link active' : 'mobile-nav-link'}><Info size={18} /><span>About</span></FocusableNavLink>{user?.is_admin && <FocusableNavLink to="/admin/dashboard" onClick={() => setIsMobileMenuOpen(false)} className={({ isActive }) => isActive ? 'mobile-nav-link active admin-link' : 'mobile-nav-link admin-link'}><Award size={18} /><span>Admin Dashboard</span></FocusableNavLink>}</div>
-        <div className="mobile-menu-account">{user ? <FocusableLink to={ownProfilePath} onClick={() => setIsMobileMenuOpen(false)} className="mobile-account-link"><User size={18} /><span><strong>{user.username}</strong><small>View profile</small></span></FocusableLink> : !authLoading && <FocusableButton onClick={openLogin} className="mobile-account-link"><User size={18} /><span>Sign In</span></FocusableButton>}{user && <FocusableNavLink to="/settings" onClick={() => setIsMobileMenuOpen(false)} className="mobile-account-link"><SettingsIcon size={18} /><span>Settings</span></FocusableNavLink>}</div>
+        <div className="mobile-menu-links">{primaryNav.map(([to, label, Icon]) => <NavLink key={to} to={to} end={to === '/'} onClick={() => setIsMobileMenuOpen(false)} className={({ isActive }) => isActive ? 'mobile-nav-link active' : 'mobile-nav-link'}>{Icon && <Icon size={18} />}<span>{label}</span></NavLink>)}<NavLink to="/about" onClick={() => setIsMobileMenuOpen(false)} className={({ isActive }) => isActive ? 'mobile-nav-link active' : 'mobile-nav-link'}><Info size={18} /><span>About</span></NavLink>{user?.is_admin && <NavLink to="/admin/dashboard" onClick={() => setIsMobileMenuOpen(false)} className={({ isActive }) => isActive ? 'mobile-nav-link active admin-link' : 'mobile-nav-link admin-link'}><Award size={18} /><span>Admin Dashboard</span></NavLink>}</div>
+        <div className="mobile-menu-account">{user ? <Link to={ownProfilePath} onClick={() => setIsMobileMenuOpen(false)} className="mobile-account-link"><User size={18} /><span><strong>{user.username}</strong><small>View profile</small></span></Link> : !authLoading && <button type="button" onClick={openLogin} className="mobile-account-link"><User size={18} /><span>Sign In</span></button>}{user && <NavLink to="/settings" onClick={() => setIsMobileMenuOpen(false)} className="mobile-account-link"><SettingsIcon size={18} /><span>Settings</span></NavLink>}</div>
       </aside>
     </>}
 
-    <main className={`content ${isAnimeDetailsPage ? 'content-anime-details' : ''}`}><Routes>
-      <Route path="/" element={<MixedHome />} /><Route path="/search" element={<Search />} /><Route path="/anime" element={<AnimeHome />} /><Route path="/anime/:id" element={<RequireAuth><AnimeDetails /></RequireAuth>} /><Route path="/anime/:id/watch" element={<RequireAuth><AnimeWatch /></RequireAuth>} /><Route path="/manga" element={<MangaHome />} /><Route path="/manga/:id" element={<MangaDetails />} /><Route path="/dramas-movies" element={<DramasMovies />} /><Route path="/watch/:type/:id" element={<RequireAuth><MovieWatch /></RequireAuth>} /><Route path="/schedule" element={<Schedule />} /><Route path="/collections" element={<RequireAuth><Collections /></RequireAuth>} /><Route path="/community" element={<Community />} /><Route path="/stats" element={<RequireAuth><Stats /></RequireAuth>} /><Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} /><Route path="/about" element={<About />} /><Route path="/contact" element={<StaticPages page="contact" />} /><Route path="/faq" element={<StaticPages page="faq" />} /><Route path="/terms" element={<StaticPages page="terms" />} /><Route path="/privacy" element={<StaticPages page="privacy" />} /><Route path="/dmca" element={<StaticPages page="dmca" />} /><Route path="/request" element={<StaticPages page="request" />} /><Route path="/profile/:userid/*" element={<Profile />} /><Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} /><Route path="/forgot-password" element={<ForgotPassword />} /><Route path="/set-new-password" element={<SetNewPassword />} /><Route path="/download" element={<Download />} /><Route path="/admin/*" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} /><Route path="*" element={<NotFound />} />
-    </Routes></main><Footer />
-    {!isAnimeDetailsPage && <nav className="bottom-nav" aria-label="Mobile quick navigation"><NavLink to="/" end className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><HomeIcon size={20} /><span>Home</span></NavLink><NavLink to="/dramas-movies" className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><TvIcon size={20} /><span>Dramas</span></NavLink><NavLink to="/search" className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><SearchIcon size={20} /><span>Search</span></NavLink></nav>}
-    <AuthModal /><UpdateCenter /><AnnouncementPopup />{isSearchOpen && <SearchModal onClose={() => setIsSearchOpen(false)} />}
+    <main className={`content ${isHomePage ? 'content-home' : ''} ${isAnimeDetailsPage ? 'content-anime-details' : ''} ${isMediaDetailsPage ? 'content-media-details' : ''}`}><Routes>
+      <Route path="/" element={<MixedHome />} /><Route path="/search" element={<Search />} /><Route path="/anime" element={<AnimeHome />} /><Route path="/anime/:id" element={<AnimeDetails />} /><Route path="/anime/:id/watch" element={<RequireAuth><AnimeWatch /></RequireAuth>} /><Route path="/manga" element={<MangaHome />} /><Route path="/manga/:id" element={<MangaDetails />} /><Route path="/dramas-movies" element={<DramasMovies />} /><Route path="/media/:type/:id" element={<MovieDetails />} /><Route path="/watch/:type/:id" element={<RequireAuth><MovieWatch /></RequireAuth>} /><Route path="/schedule" element={<Schedule />} /><Route path="/collections" element={<RequireAuth><Collections /></RequireAuth>} /><Route path="/community" element={<Community />} /><Route path="/stats" element={<RequireAuth><Stats /></RequireAuth>} /><Route path="/notifications" element={<RequireAuth><Notifications /></RequireAuth>} /><Route path="/about" element={<About />} /><Route path="/contact" element={<StaticPages page="contact" />} /><Route path="/faq" element={<StaticPages page="faq" />} /><Route path="/terms" element={<StaticPages page="terms" />} /><Route path="/privacy" element={<StaticPages page="privacy" />} /><Route path="/dmca" element={<StaticPages page="dmca" />} /><Route path="/request" element={<StaticPages page="request" />} /><Route path="/profile/:userid/*" element={<Profile />} /><Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} /><Route path="/forgot-password" element={<ForgotPassword />} /><Route path="/set-new-password" element={<SetNewPassword />} /><Route path="/download" element={<Download />} /><Route path="/admin/*" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} /><Route path="*" element={<NotFound />} />
+    </Routes></main>{!isPlayerPage && <Footer />}
+    {!isAnimeDetailsPage && !isPlayerPage && <nav className="bottom-nav" aria-label="Mobile quick navigation"><NavLink to="/" end className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><HomeIcon size={20} /><span>Home</span></NavLink><NavLink to="/dramas-movies" className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><TvIcon size={20} /><span>Dramas</span></NavLink><NavLink to="/search" className={({ isActive }) => isActive ? 'bottom-nav-link active' : 'bottom-nav-link'}><SearchIcon size={20} /><span>Search</span></NavLink></nav>}
+    <AuthModal /><UpdateCenter />{!isPlayerPage && <AnnouncementPopup />}{isSearchOpen && <SearchModal onClose={() => setIsSearchOpen(false)} />}
     <style>{`
       .topbar-brand-wrap{display:flex;align-items:center;gap:.65rem;min-width:0;flex:0 0 auto}.topbar .brand{display:flex;align-items:center;gap:.65rem;min-width:0;white-space:nowrap}.topbar .brand img{height:34px;width:auto;display:block;flex:0 0 auto}.topbar .brand span{font-weight:900}.hamburger-btn{display:none;align-items:center;justify-content:center;background:transparent!important;border:1px solid transparent!important;color:#fff;cursor:pointer;padding:.45rem;border-radius:10px;flex:0 0 auto}.hamburger-btn:hover,.hamburger-btn:focus-visible{background:var(--white-05)!important;border-color:var(--white-10)!important}.header-profile{display:inline-flex;align-items:center;gap:.4rem;min-width:0;max-width:150px;white-space:nowrap;overflow:hidden}.header-profile span{overflow:hidden;text-overflow:ellipsis}.session-status{font-size:.78rem;color:var(--text-secondary);white-space:nowrap}.route-loading{min-height:35vh;display:grid;place-items:center;color:var(--text-secondary)}.loading-dot{width:9px;height:9px;border-radius:50%;background:var(--brand-color);box-shadow:0 0 18px rgba(255,26,117,.55)}
       .mobile-menu-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.68);backdrop-filter:blur(3px)}.mobile-menu{position:fixed;inset:0 auto 0 0;z-index:1000;width:min(86vw,350px);height:100dvh;display:flex;flex-direction:column;overflow:hidden;background:rgba(10,16,25,.985);border-right:1px solid var(--white-10);box-shadow:24px 0 70px rgba(0,0,0,.45);animation:mobileNavIn .18s ease-out}.mobile-menu-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1rem .85rem;border-bottom:1px solid var(--white-10);flex:0 0 auto}.mobile-menu-title{display:flex;align-items:center;gap:.7rem;min-width:0}.mobile-menu-title img{width:34px;height:34px;object-fit:contain}.mobile-menu-title div{display:flex;flex-direction:column;min-width:0}.mobile-menu-title strong{font-size:1rem}.mobile-menu-title span{font-size:.72rem;color:var(--text-tertiary)}.mobile-menu-close{display:flex;align-items:center;justify-content:center;padding:.5rem;border-radius:9px;background:var(--white-05);border:1px solid var(--white-10);color:#fff;cursor:pointer}.mobile-menu-links{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:.7rem .65rem;display:flex;flex-direction:column;gap:.2rem;touch-action:pan-y}.mobile-nav-link{display:flex;align-items:center;gap:.8rem;padding:.75rem .8rem;border-radius:10px;color:var(--text-secondary);text-decoration:none;font-weight:650;min-height:44px}.mobile-nav-link:hover{background:var(--white-05);color:#fff}.mobile-nav-link.active{background:rgba(255,26,117,.13);color:var(--brand-color)}.mobile-nav-link.admin-link{margin-top:.45rem;border-top:1px solid var(--white-10);border-radius:0 0 10px 10px;padding-top:1rem}.mobile-menu-account{flex:0 0 auto;border-top:1px solid var(--white-10);padding:.65rem;display:flex;flex-direction:column;gap:.25rem;padding-bottom:calc(.65rem + env(safe-area-inset-bottom))}.mobile-account-link{display:flex!important;align-items:center;gap:.75rem;width:100%;padding:.75rem .8rem;border-radius:10px;color:var(--text-secondary);text-decoration:none;min-height:44px}.mobile-account-link:hover{background:var(--white-05);color:#fff}.mobile-account-link span{display:flex;flex-direction:column;min-width:0}.mobile-account-link small{color:var(--text-tertiary);font-size:.7rem}@keyframes mobileNavIn{from{transform:translateX(-18px);opacity:.7}to{transform:translateX(0);opacity:1}}

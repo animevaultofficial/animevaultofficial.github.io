@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, BookOpen, Bell, Share2, PlayCircle } from 'lucide-react';
+import TMDBPoster from './TMDBPoster';
 
 function getYouTubeEmbedUrl(trailer) {
   if (trailer?.site !== 'youtube' || !trailer?.id) return null;
@@ -41,9 +42,14 @@ export default function PremiumAnimeCard({ anime, isFavorite, onToggleFavorite, 
       {/* Card Thumbnail */}
       <div className="premium-card-thumbnail">
         {!isPlayingPreview ? (
-          <img
-            src={image}
+          <TMDBPoster
             alt={title}
+            title={title}
+            year={anime?.seasonYear}
+            mediaType={anime?.format === 'MOVIE' ? 'movie' : 'tv'}
+            requireAnimation
+            alternateTitles={[anime?.title?.romaji, anime?.title?.native, anime?.title?.english]}
+            fallbackSrc={image}
             className="premium-card-image"
           />
         ) : (

@@ -104,8 +104,8 @@ export default function SearchModal({ onClose }) {
     if (trimmed) addToHistory(trimmed);
     onClose();
     if (media._type === 'anime') navigate(`/anime/${media.anilistId || media.id}`);
-    else if (media._type === 'movie') navigate(`/watch/movie/${media.tmdbId || media.id}`);
-    else navigate(`/watch/series/${media.tmdbId || media.id}`);
+    else if (media._type === 'movie') navigate(`/media/movie/${media.tmdbId || media.id}`);
+    else navigate(`/media/tv/${media.tmdbId || media.id}`);
   };
 
   const handleHistoryClick = useCallback((term) => {

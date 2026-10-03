@@ -8,12 +8,20 @@ import React from 'react';
  *   - options: array of { value: string|number, label: string }
  *   - className: optional additional class names
  */
-export default function SettingsSelect({ value, onChange, options, children, className = '' }) {
+export default function SettingsSelect({
+  value,
+  onChange,
+  options,
+  children,
+  className = '',
+  ariaLabel,
+}) {
   return (
     <select
       value={value}
       onChange={onChange}
       className={`discord-select ${className}`.trim()}
+      aria-label={ariaLabel}
     >
       {options ? (
         options.map((opt) => (

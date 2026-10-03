@@ -17,7 +17,7 @@ const DEFAULT_SETTINGS = {
   autoplay: true,
   subtitleLanguage: 'en',
   subtitleFontSize: 'medium',
-  subtitleOpacity: 0.9,
+  subtitleOpacity: 0.8,
   audioLanguage: 'en',
   volumeNormalization: true,
   playbackSpeed: 1,
@@ -54,13 +54,23 @@ const SETTINGS_KEY = 'animevault_settings';
 const isBrowser = typeof window !== 'undefined';
 
 export function getSettings() {
-  if (!isBrowser) return DEFAULT_SETTINGS;
+  if (!isBrowser) return { ...DEFAULT_SETTINGS, favoriteGenres: [] };
   try {
     const stored = localStorage.getItem(SETTINGS_KEY);
-    return stored ? { ...DEFAULT_SETTINGS, ...JSON.parse(stored) } : DEFAULT_SETTINGS;
+    const parsedSettings = stored ? JSON.parse(stored) : {};
+    const savedSettings = parsedSettings && typeof parsedSettings === 'object'
+      ? parsedSettings
+      : {};
+    return {
+      ...DEFAULT_SETTINGS,
+      ...savedSettings,
+      favoriteGenres: Array.isArray(savedSettings.favoriteGenres)
+        ? savedSettings.favoriteGenres
+        : [...DEFAULT_SETTINGS.favoriteGenres],
+    };
   } catch (e) {
     console.error('Failed to load settings:', e);
-    return DEFAULT_SETTINGS;
+    return { ...DEFAULT_SETTINGS, favoriteGenres: [] };
   }
 }
 

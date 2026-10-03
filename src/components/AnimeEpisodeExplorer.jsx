@@ -13,8 +13,8 @@ function audioFor(ep) {
   return { sub: Boolean(ep?.available?.sub), dub: Boolean(ep?.available?.dub) };
 }
 
-function imageFor(ep, fallback) {
-  return ep?.image || ep?.thumbnail || ep?.thumbnailUrl || ep?.imageUrl || ep?.coverImage || ep?.poster || fallback;
+function imageFor(ep) {
+  return ep?.image || ep?.thumbnail || ep?.thumbnailUrl || ep?.imageUrl;
 }
 
 function duration(value) {
@@ -27,16 +27,17 @@ function duration(value) {
   return String(value);
 }
 
-function EpisodeCard({ episode, active, fallbackImage, onSelect }) {
+function EpisodeCard({ episode, active, onSelect }) {
   const audio = audioFor(episode);
   const kind = normalizeKind(episode);
   const title = episode?.title || `Episode ${episode.number}`;
-  const image = imageFor(episode, fallbackImage);
+  const image = imageFor(episode);
   const summary = episode?.summary || episode?.description || '';
   return (
     <button type="button" className={`reference-episode-card ${active ? 'active' : ''}`} onClick={() => onSelect(episode)}>
       <div className="reference-episode-thumb">
-        {image && <img src={image} alt="" loading="lazy" />}
+        {image && <img src={image} alt="" loading="lazy" decoding="async" fetchpriority="low" onError={event => { event.currentTarget.hidden = true; }} />}
+        {!image && <span className="reference-episode-no-image">Episode {String(episode.number).padStart(2, '0')}</span>}
         <span className="reference-episode-number">{String(episode.number).padStart(2, "0")}</span>
         {duration(episode?.duration) && <span className="reference-episode-duration">{duration(episode.duration)}</span>}
         <span className="reference-episode-audio">
@@ -53,7 +54,7 @@ function EpisodeCard({ episode, active, fallbackImage, onSelect }) {
   );
 }
 
-export default function AnimeEpisodeExplorer({ episodes = [], activeEpisode, fallbackImage, onSelect }) {
+export default function AnimeEpisodeExplorer({ episodes = [], activeEpisode, onSelect }) {
   const [query, setQuery] = useState('');
   const [audio, setAudio] = useState('all');
   const [kind, setKind] = useState('all');
@@ -130,7 +131,7 @@ export default function AnimeEpisodeExplorer({ episodes = [], activeEpisode, fal
       {visible.length ? (
         <div className="reference-episode-grid">
           {visible.map(ep => (
-            <EpisodeCard key={ep.number} episode={ep} active={Number(ep.number) === Number(activeEpisode)} fallbackImage={fallbackImage} onSelect={onSelect} />
+            <EpisodeCard key={ep.number} episode={ep} active={Number(ep.number) === Number(activeEpisode)} onSelect={onSelect} />
           ))}
         </div>
       ) : (

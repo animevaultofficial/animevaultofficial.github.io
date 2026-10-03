@@ -119,7 +119,12 @@ function MangaDetails() {
   // Sync reading history to Neon Postgres
   useEffect(() => {
     if (user && manga) {
-      addToHistory(manga.id, 'manga', safeTitle(manga.title), manga.coverImage?.large);
+      addToHistory({
+        id: String(manga.id),
+        type: 'manga',
+        title: safeTitle(manga.title),
+        image: manga.coverImage?.large || '',
+      }).catch(error => console.warn('[AnimeVault] Could not add manga to watch history:', error));
     }
   }, [user, manga]);
 

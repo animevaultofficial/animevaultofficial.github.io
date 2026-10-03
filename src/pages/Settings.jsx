@@ -45,9 +45,15 @@ import {
 } from 'lucide-react';
 import { useUser } from '../api/UserContext';
 import { useNavigate } from 'react-router-dom';
-const LogoIcon = () => <img src={assetPath('logo.png')} alt="logo" style={{height:18, width:18}} />;
 import { Link } from 'react-router-dom';
-import { getSettings, saveSettings, resetSettings, toggle2FA, updateUsername } from '../api/db';
+import {
+  getSettings,
+  saveSettings,
+  resetSettings,
+  toggle2FA,
+  updateUsername,
+  getUserDevices,
+} from '../api/db';
 import { storage } from '../utils/storage';
 import {
   ACCENT_PRESETS,
@@ -58,7 +64,6 @@ import {
 } from '../utils/appearance';
 import { collectBackupData, restoreBackupData, BACKUP_KEYS } from '../utils/backup';
 import { HOME_ROWS, loadHomeLayout, saveHomeLayout } from '../utils/homeLayout';
-import { assetPath } from '../utils/assetPath';
 
 const FONT_SIZES = ['small', 'medium', 'large'];
 const QUALITIES = ['auto', '480p', '720p', '1080p', '4K'];
@@ -90,9 +95,11 @@ export default function Settings() {
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar || '');
   const [bannerUrl, setBannerUrl] = useState(user?.banner || '');
   const [usernameInput, setUsernameInput] = useState(user?.username || '');
-  const [emailInput, setEmailInput] = useState(user?.email || '');
-  const [bioInput, setBioInput] = useState(user?.bio || '');
+  const [emailInput, setEmailInput] = useState(user?.email || settings.email || '');
+  const [bioInput, setBioInput] = useState(user?.bio || settings.bio || '');
   const [is2FAEnabled, setIs2FAEnabled] = useState(user?.two_factor_enabled || false);
+  const [sessions, setSessions] = useState(null);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
 
   // Appearance state
   const [accentColor, setAccentColor] = useState(
@@ -109,6 +116,12 @@ export default function Settings() {
 
   // Block stats
   const [blockStats, setBlockStats] = useState({ blocked: 0, timestamp: 0 });
+
+  const updateSettings = (changes) => {
+    const updated = { ...getSettings(), ...changes };
+    setSettings(updated);
+    if (!saveSettings(updated)) setSaveStatus('Failed to save settings!');
+  };
 
   useEffect(() => {
     setSettings(getSettings());
@@ -138,11 +151,45 @@ export default function Settings() {
     }
   };
 
+  const handleViewSessions = async () => {
+    if (!user?.id) return;
+    setSessionsLoading(true);
+    try {
+      setSessions(await getUserDevices(user.id));
+    } catch (error) {
+      console.error('[AnimeVault Settings] Could not load active sessions:', error);
+      setSessions([]);
+      setSaveStatus('Could not load active sessions.');
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
   const handleReset = () => {
     if (window.confirm('Are you sure you want to reset all settings to defaults?')) {
-      resetSettings();
+      if (!resetSettings()) {
+        setSaveStatus('Failed to reset settings!');
+        return;
+      }
       const newSettings = getSettings();
       setSettings(newSettings);
+      setTheme('dark');
+      setAccentColor('red');
+      setCustomVars(DEFAULT_CUSTOM_VARS);
+      setFontSize('medium');
+      applyTheme('dark');
+      applyAccentColor('red');
+      document.documentElement.style.fontSize = '16px';
+      storage.set('theme', 'dark');
+      storage.set('accentColor', 'red');
+      storage.set('fontSize', 'medium');
+      storage.remove('customThemeVars');
+      const defaultLayout = {
+        order: HOME_ROWS.map((row) => row.id),
+        visible: Object.fromEntries(HOME_ROWS.map((row) => [row.id, true])),
+      };
+      setHomeLayout(defaultLayout);
+      saveHomeLayout(defaultLayout.order, defaultLayout.visible);
       setSaveStatus('Settings reset!');
       setTimeout(() => setSaveStatus(''), 2000);
     }
@@ -150,22 +197,26 @@ export default function Settings() {
 
   const handleSaveProfile = async () => {
     if (!user) return;
-    let success = false;
     try {
-      // Update avatar/banner via context
-      success = await updateProfile(avatarUrl, bannerUrl);
-      // Update username if changed
+      const profile = {
+        avatar: avatarUrl,
+        banner: bannerUrl,
+        email: emailInput,
+        bio: bioInput,
+      };
+
+      await updateProfile(profile);
+      updateSettings({ email: emailInput, bio: bioInput });
+
       if (usernameInput && usernameInput !== user.username) {
         const res = await updateUsername(user.id, usernameInput);
         if (!res.success) {
-          alert(res.message || 'Failed to update username');
-        } else {
-          // refresh profile in context
-          await updateProfile(avatarUrl, bannerUrl);
+          setSaveStatus(res.message || 'Failed to update username');
+          return;
         }
+        await updateProfile({ ...profile, username: usernameInput.trim().toLowerCase().split('@')[0] });
       }
-      if (success) setSaveStatus('Profile saved!');
-      else setSaveStatus('Failed to save profile');
+      setSaveStatus('Profile saved!');
       setTimeout(() => setSaveStatus(''), 2000);
     } catch (e) {
       console.error(e);
@@ -231,11 +282,10 @@ export default function Settings() {
     const newGenres = settings.favoriteGenres.includes(genre)
       ? settings.favoriteGenres.filter(g => g !== genre)
       : [...settings.favoriteGenres, genre];
-    setSettings({ ...settings, favoriteGenres: newGenres });
+    updateSettings({ favoriteGenres: newGenres });
   };
 
   const tabs = [
-    { id: 'site', label: 'Site', icon: LogoIcon },
     { id: 'personalization', label: 'Personalization', icon: Palette },
     { id: 'home', label: 'Home', icon: Layout },
     { id: 'profile', label: 'Profile', icon: User },
@@ -273,7 +323,7 @@ export default function Settings() {
       {/* Main Content */}
       <div className="discord-settings-main"><div className="discord-main-content">
         {/* Save/Reset Buttons */}
-        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginBottom: "24px" }}>
+        <div className="discord-settings-actions" style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginBottom: "24px" }}>
           {saveStatus && (
             <span style={{
               alignSelf: 'center',
@@ -301,11 +351,13 @@ export default function Settings() {
                   {THEME_PRESETS.map((t) => (
                     <button
                       key={t.id}
+                      aria-pressed={theme === t.id}
                       onClick={() => {
                         setTheme(t.id);
                         const vars = t.id === 'custom' ? customVars : undefined;
                         applyTheme(t.id, vars);
                         storage.set('theme', t.id);
+                        updateSettings({ theme: t.id });
                       }}
                       style={{
                         padding: '10px 20px',
@@ -342,6 +394,7 @@ export default function Settings() {
                               setCustomVars(newVars);
                               applyTheme('custom', newVars);
                               storage.set('customThemeVars', newVars);
+                              updateSettings({ theme: 'custom' });
                             }}
                             style={{
                               width: '40px',
@@ -368,10 +421,13 @@ export default function Settings() {
                   {ACCENT_PRESETS.map((a) => (
                     <button
                       key={a.id}
+                      aria-label={`Accent color: ${a.label}`}
+                      aria-pressed={accentColor === a.id}
                       onClick={() => {
                         setAccentColor(a.id);
                         applyAccentColor(a.id);
                         storage.set('accentColor', a.id);
+                        updateSettings({ accentColor: a.id });
                       }}
                       title={a.label}
                       style={{
@@ -394,11 +450,13 @@ export default function Settings() {
                 </label>
                 <SettingsSelect
                   value={fontSize}
+                  ariaLabel="Font size"
                   onChange={(e) => {
                     setFontSize(e.target.value);
                     storage.set('fontSize', e.target.value);
                     const sizeMap = { small: '14px', medium: '16px', large: '18px' };
                     document.documentElement.style.fontSize = sizeMap[e.target.value];
+                    updateSettings({ fontSize: e.target.value });
                   }}
                   options={FONT_SIZES.map(size => ({ value: size, label: size.charAt(0).toUpperCase() + size.slice(1) }))}
                 />
@@ -432,6 +490,7 @@ export default function Settings() {
                         <GripVertical size={20} style={{ color: 'var(--text-secondary)', cursor: 'grab' }} />
                         <span style={{ flex: 1, fontWeight: '600' }}>{row.label}</span>
                         <button
+                          aria-label={`Move ${row.label} up`}
                           onClick={() => moveHomeRow(index, 'up')}
                           disabled={index === 0}
                           style={{
@@ -447,6 +506,7 @@ export default function Settings() {
                           <Maximize2 size={16} style={{ transform: 'rotate(-90deg)' }} />
                         </button>
                         <button
+                          aria-label={`Move ${row.label} down`}
                           onClick={() => moveHomeRow(index, 'down')}
                           disabled={index === homeLayout.order.length - 1}
                           style={{
@@ -462,6 +522,7 @@ export default function Settings() {
                           <Maximize2 size={16} style={{ transform: 'rotate(90deg)' }} />
                         </button>
                         <button
+                          aria-label={`${homeLayout.visible[row.id] ? 'Hide' : 'Show'} ${row.label}`}
                           onClick={() => toggleHomeRow(row.id)}
                           style={{
                             padding: '8px',
@@ -573,7 +634,8 @@ export default function Settings() {
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
                     <SettingsSelect
                       value={settings.profileVisibility}
-                      onChange={(e) => setSettings({ ...settings, profileVisibility: e.target.value })}
+                      ariaLabel="Profile visibility"
+                      onChange={(e) => updateSettings({ profileVisibility: e.target.value })}
                     >
                       <option value="public">Public</option>
                       <option value="private">Private</option>
@@ -584,7 +646,8 @@ export default function Settings() {
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
                     <ToggleSwitch
                         checked={settings.hideHistory}
-                        onChange={(val) => setSettings({ ...settings, hideHistory: val })}
+                        ariaLabel="Hide watch history"
+                        onChange={(val) => updateSettings({ hideHistory: val })}
                       />
                     <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Hide watch history</span>
                   </label>
@@ -592,7 +655,8 @@ export default function Settings() {
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
                     <ToggleSwitch
                         checked={settings.hideLikes}
-                        onChange={(val) => setSettings({ ...settings, hideLikes: val })}
+                        ariaLabel="Hide likes and favorites"
+                        onChange={(val) => updateSettings({ hideLikes: val })}
                       />
                     <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Hide likes & favorites</span>
                   </label>
@@ -608,6 +672,7 @@ export default function Settings() {
               <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <h3 className="discord-section-subtitle" style={{ color: "Password" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Password</h3>
                 <button
+                  onClick={() => navigate('/forgot-password')}
                   style={{
                     padding: '10px 20px',
                     borderRadius: '10px',
@@ -628,6 +693,7 @@ export default function Settings() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <ToggleSwitch
                     checked={is2FAEnabled}
+                    ariaLabel="Two-factor authentication"
                     onChange={async (val) => {
                       setIs2FAEnabled(val);
                       const success = await toggle2FA(user.id, val);
@@ -650,6 +716,7 @@ export default function Settings() {
               <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <h3 className="discord-section-subtitle" style={{ color: "Session Management" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Session Management</h3>
                 <button
+                  onClick={handleViewSessions}
                   style={{
                     padding: '10px 20px',
                     borderRadius: '10px',
@@ -662,6 +729,24 @@ export default function Settings() {
                 >
                   View All Active Sessions
                 </button>
+                {sessionsLoading && <p className="discord-help-text">Loading active sessions…</p>}
+                {!sessionsLoading && sessions?.length > 0 && (
+                  <ul className="discord-session-list">
+                    {sessions.map((session) => (
+                      <li key={session.id}>
+                        <strong>{session.device_name || 'Unknown device'}</strong>
+                        <span>
+                          Last active {session.last_active
+                            ? new Date(session.last_active).toLocaleString()
+                            : 'unknown'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {!sessionsLoading && sessions?.length === 0 && (
+                  <p className="discord-help-text">No active sessions were found.</p>
+                )}
               </div>
 
               <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(239,68,68,0.2)' }}>
@@ -670,6 +755,7 @@ export default function Settings() {
                   Permanently delete your account and all associated data
                 </p>
                 <button
+                  onClick={() => navigate('/contact')}
                   style={{
                     padding: '10px 20px',
                     borderRadius: '10px',
@@ -680,7 +766,7 @@ export default function Settings() {
                     cursor: 'pointer',
                   }}
                 >
-                  Delete Account
+                  Contact Support
                 </button>
               </div>
             </div>
@@ -696,7 +782,8 @@ export default function Settings() {
                 </label>
                 <SettingsSelect
                       value={settings.defaultQuality}
-                      onChange={(e) => setSettings({ ...settings, defaultQuality: e.target.value })}
+                      ariaLabel="Default video quality"
+                      onChange={(e) => updateSettings({ defaultQuality: e.target.value })}
                       options={QUALITIES.map(q => ({ value: q, label: q.charAt(0).toUpperCase() + q.slice(1) }))}
                     />
               </div>
@@ -705,7 +792,8 @@ export default function Settings() {
                 <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', width: 'fit-content' }}>
                   <ToggleSwitch
                       checked={settings.autoplay}
-                      onChange={(val) => setSettings({ ...settings, autoplay: val })}
+                      ariaLabel="Autoplay next episode"
+                      onChange={(val) => updateSettings({ autoplay: val })}
                     />
                   <span style={{ fontSize: '0.95rem' }}>Autoplay next episode</span>
                 </label>
@@ -715,7 +803,8 @@ export default function Settings() {
                 <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', width: 'fit-content' }}>
                   <ToggleSwitch
                       checked={settings.autoResume}
-                      onChange={(val) => setSettings({ ...settings, autoResume: val })}
+                      ariaLabel="Auto-resume from last position"
+                      onChange={(val) => updateSettings({ autoResume: val })}
                     />
                   <span style={{ fontSize: '0.95rem' }}>Auto-resume from last position</span>
                 </label>
@@ -727,7 +816,8 @@ export default function Settings() {
                 </label>
                 <SettingsSelect
                   value={settings.playbackSpeed}
-                  onChange={(e) => setSettings({ ...settings, playbackSpeed: parseFloat(e.target.value) })}
+                  ariaLabel="Default playback speed"
+                  onChange={(e) => updateSettings({ playbackSpeed: parseFloat(e.target.value) })}
                   options={PLAYBACK_SPEEDS.map(speed => ({ value: speed, label: `${speed}x` }))}
                 />
               </div>
@@ -742,7 +832,8 @@ export default function Settings() {
                       </label>
                       <SettingsSelect
                         value={settings.subtitleLanguage}
-                        onChange={(e) => setSettings({ ...settings, subtitleLanguage: e.target.value })}
+                        ariaLabel="Subtitle language"
+                        onChange={(e) => updateSettings({ subtitleLanguage: e.target.value })}
                         options={LANGUAGES.map(l => ({ value: l, label: l.toUpperCase() }))}
                       />
                     </div>
@@ -753,7 +844,8 @@ export default function Settings() {
                       </label>
                       <SettingsSelect
                         value={settings.subtitleFontSize}
-                        onChange={(e) => setSettings({ ...settings, subtitleFontSize: e.target.value })}
+                        ariaLabel="Subtitle font size"
+                        onChange={(e) => updateSettings({ subtitleFontSize: e.target.value })}
                         options={FONT_SIZES.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))}
                       />
                     </div>
@@ -764,11 +856,12 @@ export default function Settings() {
                       </label>
                       <input
                         type="range"
+                        aria-label="Subtitle background opacity"
                         min="0"
                         max="1"
                         step="0.1"
                         value={settings.subtitleOpacity}
-                        onChange={(e) => setSettings({ ...settings, subtitleOpacity: parseFloat(e.target.value) })}
+                        onChange={(e) => updateSettings({ subtitleOpacity: parseFloat(e.target.value) })}
                         style={{ width: '100%', maxWidth: '400px' }}
                       />
                     </div>
@@ -784,7 +877,8 @@ export default function Settings() {
                       </label>
                       <SettingsSelect
                         value={settings.audioLanguage}
-                        onChange={(e) => setSettings({ ...settings, audioLanguage: e.target.value })}
+                        ariaLabel="Default audio language"
+                        onChange={(e) => updateSettings({ audioLanguage: e.target.value })}
                         options={LANGUAGES.map(l => ({ value: l, label: l.toUpperCase() }))}
                       />
                     </div>
@@ -793,7 +887,7 @@ export default function Settings() {
                       <input
                         type="checkbox"
                         checked={settings.volumeNormalization}
-                        onChange={(e) => setSettings({ ...settings, volumeNormalization: e.target.checked })}
+                        onChange={(e) => updateSettings({ volumeNormalization: e.target.checked })}
                         style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                       />
                       <span style={{ fontSize: '0.95rem' }}>Volume normalization</span>
@@ -816,6 +910,7 @@ export default function Settings() {
                   {GENRES.map((genre) => (
                     <button
                       key={genre}
+                      aria-pressed={settings.favoriteGenres.includes(genre)}
                       onClick={() => handleToggleGenre(genre)}
                       style={{
                         padding: '8px 16px',
@@ -841,7 +936,8 @@ export default function Settings() {
                 </label>
                 <SettingsSelect
                       value={settings.defaultSortOrder}
-                      onChange={(e) => setSettings({ ...settings, defaultSortOrder: e.target.value })}
+                    ariaLabel="Default sort order"
+                      onChange={(e) => updateSettings({ defaultSortOrder: e.target.value })}
                       options={SORT_ORDERS.map(order => ({ value: order, label: order === 'dateAdded' ? 'Date Added' : order.charAt(0).toUpperCase() + order.slice(1) }))}
                     />
               </div>
@@ -852,7 +948,8 @@ export default function Settings() {
                 </label>
                 <SettingsSelect
                       value={settings.defaultCollectionPrivacy}
-                      onChange={(e) => setSettings({ ...settings, defaultCollectionPrivacy: e.target.value })}
+                    ariaLabel="Default collection privacy"
+                      onChange={(e) => updateSettings({ defaultCollectionPrivacy: e.target.value })}
                       options={[{ value: 'public', label: 'Public' }, { value: 'private', label: 'Private' }]}
                     />
               </div>
@@ -861,7 +958,7 @@ export default function Settings() {
                 <input
                   type="checkbox"
                   checked={settings.autoAddContinueWatching}
-                  onChange={(e) => setSettings({ ...settings, autoAddContinueWatching: e.target.checked })}
+                  onChange={(e) => updateSettings({ autoAddContinueWatching: e.target.checked })}
                   style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                 />
                 <span style={{ fontSize: '0.95rem' }}>Auto-add to Continue Watching</span>
@@ -926,7 +1023,7 @@ export default function Settings() {
                   <input
                     type="checkbox"
                     checked={settings.pushNotifications}
-                    onChange={(e) => setSettings({ ...settings, pushNotifications: e.target.checked })}
+                    onChange={(e) => updateSettings({ pushNotifications: e.target.checked })}
                     style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                   />
                   <span style={{ fontSize: '0.95rem' }}>Push notifications</span>
@@ -936,7 +1033,7 @@ export default function Settings() {
                   <input
                     type="checkbox"
                     checked={settings.emailAlerts}
-                    onChange={(e) => setSettings({ ...settings, emailAlerts: e.target.checked })}
+                    onChange={(e) => updateSettings({ emailAlerts: e.target.checked })}
                     style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                   />
                   <span style={{ fontSize: '0.95rem' }}>Email alerts (new episodes, etc.)</span>
@@ -946,7 +1043,7 @@ export default function Settings() {
                   <input
                     type="checkbox"
                     checked={settings.emailMarketing}
-                    onChange={(e) => setSettings({ ...settings, emailMarketing: e.target.checked })}
+                    onChange={(e) => updateSettings({ emailMarketing: e.target.checked })}
                     style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                   />
                   <span style={{ fontSize: '0.95rem' }}>Marketing emails</span>
@@ -959,7 +1056,7 @@ export default function Settings() {
                 </label>
                 <select
                   value={settings.reminderTiming}
-                  onChange={(e) => setSettings({ ...settings, reminderTiming: e.target.value })}
+                  onChange={(e) => updateSettings({ reminderTiming: e.target.value })}
                   className="discord-select"
                 >
                   {REMINDER_TIMINGS.map((timing) => (
@@ -986,7 +1083,8 @@ export default function Settings() {
                   </label>
                   <select
                     value={settings.language}
-                    onChange={(e) => setSettings({ ...settings, language: e.target.value })}
+                    aria-label="App language"
+                    onChange={(e) => updateSettings({ language: e.target.value })}
                     className="discord-select"
                   >
                     {LANGUAGES.map((lang) => (
@@ -1003,7 +1101,8 @@ export default function Settings() {
                   </label>
                   <select
                     value={settings.region}
-                    onChange={(e) => setSettings({ ...settings, region: e.target.value })}
+                    aria-label="Region"
+                    onChange={(e) => updateSettings({ region: e.target.value })}
                     className="discord-select"
                   >
                     {REGIONS.map((region) => (
@@ -1043,7 +1142,7 @@ export default function Settings() {
                   <input
                     type="checkbox"
                     checked={settings.dataSaver}
-                    onChange={(e) => setSettings({ ...settings, dataSaver: e.target.checked })}
+                    onChange={(e) => updateSettings({ dataSaver: e.target.checked })}
                     style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                   />
                   <span style={{ fontSize: '0.95rem' }}>Data saver mode</span>
@@ -1053,7 +1152,7 @@ export default function Settings() {
                   <input
                     type="checkbox"
                     checked={settings.autoUpdates}
-                    onChange={(e) => setSettings({ ...settings, autoUpdates: e.target.checked })}
+                    onChange={(e) => updateSettings({ autoUpdates: e.target.checked })}
                     style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                   />
                   <span style={{ fontSize: '0.95rem' }}>Auto-updates (Electron only)</span>
@@ -1063,7 +1162,7 @@ export default function Settings() {
                   <input
                     type="checkbox"
                     checked={settings.hardwareAcceleration}
-                    onChange={(e) => setSettings({ ...settings, hardwareAcceleration: e.target.checked })}
+                    onChange={(e) => updateSettings({ hardwareAcceleration: e.target.checked })}
                     style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                   />
                   <span style={{ fontSize: '0.95rem' }}>Hardware acceleration (Electron only)</span>
@@ -1108,7 +1207,7 @@ export default function Settings() {
                   <input
                     type="checkbox"
                     checked={settings.analyticsEnabled}
-                    onChange={(e) => setSettings({ ...settings, analyticsEnabled: e.target.checked })}
+                    onChange={(e) => updateSettings({ analyticsEnabled: e.target.checked })}
                     style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                   />
                   <span style={{ fontSize: '0.95rem' }}>Enable anonymous analytics</span>
@@ -1118,7 +1217,7 @@ export default function Settings() {
                   <input
                     type="checkbox"
                     checked={settings.debugMode}
-                    onChange={(e) => setSettings({ ...settings, debugMode: e.target.checked })}
+                    onChange={(e) => updateSettings({ debugMode: e.target.checked })}
                     style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                   />
                   <span style={{ fontSize: '0.95rem' }}>Debug mode</span>

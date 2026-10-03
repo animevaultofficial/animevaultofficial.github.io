@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Search as SearchIcon, Film, Tv, Play, X, Star, Calendar, Info, Sparkles, Hash, Filter } from 'lucide-react';
 import { fetchLatestMovies, fetchLatestTVShows, searchMoviesAndSeries } from '../api/movies';
 import { FocusableLink, FocusableButton } from '../components/FocusableWrapper';
+import TMDBPoster from '../components/TMDBPoster';
 import { useUser } from '../api/UserContext';
 import { isBlockedForProfile } from '../utils/ageRating';
 
@@ -230,7 +231,7 @@ function DramasMovies() {
                       </FocusableButton>
                       <FocusableButton className="btn-info-v2" onClick={() => {
                         localStorage.setItem(`media_title_${show.id}`, show.name);
-                        navigate(`/watch/${show.type}/${show.id}`);
+                        navigate(`/media/${show.type === 'movie' ? 'movie' : 'tv'}/${show.id}`);
                       }}>
                         <Info size={20} /> Details
                       </FocusableButton>
@@ -406,7 +407,7 @@ function DramasMovies() {
 
                   return (
                     <FocusableLink
-                      to={`/watch/${watchType}/${item.id}`}
+                      to={`/media/${watchType}/${item.tmdbId || item.id}`}
                       key={item.id}
                       className="movie-card"
                       onClick={() => {
@@ -415,9 +416,12 @@ function DramasMovies() {
                       style={{ textDecoration: 'none' }}
                     >
                       <div className="movie-card-poster" style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', aspectRatio: '2/3' }}>
-                        <img
-                          src={posterUrl}
-                          alt={item.name}
+                        <TMDBPoster
+                          title={item.name || item.title}
+                          year={item.year || item.releaseInfo}
+                          mediaType={watchType}
+                          fallbackSrc={posterUrl}
+                          alt={item.name || item.title}
                           onError={(e) => {
                             e.target.onerror = null;
                             e.target.src = 'https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?q=80&w=300&auto=format&fit=crop';
@@ -552,7 +556,7 @@ function DramasMovies() {
 
                     return (
                       <FocusableLink
-                        to={`/watch/${activeTab === 'tv' ? 'tv' : 'movie'}/${item.id}`}
+                        to={`/media/${activeTab === 'tv' ? 'tv' : 'movie'}/${item.tmdbId || item.id}`}
                         key={item.id}
                         className="movie-card"
                         onClick={() => {
@@ -561,8 +565,11 @@ function DramasMovies() {
                         style={{ textDecoration: 'none' }}
                       >
                         <div className="movie-card-poster" style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', aspectRatio: '2/3' }}>
-                          <img
-                            src={posterUrl}
+                          <TMDBPoster
+                            title={cleanTitle}
+                            year={item.year || item.releaseInfo}
+                            mediaType={activeTab === 'tv' ? 'tv' : 'movie'}
+                            fallbackSrc={posterUrl}
                             alt={cleanTitle}
                             onError={(e) => {
                               e.target.onerror = null;

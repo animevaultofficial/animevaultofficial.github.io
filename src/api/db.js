@@ -180,6 +180,11 @@ export async function updateUserPassword(username, newPassword) {
 }
 
 export async function updateUserProfile(userId, newAvatar, newBanner) {
+  if (newAvatar && typeof newAvatar === 'object') {
+    newBanner = newAvatar.banner;
+    newAvatar = newAvatar.avatar;
+  }
+
   const db = await getSql();
   if (!db) {
     return { success: false };
@@ -547,6 +552,19 @@ export async function fetchWatchHistory(userId, subAccountId = null) {
 }
 
 export async function addToHistory(userId, mediaId, mediaType, mediaTitle, mediaPoster, subAccountId = null) {
+  if (mediaId && typeof mediaId === 'object') {
+    const item = mediaId;
+    mediaId = item.id ?? item.media_id;
+    mediaType = item.type ?? item.media_type;
+    mediaTitle = item.title ?? item.media_title;
+    mediaPoster = item.image ?? item.poster ?? item.media_poster;
+    subAccountId = item.subAccountId ?? item.sub_account_id ?? subAccountId;
+  }
+
+  if (!mediaId || !mediaType || !mediaTitle) {
+    throw new Error('Watch history entries require a media ID, type, and title.');
+  }
+
   const db = await getSql();
   if (db) {
     try {
@@ -2222,9 +2240,15 @@ export async function deleteMediaComment(commentId, userId) {
 // Settings Functions
 const SETTINGS_KEY = 'animevault_settings';
 const DEFAULT_SETTINGS = {
+  username: '',
+  email: '',
+  bio: '',
   theme: 'dark',
   accentColor: '#ff1a75',
   fontSize: 'medium',
+  profileVisibility: 'public',
+  hideHistory: false,
+  hideLikes: false,
   defaultQuality: 'auto',
   autoplay: true,
   autoResume: true,
@@ -2242,25 +2266,39 @@ const DEFAULT_SETTINGS = {
   emailAlerts: true,
   emailMarketing: false,
   reminderTiming: '15min',
-  profileVisibility: 'public',
-  hideHistory: false,
-  hideLikes: false,
-  twoFAEnabled: false
+  language: 'en',
+  region: 'US',
+  dataSaver: false,
+  autoUpdates: true,
+  hardwareAcceleration: true,
+  discordRpcEnabled: true,
+  analyticsEnabled: true,
+  debugMode: false
 };
 
 export function getSettings() {
   try {
     const stored = localStorage.getItem(SETTINGS_KEY);
-    return stored ? { ...DEFAULT_SETTINGS, ...JSON.parse(stored) } : DEFAULT_SETTINGS;
+    const parsedSettings = stored ? JSON.parse(stored) : {};
+    const savedSettings = parsedSettings && typeof parsedSettings === 'object'
+      ? parsedSettings
+      : {};
+    return {
+      ...DEFAULT_SETTINGS,
+      ...savedSettings,
+      favoriteGenres: Array.isArray(savedSettings.favoriteGenres)
+        ? savedSettings.favoriteGenres
+        : [...DEFAULT_SETTINGS.favoriteGenres],
+    };
   } catch (error) {
     console.error('Error getting settings:', error);
-    return DEFAULT_SETTINGS;
+    return { ...DEFAULT_SETTINGS, favoriteGenres: [] };
   }
 }
 
 export function saveSettings(settings) {
   try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...getSettings(), ...settings }));
     return true;
   } catch (error) {
     console.error('Error saving settings:', error);

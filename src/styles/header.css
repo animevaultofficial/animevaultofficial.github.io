@@ -1,0 +1,224 @@
+.app-shell > .topbar.topbar-reference {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 54px;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0;
+  padding: 5px clamp(16px, 3vw, 40px);
+  overflow: visible;
+  max-width: none;
+  background:
+    radial-gradient(ellipse at 70% 0%, rgba(13, 64, 87, 0.55), transparent 48%),
+    rgba(4, 6, 8, 0.97);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  box-sizing: border-box;
+  backdrop-filter: blur(18px);
+}
+
+.app-shell.movie-player-route > .topbar-player {
+  z-index: 10000 !important;
+}
+
+.topbar-reference .topbar-brand-wrap {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 8px;
+  background: rgba(0, 0, 0, 0.38);
+  border-radius: 999px 0 0 999px;
+}
+
+.topbar-reference .brand {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: #fff;
+}
+
+.topbar-reference .brand img {
+  display: block;
+  width: 23px !important;
+  height: 23px !important;
+  object-fit: contain;
+}
+
+.topbar-reference .topnav-reference {
+  display: flex !important;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 34px;
+  gap: 0;
+  margin-left: 0;
+  padding: 0 5px 0 0;
+  overflow-x: auto;
+  background: rgba(0, 0, 0, 0.38);
+  border-radius: 0 999px 999px 0;
+  scrollbar-width: none;
+}
+
+.topbar-reference .topnav-reference::-webkit-scrollbar {
+  display: none;
+}
+
+.topbar-reference .topnav-reference .nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 9px;
+  color: #c9cdd1;
+  font-size: 11px;
+  font-weight: 550;
+  text-decoration: none;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+.topbar-reference .topnav-reference .nav-link::after {
+  display: none;
+}
+
+.topbar-reference .topnav-reference .nav-link:hover,
+.topbar-reference .topnav-reference .nav-link.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+.topbar-reference .topbar-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+  margin-left: auto;
+  padding: 3px 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 999px;
+}
+
+.topbar-reference .topbar-icon-action,
+.topbar-reference .topbar-search-form,
+.topbar-reference .topbar-menu-button {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: #dce4e8;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.topbar-reference .topbar-icon-action:hover,
+.topbar-reference .topbar-search-form:hover,
+.topbar-reference .topbar-menu-button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.topbar-reference .topbar-search-form span,
+.topbar-reference .topbar-search-form kbd {
+  display: none;
+}
+
+.topbar-reference .topbar-search-form {
+  min-width: 30px !important;
+  max-width: 30px !important;
+  width: 30px !important;
+  height: 30px !important;
+}
+
+.topbar-reference .topbar-menu-button {
+  display: inline-grid !important;
+}
+
+.topbar-reference .header-signin,
+.topbar-reference .header-profile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 180px;
+  height: 30px;
+  margin-left: 5px;
+  padding: 0 11px;
+  overflow: hidden;
+  color: #101214;
+  background: #fff;
+  border: 0;
+  border-radius: 999px;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.topbar-reference .header-profile {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.topbar-reference .header-profile span,
+.topbar-reference .header-signin span {
+  display: inline;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1020px) {
+  .topbar-reference .topnav-reference {
+    display: none !important;
+  }
+
+  .topbar-reference .topbar-brand-wrap {
+    padding-right: 10px;
+    border-radius: 999px;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-shell > .topbar.topbar-reference {
+    display: flex !important;
+    justify-content: space-between !important;
+    padding: 6px 12px !important;
+  }
+
+  .topbar-reference .topbar-actions {
+    display: flex !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-shell > .topbar.topbar-reference {
+    height: 54px;
+    padding-right: 10px;
+    padding-left: 12px;
+  }
+
+  .topbar-reference .topbar-icon-action {
+    display: none;
+  }
+
+  .topbar-reference .header-signin span,
+  .topbar-reference .header-profile span {
+    display: inline !important;
+  }
+
+  .topbar-reference .header-signin,
+  .topbar-reference .header-profile {
+    max-width: 120px;
+    padding: 0 9px;
+  }
+}

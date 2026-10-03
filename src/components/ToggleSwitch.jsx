@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function ToggleSwitch({ checked, onChange, label, description }) {
+export default function ToggleSwitch({ checked, onChange, label, description, ariaLabel }) {
   return (
     <div className="discord-toggle-container">
       <div>
@@ -12,6 +12,7 @@ export default function ToggleSwitch({ checked, onChange, label, description }) 
           type="checkbox" 
           checked={checked} 
           onChange={(e) => onChange(e.target.checked)} 
+          aria-label={ariaLabel || label}
         />
         <span className="discord-toggle-slider"></span>
       </label>

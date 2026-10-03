@@ -39,7 +39,12 @@ export default function MangaDetailsPage({ id, goBack }) {
         if (!data) throw new Error('Manga details not found');
         if (cancelled) return;
         setManga(data);
-        if (user) addToHistory(data.id, 'manga', titleOf(data.title), data.coverImage?.large);
+        if (user) addToHistory({
+          id: String(data.id),
+          type: 'manga',
+          title: titleOf(data.title),
+          image: data.coverImage?.large || '',
+        }).catch(error => console.warn('[AnimeVault] Could not add manga to watch history:', error));
         let list = [];
         if (kakalot && Array.isArray(data.chapters) && data.chapters.length) {
           list = data.chapters.map(c => ({ id: c.id, chapter: c.name || c.chapter || c.id, title: c.name || c.title || `Chapter ${c.id}`, source: 'mangakakalot', mangaId: data.id }));

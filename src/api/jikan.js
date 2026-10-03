@@ -1,7 +1,8 @@
 const BASE = 'https://api.jikan.moe/v4';
+const episodeThumbnailCache = new Map();
 
-async function get(endpoint) {
-  const response = await fetch(`${BASE}${endpoint}`);
+async function get(endpoint, signal) {
+  const response = await fetch(`${BASE}${endpoint}`, signal ? { signal } : undefined);
   if (!response.ok) {
     throw new Error(`Jikan request failed: ${response.status}`);
   }
@@ -60,19 +61,26 @@ export async function fetchAnimeFull(malId) {
  * still-image field on the normal episode list, so these thumbnails are
  * matched back to the real episode numbers.
  */
-export async function fetchEpisodeThumbnails(malId) {
-  if (!malId) return {};
-  const data = await get(`/anime/${encodeURIComponent(malId)}/videos/episodes`);
-  const map = {};
-  for (const item of Array.isArray(data) ? data : []) {
-    const number = Number(item?.episode);
-    const image =
-      item?.images?.jpg?.image_url ||
-      item?.images?.webp?.image_url ||
-      item?.thumbnail ||
-      item?.images?.jpg?.large_image_url ||
-      item?.images?.webp?.large_image_url;
-    if (Number.isFinite(number) && image) map[number] = image;
-  }
-  return map;
+export function fetchEpisodeThumbnails(malId) {
+  if (!malId) return Promise.resolve({});
+  const id = String(malId);
+  if (episodeThumbnailCache.has(id)) return episodeThumbnailCache.get(id);
+  const request = get(`/anime/${encodeURIComponent(id)}/videos/episodes`, AbortSignal.timeout(8000))
+    .then(data => {
+      const map = {};
+      for (const item of Array.isArray(data) ? data : []) {
+        const number = Number(item?.episode);
+        const image =
+          item?.images?.jpg?.image_url ||
+          item?.images?.webp?.image_url ||
+          item?.thumbnail ||
+          item?.images?.jpg?.large_image_url ||
+          item?.images?.webp?.large_image_url;
+        if (Number.isFinite(number) && image) map[number] = image;
+      }
+      return map;
+    });
+  episodeThumbnailCache.set(id, request);
+  request.catch(() => episodeThumbnailCache.delete(id));
+  return request;
 }

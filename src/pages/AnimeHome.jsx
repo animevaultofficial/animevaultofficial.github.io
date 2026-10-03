@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronRight, Play, Search, Sparkles, TrendingUp } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAniPMSchedule, getAniPMTop, getAniPMRecent } from '../api/anipm';
+import TMDBPoster from '../components/TMDBPoster';
 
 
 function isHentai(item) {
@@ -47,7 +48,7 @@ function isHentai(item) {
 function Card({ item }) {
   const navigate = useNavigate();
   return <button type="button" onClick={() => navigate('/anime/' + item.anilistId)} style={styles.card}>
-    <div style={styles.posterWrap}><img src={item.poster} alt="" loading="lazy" style={styles.poster}/><span style={styles.play}><Play size={14} fill="currentColor"/></span></div>
+    <div style={styles.posterWrap}><TMDBPoster title={item.title} year={item.year} mediaType={item.format === 'MOVIE' ? 'movie' : 'tv'} requireAnimation fallbackSrc={item.poster} alt="" loading="lazy" style={styles.poster}/><span style={styles.play}><Play size={14} fill="currentColor"/></span></div>
     <div style={styles.cardBody}><strong>{item.title}</strong><span>{item.year || 'Anime'}{item.format ? ' · ' + item.format : ''}</span></div>
   </button>;
 }

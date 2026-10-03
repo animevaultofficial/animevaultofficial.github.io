@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Languages, ListVideo, Play, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Expand, ListVideo, Maximize, Moon, Play, Search, Share2 } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { getAniPMSeries, aniPMEmbedUrl } from '../api/anipm';
+import { getAniPMSeries, getAniPMTitle, aniPMEmbedUrl } from '../api/anipm';
+import { fetchAnimeEpisodeThumbnails } from '../api/movies';
+import { fetchEpisodeThumbnails } from '../api/jikan';
 import { useUser } from '../api/UserContext';
 import { isBlockedForProfile } from '../utils/ageRating';
+import { withTimeout } from '../utils/withTimeout';
+import '../styles/playerPage.css';
 
 const ORIGIN = 'https://ani.pm';
 
@@ -11,47 +15,144 @@ function storageKey(id, episode, lang) {
   return `animevault:anipm-progress:${id}:${episode}:${lang}`;
 }
 
+function readProgress(key) {
+  try {
+    return Number(localStorage.getItem(key)) || 0;
+  } catch (error) {
+    console.warn('[AnimeVault] Could not restore episode progress:', error);
+    return 0;
+  }
+}
+
+function saveProgress(key, time) {
+  try {
+    localStorage.setItem(key, String(Math.floor(time)));
+  } catch (error) {
+    console.warn('[AnimeVault] Could not save episode progress:', error);
+  }
+}
+
+function episodeKind(episode) {
+  const type = String(episode?.fillerType || episode?.episodeType || episode?.type || episode?.classification || '').toLowerCase();
+  if (episode?.isFiller || type.includes('filler')) return 'filler';
+  if (episode?.isCanon || type.includes('canon')) return 'canon';
+  if (episode?.isMixed || type.includes('mixed')) return 'mixed';
+  return '';
+}
+
+function isPlayableEpisode(episode) {
+  return Boolean(episode?.available?.sub || episode?.available?.dub);
+}
+
 export default function AnimeWatch() {
   const { id } = useParams();
   const [params, setParams] = useSearchParams();
-  const { activeSubAccount, addToHistory } = useUser();
+  const { user, activeSubAccount, addToHistory, toggleLike, isLiked } = useUser();
   const frameRef = useRef(null);
+  const historyEntryKey = useRef('');
   const [series, setSeries] = useState(null);
+  const [titleMeta, setTitleMeta] = useState(null);
+  const [episodeImages, setEpisodeImages] = useState({});
   const [episode, setEpisode] = useState(Number(params.get('episode')) || 1);
   const [lang, setLang] = useState(params.get('lang') === 'dub' ? 'dub' : 'sub');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [playerState, setPlayerState] = useState(null);
+  const [shareMessage, setShareMessage] = useState('');
+  const [query, setQuery] = useState('');
+  const [audioFilter, setAudioFilter] = useState('all');
+  const [order, setOrder] = useState('asc');
+  const [hideFiller, setHideFiller] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(true);
+  const [autoSkip, setAutoSkip] = useState(false);
+  const [playerOptions, setPlayerOptions] = useState({ autoPlay: true, autoSkip: false });
+  const [theaterMode, setTheaterMode] = useState(false);
+  const [lightsOff, setLightsOff] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  useEffect(() => {
+    setEpisode(Number(params.get('episode')) || 1);
+    setLang(params.get('lang') === 'dub' ? 'dub' : 'sub');
+  }, [id, params]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError('');
-    getAniPMSeries(id)
+    withTimeout(getAniPMSeries(id), 6000, 'Anime player did not load within 6 seconds.')
       .then(data => {
         if (cancelled) return;
         if (!data) throw new Error('Anime not found on ani.pm.');
         if (isBlockedForProfile(data, activeSubAccount)) throw new Error('This title is blocked for Kids profiles.');
         setSeries(data);
+        setTitleMeta(null);
+        setEpisodeImages({});
         const requested = Number(params.get('episode')) || 1;
-        const available = data.episodeList?.find(item => item.number === requested);
-        setEpisode(available ? requested : data.episodeList?.[0]?.number || 1);
+        const requestedEpisode = data.episodeList?.find(item => Number(item.number) === requested && isPlayableEpisode(item));
+        const firstPlayable = data.episodeList?.find(isPlayableEpisode);
+        setEpisode(requestedEpisode?.number || firstPlayable?.number || data.episodeList?.[0]?.number || 1);
+
+        const name = data.title || 'Anime';
+        const year = data.year;
+        const count = data.episodeList?.length || 0;
+        void fetchAnimeEpisodeThumbnails(name, year, count, [data.nativeTitle], thumbnails => {
+          if (cancelled) return;
+          setEpisodeImages(current => ({ ...current, ...thumbnails }));
+        }).catch(error => {
+          if (!cancelled) console.warn('[AnimeVault] TMDB episode thumbnails unavailable:', error);
+        });
+
+        void getAniPMTitle(id).then(titleData => {
+          if (cancelled || !titleData) return;
+          setTitleMeta(titleData);
+          const malId = data.malId || titleData.malId || titleData.mal_id;
+          if (malId) {
+            void fetchEpisodeThumbnails(malId).then(thumbnails => {
+              if (!cancelled) setEpisodeImages(current => ({ ...current, ...thumbnails }));
+            }).catch(error => {
+              if (!cancelled) console.warn('[AnimeVault] MyAnimeList episode thumbnails unavailable:', error);
+            });
+          }
+        }).catch(titleError => {
+          if (!cancelled) console.warn('[AnimeVault] Anime metadata unavailable:', titleError);
+        });
       })
       .catch(err => { if (!cancelled) setError(err?.message || 'Unable to load anime.'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [id, activeSubAccount]);
 
-  const episodes = useMemo(() => series?.episodeList || [], [series]);
-  const current = episodes.find(item => item.number === episode) || episodes[0];
+  const allEpisodes = useMemo(() => (series?.episodeList || []).map(item => ({
+      ...item,
+      image: episodeImages[item.number] || item.image || item.thumbnail || item.thumbnailUrl || item.imageUrl || '',
+    })), [series, episodeImages]);
+  const episodes = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return allEpisodes.filter(item => {
+      const searchable = [item.number, item.title, item.summary, item.description].filter(Boolean).join(' ').toLowerCase();
+      if (term && !searchable.includes(term)) return false;
+      if (audioFilter === 'sub' && !item.available?.sub) return false;
+      if (audioFilter === 'dub' && !item.available?.dub) return false;
+      if (hideFiller && episodeKind(item) === 'filler') return false;
+      return true;
+    }).sort((a, b) => order === 'asc' ? a.number - b.number : b.number - a.number);
+  }, [allEpisodes, query, audioFilter, order, hideFiller]);
+  const availableEpisodeKinds = useMemo(() => new Set(allEpisodes.map(episodeKind).filter(Boolean)), [allEpisodes]);
+  const playableEpisodes = useMemo(() => allEpisodes.filter(isPlayableEpisode), [allEpisodes]);
+  const current = playableEpisodes.find(item => Number(item.number) === Number(episode)) || playableEpisodes[0];
+  const currentIndex = playableEpisodes.findIndex(item => Number(item.number) === Number(current?.number));
   const effectiveLang = current?.available?.[lang] ? lang : (current?.available?.sub ? 'sub' : 'dub');
   // Read resume position only when the episode/language changes. The player emits
   // timeupdate events frequently; reading live localStorage during every render
   // would change the iframe src and remount the player repeatedly.
   const progress = useMemo(
-    () => Number(localStorage.getItem(storageKey(id, episode, effectiveLang)) || 0),
+    () => readProgress(storageKey(id, episode, effectiveLang)),
     [id, episode, effectiveLang]
   );
+
+  useEffect(() => {
+    setPlayerState(null);
+  }, [episode, effectiveLang]);
 
   useEffect(() => {
     if (effectiveLang !== lang) setLang(effectiveLang);
@@ -59,8 +160,17 @@ export default function AnimeWatch() {
 
   useEffect(() => {
     if (!series || !addToHistory) return;
-    addToHistory(String(series.anilistId || id), 'anime', series.title || 'Anime', series.poster || '').catch?.(() => {});
-  }, [series, id, addToHistory]);
+    const entryKey = `${series.anilistId || id}:${activeSubAccount?.id || ''}`;
+    if (historyEntryKey.current === entryKey) return;
+    historyEntryKey.current = entryKey;
+    addToHistory({
+      id: String(series.anilistId || id),
+      type: 'anime',
+      title: series.title || 'Anime',
+      image: series.poster || '',
+      subAccountId: activeSubAccount?.id || null,
+    }).catch?.(error => console.warn('[AnimeVault] Could not add anime to watch history:', error));
+  }, [series, id, addToHistory, activeSubAccount]);
 
   const frameSrc = current
     ? aniPMEmbedUrl({
@@ -68,14 +178,17 @@ export default function AnimeWatch() {
         episode: current.number,
         lang: effectiveLang,
         color: 'ff1a75',
-        autonext: 1,
-        autoskip: 0,
+        autonext: playerOptions.autoPlay ? 1 : 0,
+        autoskip: playerOptions.autoSkip ? 1 : 0,
         episodes: 1,
         adult: 1,
         api: 1,
         start: progress > 5 ? Math.floor(progress) : 0,
       })
     : '';
+  const playbackPercent = playerState?.duration
+    ? Math.min(100, Math.max(0, (Number(playerState.currentTime || 0) / Number(playerState.duration)) * 100))
+    : 0;
 
   useEffect(() => {
     const onMessage = event => {
@@ -85,9 +198,10 @@ export default function AnimeWatch() {
       if (data.event) {
         setPlayerState(data.data || {});
         if (data.event === 'timeupdate' && data.data?.currentTime != null) {
-          localStorage.setItem(storageKey(id, episode, effectiveLang), String(Math.floor(data.data.currentTime)));
+          saveProgress(storageKey(id, episode, effectiveLang), data.data.currentTime);
         }
         if (data.event === 'episodechange' && data.data?.episode) {
+          setPlayerOptions({ autoPlay, autoSkip });
           setEpisode(Number(data.data.episode));
           setParams(prev => {
             const next = new URLSearchParams(prev);
@@ -108,16 +222,23 @@ export default function AnimeWatch() {
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [id, episode, effectiveLang, setParams]);
+  }, [id, episode, effectiveLang, autoPlay, autoSkip, setParams]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
 
   const send = (cmd, args = {}) => {
     frameRef.current?.contentWindow?.postMessage({ ns: 'anipm.player', v: 1, cmd, args }, ORIGIN);
   };
 
   const chooseEpisode = number => {
-    const item = episodes.find(ep => ep.number === number);
+    const item = playableEpisodes.find(ep => Number(ep.number) === Number(number));
     if (!item) return;
     const nextLang = item.available?.[lang] ? lang : (item.available?.sub ? 'sub' : 'dub');
+    setPlayerOptions({ autoPlay, autoSkip });
     setEpisode(number);
     setLang(nextLang);
     setParams({ episode: String(number), lang: nextLang }, { replace: true });
@@ -131,115 +252,160 @@ export default function AnimeWatch() {
   };
 
   const nextEpisode = () => {
-    const index = episodes.findIndex(ep => ep.number === episode);
-    if (index >= 0 && episodes[index + 1]) chooseEpisode(episodes[index + 1].number);
+    if (currentIndex >= 0 && playableEpisodes[currentIndex + 1]) chooseEpisode(playableEpisodes[currentIndex + 1].number);
   };
 
   const previousEpisode = () => {
-    const index = episodes.findIndex(ep => ep.number === episode);
-    if (index > 0) chooseEpisode(episodes[index - 1].number);
+    if (currentIndex > 0) chooseEpisode(playableEpisodes[currentIndex - 1].number);
   };
 
-  if (loading) return <div style={styles.center}>Preparing anime player…</div>;
-  if (error || !series) return <div style={styles.center}><h2>{error || 'Anime not found'}</h2><Link to="/" style={styles.back}><ArrowLeft size={17}/> Back to AnimeVault</Link></div>;
-  if (!current) return <div style={styles.center}><h2>No playable episodes are currently available.</h2><Link to="/" style={styles.back}><ArrowLeft size={17}/> Back</Link></div>;
+  const toggleFullscreen = async () => {
+    const target = frameRef.current?.parentElement;
+    if (!target) return;
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await target.requestFullscreen();
+    } catch (fullscreenError) {
+      console.warn('[AnimeVault] Fullscreen is unavailable:', fullscreenError);
+    }
+  };
+
+  const share = async () => {
+    const shareData = { title: series?.title || 'AnimeVault', url: window.location.href };
+    try {
+      if (navigator.share) await navigator.share(shareData);
+      else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareData.url);
+        setShareMessage('Episode link copied');
+        window.setTimeout(() => setShareMessage(''), 2500);
+      }
+      else console.warn('[AnimeVault] Sharing is unavailable in this browser.');
+    } catch (shareError) {
+      if (shareError?.name !== 'AbortError') console.warn('[AnimeVault] Could not share this episode:', shareError);
+    }
+  };
+
+  if (loading) return <div className="anime-player-state is-loading" role="status" aria-live="polite">Preparing anime player…</div>;
+  if (error || !series) return <div className="anime-player-state"><h2>{error || 'Anime not found'}</h2><Link to="/" className="anime-player-back"><ArrowLeft size={17}/> Back to AnimeVault</Link></div>;
+  if (!current) return <div className="anime-player-state"><h2>No playable episodes are currently available.</h2><Link to="/" className="anime-player-back"><ArrowLeft size={17}/> Back</Link></div>;
 
   const title = series.title || 'Anime';
   const hasDub = current.available?.dub;
   const hasSub = current.available?.sub;
   const episodeTitle = current.title || `Episode ${current.number}`;
+  const synopsis = titleMeta?.synopsis || titleMeta?.description || series.synopsis || series.description || '';
+  const poster = titleMeta?.poster || series.poster || '';
+  const liked = isLiked?.(String(series.anilistId || id));
 
-  return <div style={styles.page}>
-    <div style={styles.header}>
-      <Link to="/" style={styles.back}><ArrowLeft size={17}/> AnimeVault</Link>
-      <span style={styles.badge}>ANI.PM PLAYER</span>
-    </div>
-    <main style={styles.main}>
-      <section style={styles.playerShell}>
-        <iframe
-          ref={frameRef}
-          key={frameSrc}
-          src={frameSrc}
-          title={`${title} episode ${current.number}`}
-          style={styles.iframe}
-          allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-          allowFullScreen
-        />
+  const toggleFavorite = () => {
+    if (!user) return;
+    toggleLike?.({ id: String(series.anilistId || id), type: 'anime', title, image: poster });
+  };
+
+  return <div className={`anime-player-page ${theaterMode ? 'theater-mode' : ''} ${lightsOff ? 'lights-off' : ''}`}>
+    {lightsOff && <button type="button" className="anime-player-dim-layer" aria-label="Turn lights on" onClick={() => setLightsOff(false)} />}
+    <main className="anime-player-layout">
+      <section className="anime-player-primary">
+        <div className="anime-player-video-wrap">
+          <iframe
+            ref={frameRef}
+            key={frameSrc}
+            src={frameSrc}
+            title={`${title} episode ${current.number}`}
+            className="anime-player-iframe"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+            allowFullScreen
+          />
+        </div>
+        <div className="anime-player-progress-track"><span style={{ width: `${playbackPercent}%` }} /></div>
+        <div className="anime-player-toolbar">
+          <button type="button" aria-label="Previous episode" onClick={previousEpisode} disabled={currentIndex <= 0}><ChevronLeft size={17}/></button>
+          <button type="button" aria-label="Next episode" onClick={nextEpisode} disabled={currentIndex < 0 || currentIndex >= playableEpisodes.length - 1}><ChevronRight size={17}/></button>
+          <span className="anime-player-time">{playerState?.currentTime ? `${Math.floor(playerState.currentTime / 60)}:${String(Math.floor(playerState.currentTime % 60)).padStart(2, '0')}` : '00:00'} / {playerState?.duration ? `${Math.floor(playerState.duration / 60)}:${String(Math.floor(playerState.duration % 60)).padStart(2, '0')}` : '--:--'}</span>
+          <span className="anime-player-spacer" />
+          <button type="button" aria-label="Toggle fullscreen" onClick={toggleFullscreen}>{fullscreen ? <Expand size={15}/> : <Maximize size={15}/>}</button>
+        </div>
+        <div className="anime-player-quick-controls">
+          <button type="button" aria-pressed={autoPlay} className={autoPlay ? 'selected' : ''} onClick={() => setAutoPlay(value => !value)}><Play size={12}/> Auto play</button>
+          <button type="button" aria-pressed={autoSkip} className={autoSkip ? 'selected' : ''} onClick={() => setAutoSkip(value => !value)}><Check size={12}/> Auto-skip</button>
+          <button type="button" aria-pressed={theaterMode} className={theaterMode ? 'selected' : ''} onClick={() => setTheaterMode(value => !value)}><Expand size={12}/> Theater mode</button>
+          <button type="button" aria-pressed={lightsOff} className={lightsOff ? 'selected' : ''} onClick={() => setLightsOff(value => !value)}><Moon size={12}/> Lights off</button>
+          <button type="button" onClick={toggleFullscreen}><Maximize size={12}/> Fullscreen</button>
+          <span className="anime-player-quick-spacer" />
+          <button type="button" onClick={previousEpisode} disabled={currentIndex <= 0}><ChevronLeft size={12}/> Previous episode</button>
+          <button type="button" onClick={nextEpisode} disabled={currentIndex < 0 || currentIndex >= playableEpisodes.length - 1}>Next episode <ChevronRight size={12}/></button>
+        </div>
+
+        <section className="anime-player-current">
+          <h1>{current.number}. {episodeTitle}</h1>
+          <p>{current.synopsis || current.description || synopsis || `Now watching ${title}, episode ${current.number}.`}</p>
+          <div className="anime-player-actions">
+            <button type="button" className={liked ? 'active' : ''} onClick={toggleFavorite}><Check size={13}/> {liked ? 'In library' : 'Add to library'}</button>
+            <button type="button" disabled={!hasSub} className={effectiveLang === 'sub' ? 'active' : ''} onClick={() => chooseLanguage('sub')}>SUB</button>
+            <button type="button" disabled={!hasDub} className={effectiveLang === 'dub' ? 'active' : ''} onClick={() => chooseLanguage('dub')}>DUB</button>
+            <button type="button" onClick={share}><Share2 size={13}/> Share</button>
+            {progress > 5 && <span className="anime-player-resume"><Play size={12}/> Resuming {Math.floor(progress / 60)}:{String(Math.floor(progress % 60)).padStart(2, '0')}</span>}
+            {shareMessage && <span className="anime-player-share-message" role="status">{shareMessage}</span>}
+            {playerState?.quality?.height && <span className="anime-player-quality">{playerState.quality.height}p</span>}
+          </div>
+        </section>
+
+        <section className="anime-player-series">
+          {poster && <img src={poster} alt="" />}
+          <div className="anime-player-series-copy">
+            <div className="anime-player-series-title">
+              <h2>{title}</h2>
+              <span>{series.year || titleMeta?.year || ''} · {allEpisodes.length} episodes</span>
+            </div>
+            <p>{synopsis || 'Anime details are not available for this title yet.'}</p>
+          </div>
+        </section>
       </section>
 
-      <section style={styles.info}>
-        <div style={styles.titleRow}>
-          <div>
-            <div style={styles.eyebrow}>NOW WATCHING</div>
-            <h1 style={styles.title}>{title}</h1>
-            <p style={styles.muted}>Episode {current.number}{episodeTitle !== `Episode ${current.number}` ? ` · ${episodeTitle}` : ''}</p>
+      <aside className="anime-player-sidebar">
+        <div className="anime-player-sidebar-head">
+          <div className="anime-player-select"><ListVideo size={14}/><span>All episodes · {allEpisodes.length}</span><ChevronDown size={13}/></div>
+          <div className="anime-player-select"><ListVideo size={14}/><span>All arcs</span><ChevronDown size={13}/></div>
+          <label className="anime-player-search"><Search size={14}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search episodes" /></label>
+          <div className="anime-player-filters">
+            <button type="button" onClick={() => setOrder(value => value === 'asc' ? 'desc' : 'asc')}><span>↕</span> {order === 'asc' ? 'Oldest' : 'Newest'}</button>
+            {availableEpisodeKinds.has('filler') && <button type="button" className={hideFiller ? 'active' : ''} onClick={() => setHideFiller(value => !value)}>{hideFiller ? 'Show filler' : 'Hide filler'} <small>{allEpisodes.filter(ep => episodeKind(ep) === 'filler').length}</small></button>}
+            <button type="button" className={audioFilter === 'sub' ? 'active' : ''} onClick={() => setAudioFilter(value => value === 'sub' ? 'all' : 'sub')}>Sub only <small>{allEpisodes.filter(ep => ep.available?.sub).length}</small></button>
+            <button type="button" className={audioFilter === 'dub' ? 'active' : ''} onClick={() => setAudioFilter(value => value === 'dub' ? 'all' : 'dub')}>Dub only <small>{allEpisodes.filter(ep => ep.available?.dub).length}</small></button>
           </div>
-          <div style={styles.controls}>
-            <button type="button" onClick={previousEpisode} disabled={!episodes.find(ep => ep.number === episode - 1)} style={styles.control}><ChevronLeft size={18}/></button>
-            <button type="button" onClick={nextEpisode} disabled={!episodes.find(ep => ep.number === episode + 1)} style={styles.control}><ChevronRight size={18}/></button>
-          </div>
+          {availableEpisodeKinds.size > 0 && <div className="anime-player-legend">
+            {availableEpisodeKinds.has('canon') && <span><i className="canon"/>Canon</span>}
+            {availableEpisodeKinds.has('mixed') && <span><i className="mixed"/>Mixed</span>}
+            {availableEpisodeKinds.has('filler') && <span><i className="filler"/>Anime original</span>}
+          </div>}
         </div>
-        <div style={styles.toolbar}>
-          <Languages size={16}/>
-          <span>Audio</span>
-          <button type="button" disabled={!hasSub} onClick={() => chooseLanguage('sub')} style={effectiveLang === 'sub' ? styles.activeChip : styles.chip}>SUB</button>
-          <button type="button" disabled={!hasDub} onClick={() => chooseLanguage('dub')} style={effectiveLang === 'dub' ? styles.activeChip : styles.chip}>DUB</button>
-          {progress > 5 && <span style={styles.resume}><Play size={13}/> Resuming at {Math.floor(progress / 60)}:{String(Math.floor(progress % 60)).padStart(2, '0')}</span>}
-          {playerState?.quality?.height && <span style={styles.quality}>{playerState.quality.height}p</span>}
-        </div>
-      </section>
-
-      <section style={styles.episodePanel}>
-        <div style={styles.panelHead}><span><ListVideo size={17}/> Episodes</span><small>{episodes.length} episodes</small></div>
-        <div style={styles.episodes}>
-          {episodes.map(ep => {
-            const available = ep.available?.[lang] || ep.available?.sub || ep.available?.dub;
+        <div className="anime-player-episode-list">
+          {episodes.length ? episodes.map(ep => {
+            const active = Number(ep.number) === Number(episode);
+            const available = isPlayableEpisode(ep);
             return <button
               type="button"
               key={ep.number}
+              className={`anime-player-episode ${active ? 'active' : ''}`}
               disabled={!available}
               onClick={() => chooseEpisode(ep.number)}
-              style={ep.number === episode ? styles.episodeActive : styles.episode}
               title={ep.title || `Episode ${ep.number}`}
             >
-              <b>{String(ep.number).padStart(2, '0')}</b>
-              <span>{ep.title || `Episode ${ep.number}`}</span>
-              <small>{ep.available?.dub ? 'DUB' : ''}{ep.available?.dub && ep.available?.sub ? ' · ' : ''}{ep.available?.sub ? 'SUB' : ''}</small>
+              <span className="anime-player-thumb">
+                {ep.image ? <img src={ep.image} alt="" loading="lazy" decoding="async" fetchpriority="low" onError={event => { event.currentTarget.hidden = true; }}/> : <span>Episode {String(ep.number).padStart(2, '0')}</span>}
+                <b>Episode {ep.number}</b>
+                {active && <strong><Play size={10} fill="currentColor"/> Now playing</strong>}
+                <small>{ep.available?.dub ? 'DUB' : ''}</small>
+              </span>
+              <span className="anime-player-episode-copy">
+                <strong>{ep.title || `Episode ${ep.number}`}</strong>
+                <span>{ep.synopsis || ep.description || title}</span>
+                {ep.airDate && <time>{ep.airDate}</time>}
+              </span>
             </button>;
-          })}
+          }) : <div className="anime-player-no-episodes">No episodes match this filter.</div>}
         </div>
-      </section>
+      </aside>
     </main>
-    <style>{`
-      @media(max-width:700px){.anime-watch-main{padding:.5rem}.anime-watch-player{border-radius:10px}.anime-watch-title{font-size:1.4rem!important}.anime-watch-episodes{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
-    `}</style>
   </div>;
 }
-
-const styles = {
-  page:{minHeight:'100vh',background:'#05070c',color:'#fff'},
-  header:{maxWidth:1500,margin:'0 auto',padding:'18px 24px',display:'flex',justifyContent:'space-between',alignItems:'center'},
-  back:{display:'inline-flex',alignItems:'center',gap:7,color:'#e8ebf2',textDecoration:'none',fontWeight:800},
-  badge:{fontSize:11,fontWeight:900,letterSpacing:1.5,color:'#ff5b9f'},
-  main:{maxWidth:1500,margin:'0 auto',padding:'6px 24px 50px'},
-  playerShell:{width:'100%',aspectRatio:'16/9',background:'#000',borderRadius:18,overflow:'hidden',border:'1px solid rgba(255,255,255,.1)',boxShadow:'0 20px 80px rgba(0,0,0,.35)'},
-  iframe:{width:'100%',height:'100%',display:'block',border:0},
-  info:{marginTop:14,padding:20,background:'rgba(10,13,20,.9)',border:'1px solid rgba(255,255,255,.08)',borderRadius:16},
-  titleRow:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:18},
-  eyebrow:{fontSize:11,fontWeight:900,letterSpacing:1.5,color:'#ff5b9f'},
-  title:{margin:'5px 0 4px',fontSize:'clamp(1.5rem,3vw,2.2rem)'},
-  muted:{margin:0,color:'#929bab'},
-  controls:{display:'flex',gap:7},
-  control:{width:42,height:42,border:'1px solid rgba(255,255,255,.1)',borderRadius:10,background:'#0d131d',color:'#fff',cursor:'pointer'},
-  toolbar:{display:'flex',alignItems:'center',gap:9,flexWrap:'wrap',marginTop:18,color:'#bfc5d0'},
-  chip:{padding:'8px 12px',border:'1px solid rgba(255,255,255,.1)',borderRadius:9,background:'#0d131d',color:'#dce1ea',cursor:'pointer',fontWeight:800},
-  activeChip:{padding:'8px 12px',border:'1px solid #ff1a75',borderRadius:9,background:'rgba(255,26,117,.14)',color:'#fff',cursor:'pointer',fontWeight:900},
-  resume:{display:'inline-flex',alignItems:'center',gap:5,color:'#aeb6c3',fontSize:13},
-  quality:{marginLeft:'auto',fontSize:12,color:'#858d9b'},
-  episodePanel:{marginTop:14,padding:20,background:'rgba(10,13,20,.9)',border:'1px solid rgba(255,255,255,.08)',borderRadius:16},
-  panelHead:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14,color:'#fff',fontWeight:850},
-  episodes:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:8},
-  episode:{minWidth:0,padding:'11px 12px',display:'grid',gridTemplateColumns:'36px 1fr auto',gap:8,alignItems:'center',border:'1px solid rgba(255,255,255,.08)',borderRadius:10,background:'#0b1018',color:'#dce1ea',cursor:'pointer',textAlign:'left'},
-  episodeActive:{minWidth:0,padding:'11px 12px',display:'grid',gridTemplateColumns:'36px 1fr auto',gap:8,alignItems:'center',border:'1px solid #ff1a75',borderRadius:10,background:'rgba(255,26,117,.12)',color:'#fff',cursor:'pointer',textAlign:'left'},
-  center:{minHeight:'70vh',display:'grid',placeItems:'center',alignContent:'center',gap:14,background:'#05070c',color:'#fff'},
-};

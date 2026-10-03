@@ -3,6 +3,7 @@ const API_BASE = 'https://ani.pm/api/partner/v1';
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
+    signal: options.signal || AbortSignal.timeout(10000),
     headers: { Accept: 'application/json', ...(options.headers || {}) },
   });
   const payload = await response.json().catch(() => ({}));

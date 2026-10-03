@@ -1,5 +1,6 @@
 import { Play, Star, Heart } from 'lucide-react';
 import { FocusableLink } from './FocusableWrapper';
+import TMDBPoster from './TMDBPoster';
 
 function AnimeCard({ anime, isFavorite, onToggleFavorite, linkPrefix = '/anime/' }) {
   const title = anime.title?.english || anime.title?.romaji || anime.title?.native || 'Unknown Title';
@@ -7,15 +8,27 @@ function AnimeCard({ anime, isFavorite, onToggleFavorite, linkPrefix = '/anime/'
   const year = anime.seasonYear;
   const episodes = anime.episodes;
   const chapters = anime.chapters;
-  const coverImage = anime.coverImage?.extraLarge || anime.coverImage?.large || anime.coverImage?.medium || anime.coverImage?.original || '/logo.png';
+  const coverImage = anime.coverImage?.extraLarge || anime.coverImage?.large || anime.coverImage?.medium || anime.coverImage?.original || '';
 
   function handleFavoriteClick(e) { e.preventDefault(); e.stopPropagation(); onToggleFavorite(anime); }
-  function handleImageError(e) { const img = e.currentTarget; if (img.dataset.fallbackApplied) return; img.dataset.fallbackApplied = '1'; img.src = '/logo.png'; img.classList.add('image-fallback'); }
+  function handleImageError(e) { e.currentTarget.hidden = true; }
 
   return (
     <FocusableLink to={`${linkPrefix}${anime.id}`} className="anime-card-v2" title={title}>
       <div className="card-media">
-        <img src={coverImage} alt={title} loading="lazy" decoding="async" onError={handleImageError} />
+        <TMDBPoster
+          src={coverImage}
+          alt={title}
+          title={title}
+          year={year}
+          mediaType={anime.format === 'MOVIE' ? 'movie' : 'tv'}
+          requireAnimation
+          alternateTitles={[anime.title?.romaji, anime.title?.native, anime.title?.english]}
+          fallbackSrc={coverImage}
+          loading="lazy"
+          decoding="async"
+          onError={handleImageError}
+        />
         <div className="card-overlay"><div className="play-icon-wrapper"><Play fill="white" size={24} /></div></div>
         <button className={`card-favorite-btn-v2 ${isFavorite ? 'active' : ''}`} onClick={handleFavoriteClick} aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}><Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} /></button>
         <div className="card-badges">
