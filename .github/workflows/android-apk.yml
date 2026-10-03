@@ -68,6 +68,8 @@ jobs:
           java-version: '17'
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ''
       - name: Install Android SDK packages
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - name: Create fresh Capacitor Android project
