@@ -365,8 +365,7 @@ export default function AnimeWatch({ mediaId }) {
 
       <aside className="anime-player-sidebar">
         <div className="anime-player-sidebar-head">
-          <div className="anime-player-select"><ListVideo size={14}/><span>All episodes · {allEpisodes.length}</span><ChevronDown size={13}/></div>
-          <div className="anime-player-select"><ListVideo size={14}/><span>All arcs</span><ChevronDown size={13}/></div>
+          <div className="anime-player-select"><ListVideo size={14}/><span>Episode list</span><small>{allEpisodes.length} total</small></div>
           <label className="anime-player-search"><Search size={14}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search episodes" /></label>
           <div className="anime-player-filters">
             <button type="button" onClick={() => setOrder(value => value === 'asc' ? 'desc' : 'asc')}><span>↕</span> {order === 'asc' ? 'Oldest' : 'Newest'}</button>

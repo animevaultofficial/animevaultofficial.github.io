@@ -33,6 +33,8 @@ const DISCOVER = [['Home', Home, '/'], ['Search', Search, '/search'], ['Library'
 const VAULT = [['Continue Watching', History, '/collections'], ['Favorites', Heart, '/collections'], ['Downloads', Download, '/download'], ['Notifications', Bell, '/notifications'], ['Community', Users, '/community']];
 function MobileAnimeUnavailable({ id, navigate }) {
   const mobileNavigate = (route, params = {}) => {
+    if (route === 'anime-detail' && params.id != null) return navigate(`/anime/${params.id}`);
+    if (route === 'anime-watch' && params.id != null) return navigate(`/anime/${params.id}/watch`);
     if (route === 'profile') return navigate('/profile');
     if (route === 'drama-detail' && params.id != null) {
       const query = new URLSearchParams({ type: String(params.mediaType || params.type || 'tv') });
@@ -63,7 +65,7 @@ export default function AppMobile() {
   useEffect(() => { let active = true; const listener = CapacitorApp.addListener('backButton', ({ canGoBack }) => { if (!active) return; if (drawerOpen) return setDrawerOpen(false); if (location.pathname !== '/') navigate(-1); else if (canGoBack) CapacitorApp.exitApp(); }); return () => { active = false; listener.then(h => h.remove()).catch(() => {}); }; }, [drawerOpen, location.pathname, navigate]);
   useEffect(() => { const previous = document.body.style.overflow; document.body.style.overflow = drawerOpen ? 'hidden' : previous; return () => { document.body.style.overflow = previous; }; }, [drawerOpen]);
   const go = path => { setDrawerOpen(false); navigate(path); };
-  const mobileNavigate = (route, params = {}) => { if (route === 'drama-detail' && params.id != null) { const type = params.mediaType || params.type || 'tv'; const query = new URLSearchParams({ type: String(type), ...(params.title ? { title: params.title } : {}) }); return navigate(`/drama/${params.id}?${query}`); } if (route === 'profile' && params.id != null) return navigate(`/profile/${params.id}`); if (route === 'profile') return navigate('/profile'); if (typeof route === 'string' && route.startsWith('/')) return navigate(route); return navigate(route); };
+  const mobileNavigate = (route, params = {}) => { if (route === 'anime-detail' && params.id != null) return navigate(`/anime/${params.id}`); if (route === 'anime-watch' && params.id != null) return navigate(`/anime/${params.id}/watch`); if (route === 'drama-detail' && params.id != null) { const type = params.mediaType || params.type || 'tv'; const query = new URLSearchParams({ type: String(type), ...(params.title ? { title: params.title } : {}) }); return navigate(`/drama/${params.id}?${query}`); } if (route === 'profile' && params.id != null) return navigate(`/profile/${params.id}`); if (route === 'profile') return navigate('/profile'); if (typeof route === 'string' && route.startsWith('/')) return navigate(route); return navigate(route); };
   const active = path => path === '/' ? location.pathname === '/' : location.pathname === path || location.pathname.startsWith(`${path}/`);
   const drawerItem = ([label, Icon, path]) => <button key={`${label}-${path}`} type="button" className={`av-v2-drawer-item ${active(path) ? 'is-active' : ''}`} onClick={() => go(path)}><Icon size={19} /><span>{label}</span><ChevronRight className="av-drawer-arrow" size={16} /></button>;
   const animeWatchMatch = location.pathname.match(/^\/anime\/([^/]+)\/watch$/);
