@@ -219,27 +219,6 @@
   padding: 6px 2px 0;
 }
 
-.adsense-placement {
-  width: min(970px, calc(100% - 64px));
-  min-height: 110px;
-  margin: 24px auto 0;
-  color: rgba(255, 255, 255, 0.42);
-  text-align: center;
-}
-
-.adsense-label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 9px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.adsense-placement .adsbygoogle {
-  width: 100%;
-}
-
 .home-featured-grid .card-title {
   display: -webkit-box;
   overflow: hidden;
@@ -369,12 +348,6 @@
   .home-featured-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
-  }
-
-  .adsense-placement {
-    width: calc(100% - 28px);
-    min-height: 100px;
-    margin-top: 18px;
   }
 
   .home-featured-grid .anime-card-v2:nth-child(n + 5) {

@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Play, Calendar, Star, Info, Sparkles, ChevronRight, Film, Tv, Clapperboard } from 'lucide-react';
 import { fetchLatestMovies, fetchLatestTVShows, fetchTMDBBackdrop } from '../api/movies';
 import { getAniPMTop, getAniPMRecent, getAniPMTitle } from '../api/anipm';
-import AdSenseUnit from '../components/AdSenseUnit';
 import TMDBPoster from '../components/TMDBPoster';
 import '../styles/homepage.css';
 
@@ -175,8 +174,6 @@ export default function MixedHome({ mobile = false }) {
         {anime.slice(0, 8).map((item, index) => <Card key={`weekly-${item.anilistId}-${index}`} item={item} type="anime" />)}
       </div>
     </section>}
-
-    <AdSenseUnit />
 
     <div className="home-main-v2">
       {loading ? <div className="section-loading">Loading AnimeVault…</div> : <>
