@@ -136,8 +136,6 @@ export function Privacy() {
           <li>Speed up your searches and video loading times.</li>
           <li>Recognize you when you return to our Service.</li>
         </ul>
-        <p>We use Google AdSense to display advertisements. Google and its partners may use cookies or similar technologies to personalize and measure ads, subject to your settings and applicable requirements. You can manage ad personalization in <a href="https://adssettings.google.com/" target="_blank" rel="noreferrer">Google Ads Settings</a> and learn more in <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noreferrer">Google's advertising privacy information</a>.</p>
-
         <h3>5. How We Use Your Information</h3>
         <p>We use information that we collect about you or that you provide to us, including any personal information:</p>
         <ul>
