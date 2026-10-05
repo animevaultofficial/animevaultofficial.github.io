@@ -20,7 +20,7 @@ export default function HeroBannerCarousel({ items }) {
 
   return (
     <div className="hero-carousel glass">
-      {image && !imageFailed && <img src={image} alt={title} className="hero-image" onError={() => setImageFailed(true)} decoding="async" fetchpriority="high" style={{ width: '100%', height: '300px', objectFit: 'cover' }} />}
+      {image && !imageFailed && <img src={image} alt={title} className="hero-image" onError={() => setImageFailed(true)} decoding="async" style={{ width: '100%', height: '300px', objectFit: 'cover' }} />}
       <div className="hero-overlay"><h2 className="hero-title">{title}</h2><p className="hero-episode">Episode {activeItem.episode || '?'}</p>{activeItem.broadcast?.day && activeItem.broadcast?.time && <p className="hero-countdown">{activeItem.broadcast.day} {activeItem.broadcast.time}</p>}<p className="hero-genres">{activeItem.genres?.join(', ')}</p><p className="hero-score">Score: {activeItem.score || 'N/A'}</p></div>
     </div>
   );

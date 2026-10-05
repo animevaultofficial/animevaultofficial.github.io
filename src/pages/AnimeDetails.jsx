@@ -249,7 +249,7 @@ export default function AnimeDetails() {
   return (
     <section className="anime-details-page">
       <div className="details-hero">
-        {heroBackground && <img className="details-hero-image" src={heroBackground} alt="" aria-hidden="true" loading="eager" fetchpriority="high" decoding="async" />}
+        {heroBackground && <img className="details-hero-image" src={heroBackground} alt="" aria-hidden="true" loading="eager" decoding="async" />}
         <div className="details-hero-vignette" />
         <div className="details-hero-fade" />
         <div className="details-hero-inner">
@@ -257,7 +257,7 @@ export default function AnimeDetails() {
 
           <div className="details-hero-grid">
             <div className="details-poster-column">
-              <div className="details-poster">{poster && <TMDBPoster title={anime.title} year={anime.year} mediaType={anime.type === 'MOVIE' ? 'movie' : 'tv'} requireAnimation alternateTitles={[anime.nativeTitle]} fallbackSrc={poster} alt={anime.title} loading="eager" fetchpriority="high" decoding="async" />}</div>
+              <div className="details-poster">{poster && <TMDBPoster title={anime.title} year={anime.year} mediaType={anime.type === 'MOVIE' ? 'movie' : 'tv'} requireAnimation alternateTitles={[anime.nativeTitle]} fallbackSrc={poster} alt={anime.title} loading="eager" decoding="async" />}</div>
               <div className="details-side-info">
                 <InfoRow label="Format" value={anime.type} />
                 <InfoRow label="Episodes" value={anime.episodesCount || anime.episodeList.length} />

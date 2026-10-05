@@ -288,7 +288,8 @@ export default function MovieWatch() {
                 title={item.name || `Episode ${item.episode_number}`}
               >
                 <span className="anime-player-thumb">
-                  {image ? <img src={image} alt="" loading="lazy" decoding="async" fetchPriority="low" onError={event => { event.currentTarget.hidden = true; }}/> : <span>Episode {String(item.episode_number).padStart(2, '0')}</span>}
+                  {image ? <img src={image} alt="" loading="lazy" decoding="async" onError={event => { event.currentTarget.hidden = true; }}/>
+                  : <span>Episode {String(item.episode_number).padStart(2, '0')}</span>}
                   <b>Episode {item.episode_number}</b>
                   {active && <strong><Play size={10} fill="currentColor"/> Now playing</strong>}
                 </span>

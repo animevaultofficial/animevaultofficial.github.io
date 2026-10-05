@@ -7,6 +7,7 @@ import {
 import { searchMoviesAndSeries, fetchLatestMovies, fetchLatestTVShows } from '../api/movies';
 import { searchAniPM, getAniPMRecent } from '../api/anipm';
 import TMDBPoster from '../components/TMDBPoster';
+import { isHentai } from '../utils/animeContent';
 import '../styles/searchPage.css';
 
 const PAGE_SIZE = 20;
@@ -134,7 +135,9 @@ export default function Search() {
         ? animeResponse
         : animeResponse?.data || [];
       const normalized = [
-        ...animeItems.map(normalizeAnime),
+        ...animeItems
+          .filter(item => searchQuery.trim() || !isHentai(item))
+          .map(normalizeAnime),
         ...movieItems,
         ...tvItems,
       ];
@@ -285,7 +288,6 @@ export default function Search() {
                         fallbackSrc={poster}
                         alt={title}
                         loading={index < 8 ? 'eager' : 'lazy'}
-                        fetchpriority={index < 4 ? 'high' : 'auto'}
                         decoding="async"
                       />
                       <span className={`search-result-type ${kind}`}>{kind === 'anime' ? 'Anime' : kind === 'movie' ? 'Movie' : 'TV series'}</span>

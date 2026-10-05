@@ -4,11 +4,25 @@ import { Play, Calendar, Star, Info, Sparkles, ChevronRight, Film, Tv, Clapperbo
 import { fetchLatestMovies, fetchLatestTVShows, fetchTMDBBackdrop } from '../api/movies';
 import { getAniPMTop, getAniPMRecent, getAniPMTitle } from '../api/anipm';
 import TMDBPoster from '../components/TMDBPoster';
+import { isHentai } from '../utils/animeContent';
 import '../styles/homepage.css';
 
 const CACHE_KEY = 'animevault_home_v7';
 const TTL = 30 * 60 * 1000;
-const readCache = () => { try { const x = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); return x && Date.now() - x.ts < TTL ? x.data : null; } catch { return null; } };
+const readCache = () => {
+  try {
+    const x = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    if (!x || Date.now() - x.ts >= TTL) return null;
+    return {
+      ...x.data,
+      anime: (x.data.anime || []).filter(item => !isHentai(item)),
+      animeRecent: (x.data.animeRecent || []).filter(item => !isHentai(item)),
+      slides: (x.data.slides || []).filter(item => item._kind !== 'anime' || !isHentai(item)),
+    };
+  } catch {
+    return null;
+  }
+};
 const writeCache = data => { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {} };
 
 export default function MixedHome({ mobile = false }) {
@@ -33,8 +47,8 @@ export default function MixedHome({ mobile = false }) {
       if (cancelled) return;
       const m = results[0]?.status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
       const t = results[1]?.status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
-      const a = results[2]?.status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value : [];
-      const ar = results[3]?.status === 'fulfilled' && Array.isArray(results[3].value) ? results[3].value : [];
+      const a = results[2]?.status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value.filter(item => !isHentai(item)) : [];
+      const ar = results[3]?.status === 'fulfilled' && Array.isArray(results[3].value) ? results[3].value.filter(item => !isHentai(item)) : [];
       const animeFeatured = a.slice(0, 2).map(x => ({ ...x, _kind: 'anime' }));
       const mediaFeatured = [
         ...m.slice(0, 2).map(x => ({ ...x, _kind: 'movie' })),
@@ -146,7 +160,7 @@ export default function MixedHome({ mobile = false }) {
   return <section className="home-v2 home-v2-reference">
     <div className="hero-v2 hero-carousel-v2" style={{ position: 'relative' }}>
       {slide && <div className="carousel-slide active" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-        <div className="hero-img-wrapper"><img src={image} alt={title} loading="eager" fetchpriority="high" decoding="async" /><div className="hero-overlay-v2" /></div>
+        <div className="hero-img-wrapper"><img src={image} alt={title} loading="eager" decoding="async" /><div className="hero-overlay-v2" /></div>
         <div className="hero-content-v2"><div className="hero-info-v2">
           <span className="hero-rank">{isAnime ? <Sparkles size={14} /> : <Clapperboard size={14} />} {isAnime ? 'Trending Anime' : 'Featured on AnimeVault'}</span>
           <h1 className="hero-title-v2">{title}</h1>

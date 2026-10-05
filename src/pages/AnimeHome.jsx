@@ -3,47 +3,7 @@ import { CalendarDays, ChevronRight, Play, Search, Sparkles, TrendingUp } from '
 import { Link, useNavigate } from 'react-router-dom';
 import { getAniPMSchedule, getAniPMTop, getAniPMRecent } from '../api/anipm';
 import TMDBPoster from '../components/TMDBPoster';
-
-
-function isHentai(item) {
-  // ani.pm can expose mature classification in different shapes depending on
-  // which feed produced the item. Keep discovery feeds safe, while SearchModal
-  // remains unchanged so an explicit search can still find the title.
-  const values = [
-    item?.genres,
-    item?.genre,
-    item?.tags,
-    item?.type,
-    item?.format,
-    item?.rating,
-    item?.contentRating,
-    item?.content_rating,
-    item?.classification,
-    item?.ratingLabel,
-    item?.rating_label,
-    item?.metadata?.genres,
-    item?.metadata?.tags,
-    item?.metadata?.contentRating,
-    item?.metadata?.content_rating,
-  ];
-
-  const hasMarker = value => {
-    if (Array.isArray(value)) return value.some(entry => hasMarker(entry));
-    if (value && typeof value === 'object') {
-      return Object.values(value).some(entry => hasMarker(entry));
-    }
-    const normalized = String(value ?? '').trim().toLowerCase();
-    return normalized === 'hentai' || normalized === 'rx' || normalized === '18+'
-      || normalized === 'r18' || normalized === 'r-18' || normalized === 'adult only';
-  };
-
-  return item?.isHentai === true
-    || item?.is_hentai === true
-    || item?.adult === true
-    || item?.isAdult === true
-    || item?.is_adult === true
-    || values.some(hasMarker);
-}
+import { isHentai } from '../utils/animeContent';
 
 function Card({ item }) {
   const navigate = useNavigate();
@@ -55,6 +15,7 @@ function Card({ item }) {
 export default function AnimeHome() {
   const [top, setTop] = useState([]), [recent, setRecent] = useState([]), [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true), [query, setQuery] = useState('');
+  const navigate = useNavigate();
   useEffect(() => {
     let cancelled = false;
     Promise.all([getAniPMTop('week', 24).catch(() => []), getAniPMRecent(1, 24).catch(() => []), getAniPMSchedule().catch(() => [])])
@@ -63,7 +24,11 @@ export default function AnimeHome() {
     return () => { cancelled = true; };
   }, []);
   const latestTitles = useMemo(() => { const seen = new Set(); return recent.filter(item => { if (seen.has(item.anilistId)) return false; seen.add(item.anilistId); return true; }); }, [recent]);
-  const submit = e => { e.preventDefault(); if (query.trim()) window.location.hash = '/search?q=' + encodeURIComponent(query.trim()); };
+  const submit = e => {
+    e.preventDefault();
+    if (!query.trim()) return;
+    navigate(`/search?q=${encodeURIComponent(query.trim())}`);
+  };
   return <div style={styles.page}>
     <section style={styles.hero}><div><div style={styles.kicker}><Sparkles size={15}/> ANIME IS BACK</div><h1 style={styles.heroH}>Watch anime on AnimeVault.</h1><p>Browse the latest releases, what is trending and this week's schedule — powered by the ani.pm catalogue.</p><form onSubmit={submit} style={styles.search}><Search size={18}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search anime..." aria-label="Search anime" style={styles.searchInput}/><button type="submit">Search</button></form></div></section>
     {loading ? <div style={styles.loading}>Loading anime catalogue…</div> : <><Section icon={<TrendingUp size={19}/>} title="Trending This Week" items={top}/><Section icon={<Sparkles size={19}/>} title="Recently Added" items={latestTitles}/><section style={styles.section}><div style={styles.heading}><div><h2><CalendarDays size={19}/> This Week's Schedule</h2><p>Upcoming releases and ani.pm availability.</p></div></div><div style={styles.schedule}>{schedule.slice(0,20).map((item,index) => <Link key={item.anilistId + '-' + item.episode + '-' + item.kind + '-' + index} to={'/anime/' + item.anilistId + '?episode=' + item.episode + '&lang=' + (item.kind === 'dub' ? 'dub' : 'sub')} style={styles.scheduleItem}><div><strong>{item.title}</strong><span>Episode {item.episode} · {item.kind?.toUpperCase()}</span></div><small>{item.onAniPm ? 'Available' : 'Not available yet'}</small><ChevronRight size={17}/></Link>)}{!schedule.length && <div style={styles.empty}>No schedule data available right now.</div>}</div></section></>}

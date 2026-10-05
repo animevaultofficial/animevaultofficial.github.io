@@ -36,7 +36,7 @@ function EpisodeCard({ episode, active, onSelect }) {
   return (
     <button type="button" className={`reference-episode-card ${active ? 'active' : ''}`} onClick={() => onSelect(episode)}>
       <div className="reference-episode-thumb">
-        {image && <img src={image} alt="" loading="lazy" decoding="async" fetchpriority="low" onError={event => { event.currentTarget.hidden = true; }} />}
+        {image && <img src={image} alt="" loading="lazy" decoding="async" onError={event => { event.currentTarget.hidden = true; }} />}
         {!image && <span className="reference-episode-no-image">Episode {String(episode.number).padStart(2, '0')}</span>}
         <span className="reference-episode-number">{String(episode.number).padStart(2, "0")}</span>
         {duration(episode?.duration) && <span className="reference-episode-duration">{duration(episode.duration)}</span>}

@@ -392,7 +392,7 @@ export default function AnimeWatch({ mediaId }) {
               title={ep.title || `Episode ${ep.number}`}
             >
               <span className="anime-player-thumb">
-                {ep.image ? <img src={ep.image} alt="" loading="lazy" decoding="async" fetchpriority="low" onError={event => { event.currentTarget.hidden = true; }}/> : <span>Episode {String(ep.number).padStart(2, '0')}</span>}
+                {ep.image ? <img src={ep.image} alt="" loading="lazy" decoding="async" onError={event => { event.currentTarget.hidden = true; }}/> : <span>Episode {String(ep.number).padStart(2, '0')}</span>}
                 <b>Episode {ep.number}</b>
                 {active && <strong><Play size={10} fill="currentColor"/> Now playing</strong>}
                 <small>{ep.available?.dub ? 'DUB' : ''}</small>

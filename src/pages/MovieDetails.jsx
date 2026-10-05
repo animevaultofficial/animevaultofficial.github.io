@@ -87,7 +87,7 @@ export default function MovieDetails() {
   return (
     <section className="anime-details-page media-anime-details-page">
       <div className="details-hero">
-        {backdrop && <img className="details-hero-image" src={backdrop} alt="" aria-hidden="true" loading="eager" fetchpriority="high" decoding="async" />}
+        {backdrop && <img className="details-hero-image" src={backdrop} alt="" aria-hidden="true" loading="eager" decoding="async" />}
         <div className="details-hero-vignette" />
         <div className="details-hero-fade" />
         <div className="details-hero-inner">
@@ -95,7 +95,7 @@ export default function MovieDetails() {
 
           <div className="details-hero-grid">
             <div className="details-poster-column">
-              <div className="details-poster">{poster && <img src={poster} alt={title} loading="eager" fetchpriority="high" decoding="async" />}</div>
+              <div className="details-poster">{poster && <img src={poster} alt={title} loading="eager" decoding="async" />}</div>
               <div className="details-side-info">
                 <InfoRow label="Format" value={isMovie ? 'Movie' : 'TV Series'} />
                 {!isMovie && media.number_of_seasons > 0 && <InfoRow label="Seasons" value={media.number_of_seasons} />}
