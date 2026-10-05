@@ -11,7 +11,7 @@ const isNativeApp = Capacitor.isNativePlatform();
 const hcaptchaEnabled = Boolean(hcaptchaSiteKey) && !isNativeApp;
 
 export default function AuthModal() {
-  const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup, loginAsGuest, sendVerificationCode, sendEmailOtp, loginWithEmailOtp } = useUser();
+  const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup, loginAsGuest, loginWithGoogle, sendVerificationCode, sendEmailOtp, loginWithEmailOtp } = useUser();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -85,6 +85,18 @@ export default function AuthModal() {
     } catch (err) { setError(err.message); setLoading(false); }
   };
 
+  const handleGoogleSignIn = async () => {
+    setError(''); setSuccess(''); setLoading(true);
+    try {
+      const res = await loginWithGoogle();
+      if (!res.success) setError(res.message || 'Google sign-in failed.');
+    } catch (err) {
+      setError(err.message || 'Google sign-in failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleResend = async () => {
     if (!username.trim() || loading) return;
     setError(''); setSuccess(''); setLoading(true);
@@ -140,6 +152,7 @@ export default function AuthModal() {
 
           {authTab === 'login' && !otpMode && <>
             <div style={{ display: 'flex', alignItems: 'center', margin: '18px 0', gap: '12px' }}><div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} /><span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>OR</span><div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} /></div>
+            {!isNativeApp && <button type="button" onClick={handleGoogleSignIn} disabled={loading} style={{ width: '100%', padding: '12px', background: '#fff', color: '#1f1f1f', fontWeight: '800', border: '1px solid rgba(0,0,0,0.12)', borderRadius: '11px', cursor: loading ? 'wait' : 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', marginBottom: '10px' }}><span aria-hidden="true" style={{ fontSize: '1.1rem', fontWeight: 900, color: '#4285f4' }}>G</span> Continue with Google</button>}
             <button type="button" onClick={switchToOtp} disabled={loading} style={{ width: '100%', padding: '12px', background: '#fff', color: '#000', fontWeight: '900', border: 'none', borderRadius: '11px', cursor: loading ? 'wait' : 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px' }}><Mail size={18} /> Continue with Email OTP</button>
           </>}
           {authTab === 'login' && otpMode && step === 'otp' && <button type="button" onClick={switchToPassword} disabled={loading} style={{ width: '100%', padding: '11px', marginTop: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: '800', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '11px', cursor: loading ? 'wait' : 'pointer', fontSize: '0.8rem' }}>Use Password Instead</button>}
