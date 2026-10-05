@@ -8,6 +8,7 @@ import { searchMoviesAndSeries, fetchLatestMovies, fetchLatestTVShows } from '..
 import { searchAniPM, getAniPMRecent } from '../api/anipm';
 import TMDBPoster from '../components/TMDBPoster';
 import { isHentai } from '../utils/animeContent';
+import { removeMediaMatchesForAnime } from '../utils/searchResults';
 import '../styles/searchPage.css';
 
 const PAGE_SIZE = 20;
@@ -53,10 +54,14 @@ function normalizeAnime(item) {
   const poster = typeof item.poster === 'string'
     ? item.poster
     : item.poster?.large || item.poster?.url || item.image || item.coverImage?.extraLarge || item.coverImage?.large || '';
+  const titleAliases = typeof item.title === 'object' && item.title
+    ? Object.values(item.title).filter(value => typeof value === 'string')
+    : [];
   return {
     ...item,
     id: item.anilistId || item.id,
     title: getTitle(item),
+    searchTitleAliases: [...titleAliases, item.nativeTitle, item.englishTitle, item.romajiTitle].filter(value => typeof value === 'string'),
     poster,
     mediaType: 'anime',
     genres: normalizeGenres(item),
@@ -141,7 +146,7 @@ export default function Search() {
         ...movieItems,
         ...tvItems,
       ];
-      setResults(previous => dedupe(page === 1 ? normalized : [...previous, ...normalized]));
+      setResults(previous => removeMediaMatchesForAnime(dedupe(page === 1 ? normalized : [...previous, ...normalized])));
       if (failures === responses.length) setError('Search providers did not return results.');
       setLoading(false);
     }

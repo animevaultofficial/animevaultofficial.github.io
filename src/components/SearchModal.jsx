@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, X, Star, Film, Play as PlayIcon } from 'lucide-react';
 import { searchMoviesAndSeries } from '../api/movies';
 import { searchAniPM } from '../api/anipm';
+import { removeMediaMatchesForAnime } from '../utils/searchResults';
 
 const HISTORY_KEY = 'animevault_search_history';
 const MAX_HISTORY = 12;
@@ -61,7 +62,7 @@ export default function SearchModal({ onClose }) {
             year: item.year,
             averageScore: item.score ? Math.round(item.score * 10) : undefined,
           }));
-          setResults([...anime, ...movies]);
+          setResults(removeMediaMatchesForAnime([...anime, ...movies]));
         }
       } catch (err) {
         console.error('Search error:', err);
