@@ -285,7 +285,7 @@ export function generatePrediction(item) {
           VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
           VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
         run: |
-          npm ci --no-audit --no-fund
+          npm ci --legacy-peer-deps --no-audit --no-fund
           npm run build
 
       - name: Commit repairs

@@ -61,7 +61,7 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install imagemagick
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
       - name: Validate production configuration
         shell: bash
         run: |
