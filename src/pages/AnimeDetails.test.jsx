@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatScore, normalizeAnime } from '../hooks/useAnimeDetails';
 import { getContentMinAgeFromMedia, getProfileMaxAge, isBlockedForProfile, isKidsProfile } from '../utils/ageRating';
+import { createParentalPinCredential, isValidParentalPin, verifyParentalPin } from '../utils/parentalPin';
 
 describe('normalizeAnime', () => {
   it('normalizes core metadata from title and series responses', () => {
@@ -62,6 +63,7 @@ describe('kids profile protections', () => {
   it('handles browse-feed genre and rating metadata safely', () => {
     expect(getContentMinAgeFromMedia({ genres: [{ name: 'Horror' }] })).toBe(18);
     expect(getContentMinAgeFromMedia({ genre: 'Adventure' })).toBe(13);
+    expect(getContentMinAgeFromMedia({ certification: 'Unrated' })).toBe(13);
     expect(getContentMinAgeFromMedia({ certification: { name: 'PG-13' } })).toBe(13);
     expect(getContentMinAgeFromMedia({ rating: 'PG' })).toBe(7);
     expect(getContentMinAgeFromMedia({
@@ -75,5 +77,23 @@ describe('kids profile protections', () => {
   it('allows adult profiles to view mature content', () => {
     expect(isBlockedForProfile({ adult: true }, { ageRating: 'adults' })).toBe(false);
     expect(isKidsProfile({ ageRating: 'kids' })).toBe(true);
+  });
+
+  it('only approves catalog entries with a matching anime or TMDB identifier', () => {
+    expect(isBlockedForProfile({ anilistId: 20 }, { ageRating: 'kids' })).toBe(false);
+    expect(isBlockedForProfile({ id: '20', type: 'movie' }, { ageRating: 'kids' })).toBe(true);
+    expect(isBlockedForProfile({ id: '862', media_type: 'movie' }, { ageRating: 'kids' })).toBe(false);
+    expect(isBlockedForProfile({ id: '862' }, { ageRating: 'kids' })).toBe(true);
+  });
+
+  it('validates and verifies parent PIN credentials without storing the PIN itself', async () => {
+    expect(isValidParentalPin('12345')).toBe(false);
+    expect(isValidParentalPin('123456')).toBe(true);
+    expect(isValidParentalPin('1234567890123')).toBe(false);
+
+    const credential = await createParentalPinCredential('246810');
+    expect(credential).not.toHaveProperty('pin');
+    expect(await verifyParentalPin('246810', credential)).toBe(true);
+    expect(await verifyParentalPin('246811', credential)).toBe(false);
   });
 });

@@ -101,7 +101,7 @@ The app stores some state locally and can synchronize supported account data thr
 
 ### Data flow
 
-The React pages call focused API modules in `src/api`. Those modules obtain catalog metadata and playback information from external services. Account and activity functions in `src/api/db.js` use Neon PostgreSQL when configured and include local-storage-backed behavior for supported data. Authentication is handled through the configured Neon Auth client and the project's auth/database helpers.
+The React pages call focused API modules in `src/api`. Those modules obtain catalog metadata and playback information from external services. Account and activity functions in `src/api/db.js` use Neon PostgreSQL when configured and include local-storage-backed behavior for supported data. Neon Auth owns password, Google, and email-OTP sign-in; successful legacy password logins are migrated to a Neon Auth identity while retaining the existing AnimeVault user ID and associated data. The app requires the matching Neon Auth methods to be enabled at the configured endpoint. The installed Neon Auth client does not expose native MFA methods, so the legacy 2FA switch is disabled until Neon MFA is configured and supported by the client.
 
 The mobile application shares selected data and account modules with the main app, but has its own screen implementations and styling. The Electron renderer uses the same general React application and invokes native capabilities through the preload bridge and IPC handlers.
 

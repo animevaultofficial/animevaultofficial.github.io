@@ -3,6 +3,7 @@ import { ArrowLeft, Calendar, Check, ChevronDown, Clock3, Heart, Maximize, Minim
 import { fetchMovieDetails, fetchTVDetails, fetchTVSeasonDetails, findMediaByTitle, resolveMediaSource, MEDIA_SOURCE_PROVIDERS, DEFAULT_MEDIA_SOURCE_PROVIDER } from '../api/movies';
 import AndroidVideoPlayer from '../components/AndroidVideoPlayer';
 import { useUser } from '../../api/UserContext';
+import { isBlockedForProfile } from '../../utils/ageRating';
 
 const normalizeId = value => { const raw = String(value ?? '').trim().replace(/^tmdb-/i, ''); return /^\d+$/.test(raw) ? raw : ''; };
 const normalizeType = value => String(value || '').toLowerCase() === 'movie' ? 'movie' : 'tv';
@@ -10,7 +11,7 @@ const normalizeType = value => String(value || '').toLowerCase() === 'movie' ? '
 const chipStyle = { background:'rgba(255,255,255,.07)', color:'#cbd5e1', border:'1px solid rgba(255,255,255,.08)', borderRadius:999, padding:'6px 10px', fontSize:'.72rem', whiteSpace:'nowrap' };
 
 export default function DramaDetailPage({ params = {}, initialWatch = false, goBack, navigate }) {
-  const { user, setAuthTab } = useUser();
+  const { user, activeSubAccount, setAuthTab } = useUser();
   const rawRouteId = params?.id ?? params?.tmdbId ?? params?.mediaId;
   const id = normalizeId(rawRouteId);
   const mediaType = normalizeType(params?.mediaType || params?.type);
@@ -39,13 +40,16 @@ export default function DramaDetailPage({ params = {}, initialWatch = false, goB
         }
         if(cancelled)return;
         if(!data || !actualId) throw new Error(initialTitle ? `Could not find this ${mediaType==='movie'?'movie':'TV show'} in TMDB.` : `Missing ${mediaType==='movie'?'movie':'TV show'} ID.`);
+        if(isBlockedForProfile({ ...data, id: actualId, tmdbId: actualId, media_type: mediaType }, activeSubAccount)) {
+          throw new Error('This title is blocked for Kids profiles.');
+        }
         setResolvedId(actualId); setDetails(data); setLoading(false);
         if(mediaType!=='movie' && Array.isArray(data.seasons) && data.seasons.length){ const first=data.seasons.find(s=>Number(s?.season_number)>0)?.season_number||1; const requested=data.seasons.some(s=>Number(s?.season_number)===initialSeason); setSelectedSeason(requested?initialSeason:first); }
         setSelectedEpisode(initialEpisode);
       } catch(err){ if(!cancelled){setError(err?.message||'Failed to load details.');setLoading(false);} }
     })();
     return()=>{cancelled=true;};
-  },[id,mediaType,initialTitle,initialSeason,initialEpisode]);
+  },[id,mediaType,initialTitle,initialSeason,initialEpisode,activeSubAccount]);
 
   useEffect(() => {
     let cancelled=false;

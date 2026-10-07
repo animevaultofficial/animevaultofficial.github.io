@@ -45,9 +45,11 @@ export function normalizeAnime(titleData, seriesData, id) {
     year: firstValue(titleData?.year, titleData?.releaseYear, titleData?.seasonYear, seriesData?.year),
     type: firstValue(titleData?.type, titleData?.format, seriesData?.type) || 'TV',
     status: firstValue(titleData?.status, seriesData?.status),
+    adult: Boolean(titleData?.adult || titleData?.isAdult || titleData?.is_adult || seriesData?.adult || seriesData?.isAdult || seriesData?.is_adult),
     episodesCount: numericValue(titleData?.episodes, titleData?.episodeCount, seriesData?.episodes, seriesData?.episodeCount, episodeList.length),
     duration: firstValue(titleData?.duration, seriesData?.duration),
     genres: normalizeList(rawGenres),
+    tags: firstValue(titleData?.tags, seriesData?.tags),
     studio: firstValue(titleData?.studio, titleData?.studios?.[0]?.name, titleData?.studios?.[0], seriesData?.studio),
     aired: firstValue(titleData?.aired, titleData?.airing, seriesData?.aired),
     season: firstValue(titleData?.season, seriesData?.season),
@@ -116,7 +118,7 @@ export function useAnimeDetails(id, activeSubAccount) {
         }
 
         const normalized = normalizeAnime(title, series, id);
-        if (isBlockedForProfile(normalized.seriesData || normalized.titleData || normalized, activeSubAccount)) {
+        if (isBlockedForProfile(normalized, activeSubAccount)) {
           setError('This title is blocked for Kids profiles.');
           setLoading(false);
           return;

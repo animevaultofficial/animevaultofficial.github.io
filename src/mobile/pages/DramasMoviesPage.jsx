@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Film, Tv, TrendingUp, Search, X, Play, Info, Sparkles, Hash } from 'lucide-react';
 import { fetchLatestMovies, fetchLatestTVShows, searchMoviesAndSeries } from '../api/movies';
+import { useUser } from '../../api/UserContext';
+import { isBlockedForProfile, isKidsProfile } from '../../utils/ageRating';
+import { KIDS_FAMILY_MEDIA, isKidsCatalogApproved } from '../../utils/kidsCatalog';
 
 const GENRES = ['Action', 'Romance', 'Thriller', 'Horror', 'Comedy', 'Drama', 'Sci-Fi', 'Crime', 'Fantasy', 'Mystery', 'Adventure', 'Animation'];
 const FEATURED_SHOWS = [
@@ -62,6 +65,17 @@ function HeroCard({ item, onClick }) {
 }
 
 export default function DramasMoviesPage({ navigate }) {
+  const { activeSubAccount } = useUser();
+  const kidsMode = isKidsProfile(activeSubAccount);
+  const isAllowed = item => !isBlockedForProfile(item, activeSubAccount)
+    && (!kidsMode || isKidsCatalogApproved(item));
+  const kidsMedia = KIDS_FAMILY_MEDIA.map(item => ({
+    ...item,
+    title: item.name,
+    media_type: item.type,
+    poster_path: item.poster?.replace('https://image.tmdb.org/t/p/w500', ''),
+    vote_average: Number(item.rating),
+  }));
   const [tab, setTab] = useState('movies');
   const [movies, setMovies] = useState([]);
   const [tvShows, setTvShows] = useState([]);
@@ -74,6 +88,13 @@ export default function DramasMoviesPage({ navigate }) {
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      if (kidsMode) {
+        setMovies(kidsMedia.filter(item => item.media_type === 'movie'));
+        setTvShows(kidsMedia.filter(item => item.media_type === 'tv'));
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
       try {
         const [movieData, tvData] = await Promise.all([fetchLatestMovies(), fetchLatestTVShows()]);
         if (cancelled) return;
@@ -88,7 +109,7 @@ export default function DramasMoviesPage({ navigate }) {
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [kidsMode, activeSubAccount]);
 
   useEffect(() => {
     if (!FEATURED_SHOWS.length) return undefined;
@@ -103,9 +124,11 @@ export default function DramasMoviesPage({ navigate }) {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const tmdbResults = await searchMoviesAndSeries(trimmed);
+        const tmdbResults = kidsMode
+          ? kidsMedia.filter(item => `${item.name} ${item.description}`.toLowerCase().includes(trimmed.toLowerCase()))
+          : await searchMoviesAndSeries(trimmed);
         if (cancelled) return;
-        setSearchResults(Array.isArray(tmdbResults) ? tmdbResults.filter(Boolean) : []);
+        setSearchResults(Array.isArray(tmdbResults) ? tmdbResults.filter(isAllowed) : []);
       } catch (error) {
         console.warn('[AnimeVault Mobile] media search failed:', error?.message || error);
         if (!cancelled) setSearchResults([]);
@@ -114,7 +137,7 @@ export default function DramasMoviesPage({ navigate }) {
       }
     }, 400);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [searchQuery]);
+  }, [searchQuery, kidsMode, activeSubAccount]);
 
   const handleMediaClick = (item) => {
     if (!item || item.id == null) return;
@@ -122,8 +145,9 @@ export default function DramasMoviesPage({ navigate }) {
     navigate('drama-detail', { id: item.id, mediaType, title: item.title || item.name || 'Unknown', poster: item.poster_path || null });
   };
 
-  const displayItems = tab === 'movies' ? movies : tvShows;
-  const slides = FEATURED_SHOWS;
+  const displayItems = (tab === 'movies' ? movies : tvShows).filter(isAllowed);
+  const slides = kidsMode ? kidsMedia : FEATURED_SHOWS;
+  const visibleSearchResults = searchResults.filter(isAllowed);
 
   return (
     <div className="page">
@@ -150,8 +174,8 @@ export default function DramasMoviesPage({ navigate }) {
 
       {searchQuery ? (
         <div className="sec" style={{ padding: '0 .75rem' }}>
-          <div className="shdr"><span className="sttl"><Search size={14} /> Results ({searchResults.length})</span></div>
-          {searching ? <div className="hscroll">{[1,2,3,4,5,6].map(i => <div key={i} className="skel shimmer" />)}</div> : searchResults.length > 0 ? <div className="g3">{searchResults.map((item, idx) => <MediaCard key={`${item.media_type || 'media'}-${item.id ?? idx}`} item={item} onClick={handleMediaClick} />)}</div> : <div className="empty compact" style={{ minHeight: 80 }}><p>No results found</p></div>}
+          <div className="shdr"><span className="sttl"><Search size={14} /> Results ({visibleSearchResults.length})</span></div>
+          {searching ? <div className="hscroll">{[1,2,3,4,5,6].map(i => <div key={i} className="skel shimmer" />)}</div> : visibleSearchResults.length > 0 ? <div className="g3">{visibleSearchResults.map((item, idx) => <MediaCard key={`${item.media_type || 'media'}-${item.id ?? idx}`} item={item} onClick={handleMediaClick} />)}</div> : <div className="empty compact" style={{ minHeight: 80 }}><p>No results found</p></div>}
         </div>
       ) : (
         <>

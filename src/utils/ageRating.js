@@ -1,3 +1,5 @@
+import { isKidsCatalogApproved } from './kidsCatalog';
+
 // ── Age Rating Backend ────────────────────────────────────────────────────────
 export const RATING_COUNTRIES = [
   { code: "US", label: "United States (MPAA / TV Parental)" },
@@ -14,9 +16,6 @@ export const RATING_COUNTRIES = [
 const CERT_TO_AGE = {
   US: {
     g: 0,
-    nr: 0,
-    "not rated": 0,
-    unrated: 0,
     "tv-y": 0,
     "tv-y7": 7,
     "tv-g": 0,
@@ -139,6 +138,8 @@ export function getProfileMaxAge(profile) {
 export function getContentMinAgeFromMedia(media, countryCode = 'US') {
   if (!media) return 13;
   if (media.adult || media.isAdult || media.is_adult) return 18;
+  const tags = Array.isArray(media.tags) ? media.tags : [];
+  if (tags.some(tag => tag?.isAdult || tag?.is_adult)) return 18;
   const tmdbCertification = media.release_dates?.results
     ?.find(item => item.iso_3166_1 === countryCode)?.release_dates
     ?.find(item => item.certification)?.certification
@@ -158,6 +159,7 @@ export function getContentMinAgeFromMedia(media, countryCode = 'US') {
   const genres = (Array.isArray(rawGenres) ? rawGenres : [rawGenres])
     .map((genre) => String(typeof genre === 'object' ? genre.name || genre.label || '' : genre).toLowerCase());
   if (genres.some((genre) => MATURE_GENRES.some((blocked) => genre.includes(blocked)))) return 18;
+  if (isKidsCatalogApproved(media)) return 0;
   return 13;
 }
 

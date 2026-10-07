@@ -528,6 +528,59 @@ export async function ensureMainSubAccount(user) {
   return created.success ? created.profile : null;
 }
 
+async function ensureParentalControlTable(db) {
+  await db`
+    CREATE TABLE IF NOT EXISTS user_parental_controls (
+      user_id TEXT PRIMARY KEY,
+      pin_salt TEXT NOT NULL,
+      pin_hash TEXT NOT NULL,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+}
+
+export async function fetchParentalPinCredential(userId) {
+  const db = await getSql();
+  if (!db) return { success: false, message: 'Database unavailable.' };
+  try {
+    await ensureParentalControlTable(db);
+    const result = await db`
+      SELECT pin_salt, pin_hash
+      FROM user_parental_controls
+      WHERE user_id = ${userId}
+      LIMIT 1
+    `;
+    const row = result[0];
+    return {
+      success: true,
+      credential: row ? { salt: row.pin_salt, hash: row.pin_hash } : null
+    };
+  } catch (e) {
+    warn('[AnimeVault DB] Could not load parental controls:', e?.message);
+    return { success: false, message: e?.message || 'Could not load parental controls.' };
+  }
+}
+
+export async function saveParentalPinCredential(userId, credential) {
+  const db = await getSql();
+  if (!db) return { success: false, message: 'Database unavailable.' };
+  try {
+    await ensureParentalControlTable(db);
+    await db`
+      INSERT INTO user_parental_controls (user_id, pin_salt, pin_hash, updated_at)
+      VALUES (${userId}, ${credential.salt}, ${credential.hash}, NOW())
+      ON CONFLICT (user_id) DO UPDATE
+      SET pin_salt = EXCLUDED.pin_salt,
+          pin_hash = EXCLUDED.pin_hash,
+          updated_at = NOW()
+    `;
+    return { success: true };
+  } catch (e) {
+    warn('[AnimeVault DB] Could not save parental controls:', e?.message);
+    return { success: false, message: e?.message || 'Could not save parental controls.' };
+  }
+}
+
 // ── DB-backed user data functions (with localStorage fallback) ──
 
 export async function fetchWatchHistory(userId, subAccountId = null) {
@@ -2346,40 +2399,128 @@ export async function dismissNotification(id) {
   }
 }
 
-export async function syncGoogleUserToDb(email, googleAvatar, isEmailVerified) {
+export async function syncNeonUserToDb(email, avatar, isEmailVerified, authSubject, legacyUserId = null) {
   try {
     const db = await getSql();
     if (!db) return { success: false, message: 'Database not available' };
 
-    const trimmedUser = email.trim().toLowerCase().split('@')[0];
-
-    const existing = await db`
-      SELECT id, username, avatar, banner, is_admin, is_verified, created_at
-      FROM users WHERE LOWER(username) = ${trimmedUser}
-    `;
-
-    if (existing.length > 0) {
-      // Update email verified status if it became true
-      if (isEmailVerified && !existing[0].is_verified) {
-        await db`UPDATE users SET is_verified = true WHERE id = ${existing[0].id}`;
-        existing[0].is_verified = true;
-      }
-      return { success: true, user: existing[0] };
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const subject = String(authSubject || '').trim();
+    const username = normalizedEmail.split('@')[0];
+    if (!normalizedEmail || !subject || !username) {
+      return { success: false, message: 'Neon Auth returned an incomplete account identity.' };
     }
 
-    // User doesn't exist, create a new record!
-    // If the email includes 'admin', let's make them an admin!
-    const isAdmin = email.toLowerCase().includes('admin') || email.toLowerCase() === 'adiyanhehe@gmail.com';
+    await db`ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_subject TEXT`;
+    await db`ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_email TEXT`;
+    await db`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_auth_subject ON users (auth_subject) WHERE auth_subject IS NOT NULL`;
+    await db`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_auth_email ON users (LOWER(auth_email)) WHERE auth_email IS NOT NULL`;
+
+    if (legacyUserId !== null) {
+      const linked = await db`
+        SELECT id FROM users
+        WHERE auth_subject = ${subject} AND id <> ${legacyUserId}
+        LIMIT 1
+      `;
+      if (linked.length) {
+        return { success: false, message: 'This Neon Auth identity is already linked to another AnimeVault account.' };
+      }
+
+      const migrated = await db`
+        UPDATE users
+        SET auth_subject = ${subject},
+            auth_email = ${normalizedEmail},
+            password = 'neon_auth_managed',
+            avatar = COALESCE(${avatar || null}, avatar),
+            is_verified = CASE WHEN ${Boolean(isEmailVerified)} THEN TRUE ELSE is_verified END
+        WHERE id = ${legacyUserId}
+          AND (auth_subject IS NULL OR auth_subject = ${subject})
+        RETURNING id, username, avatar, banner, is_admin, is_verified, created_at
+      `;
+      if (!migrated.length) {
+        return { success: false, message: 'Could not link this Neon Auth account to its legacy AnimeVault account.' };
+      }
+      return { success: true, user: migrated[0] };
+    }
+
+    const linked = await db`
+      SELECT id, username, avatar, banner, is_admin, is_verified, created_at, auth_email
+      FROM users
+      WHERE auth_subject = ${subject}
+      LIMIT 1
+    `;
+    if (linked.length) {
+      const updated = await db`
+        UPDATE users
+        SET auth_email = ${normalizedEmail},
+            avatar = COALESCE(${avatar || null}, avatar),
+            is_verified = CASE WHEN ${Boolean(isEmailVerified)} THEN TRUE ELSE is_verified END
+        WHERE id = ${linked[0].id}
+        RETURNING id, username, avatar, banner, is_admin, is_verified, created_at
+      `;
+      return { success: true, user: updated[0] };
+    }
+
+    const emailOwner = await db`
+      SELECT id, username, avatar, banner, is_admin, is_verified, created_at, auth_subject
+      FROM users
+      WHERE LOWER(auth_email) = ${normalizedEmail}
+      LIMIT 1
+    `;
+    if (emailOwner.length) {
+      if (emailOwner[0].auth_subject && emailOwner[0].auth_subject !== subject) {
+        return { success: false, message: 'This email is already linked to another Neon Auth identity.' };
+      }
+      const updated = await db`
+        UPDATE users
+        SET auth_subject = ${subject},
+            avatar = COALESCE(${avatar || null}, avatar),
+            is_verified = CASE WHEN ${Boolean(isEmailVerified)} THEN TRUE ELSE is_verified END
+        WHERE id = ${emailOwner[0].id}
+        RETURNING id, username, avatar, banner, is_admin, is_verified, created_at
+      `;
+      return { success: true, user: updated[0] };
+    }
+
+    if (isEmailVerified) {
+      const legacyOAuthUser = await db`
+        SELECT id, username, avatar, banner, is_admin, is_verified, created_at
+        FROM users
+        WHERE LOWER(username) = ${username}
+          AND password = 'google_oauth_bypass'
+          AND auth_subject IS NULL
+        LIMIT 1
+      `;
+      if (legacyOAuthUser.length) {
+        const migrated = await db`
+          UPDATE users
+          SET auth_subject = ${subject},
+              auth_email = ${normalizedEmail},
+              avatar = COALESCE(${avatar || null}, avatar),
+              is_verified = TRUE
+          WHERE id = ${legacyOAuthUser[0].id}
+          RETURNING id, username, avatar, banner, is_admin, is_verified, created_at
+        `;
+        return { success: true, user: migrated[0] };
+      }
+    }
+
+    const nameConflict = await db`
+      SELECT id FROM users WHERE LOWER(username) = ${username} LIMIT 1
+    `;
+    const uniqueUsername = nameConflict.length
+      ? `${username.slice(0, 40)}_${subject.slice(-8)}`
+      : username;
 
     const result = await db`
-      INSERT INTO users (username, password, avatar, is_admin, is_verified) 
-      VALUES (${trimmedUser}, 'google_oauth_bypass', ${googleAvatar || ''}, ${isAdmin}, ${isEmailVerified || false})
+      INSERT INTO users (username, password, avatar, is_admin, is_verified, auth_subject, auth_email)
+      VALUES (${uniqueUsername}, 'neon_auth_managed', ${avatar || ''}, FALSE, ${Boolean(isEmailVerified)}, ${subject}, ${normalizedEmail})
       RETURNING id, username, avatar, banner, is_admin, is_verified, created_at
     `;
     return { success: true, user: result[0] };
   } catch (err) {
-    console.error('Failed to sync Google user to database:', err);
-    return { success: false, message: 'Sync failed' };
+    error('[AnimeVault Auth] Failed to link Neon Auth identity:', err);
+    return { success: false, message: 'Could not link the Neon Auth account to AnimeVault data.' };
   }
 }
 

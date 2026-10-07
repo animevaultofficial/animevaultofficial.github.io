@@ -4,14 +4,13 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { X, Lock, Sparkles, AlertCircle, CheckCircle, UserRound, Mail, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../api/UserContext';
-import { checkUser2FA } from '../api/db';
 
 const hcaptchaSiteKey = import.meta.env.VITE_HCAPTCHA_SITEKEY || '';
 const isNativeApp = Capacitor.isNativePlatform();
 const hcaptchaEnabled = Boolean(hcaptchaSiteKey) && !isNativeApp;
 
 export default function AuthModal() {
-  const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup, loginAsGuest, loginWithGoogle, sendVerificationCode, sendEmailOtp, loginWithEmailOtp } = useUser();
+  const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup, loginAsGuest, loginWithGoogle, sendEmailOtp, loginWithEmailOtp } = useUser();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -49,28 +48,14 @@ export default function AuthModal() {
           }
         } else {
           if (!password) throw new Error('Password is required.');
-          if (step === 'email_password') {
-            const needs2FA = await checkUser2FA(username.trim());
-            if (needs2FA) {
-              const res = await sendVerificationCode(username.trim());
-              if (res.success) { setSuccess('2-Step Verification required. Code sent to email!'); setStep('otp'); }
-              else setError(res.message || 'Failed to send 2FA code.');
-            } else {
-              const res = await login(username, password, null, captchaToken);
-              if (res.success) { setSuccess('Welcome back!'); setTimeout(resetForm, 800); }
-              else setError(res.message);
-            }
-          } else {
-            if (!verificationCode.trim()) throw new Error('Verification code is required.');
-            const res = await login(username, password, verificationCode.trim(), captchaToken);
-            if (res.success) { setSuccess('Welcome back!'); setTimeout(resetForm, 800); }
-            else setError(res.message);
-          }
+          const res = await login(username, password, null, captchaToken);
+          if (res.success) { setSuccess('Welcome back!'); setTimeout(resetForm, 800); }
+          else setError(res.message);
         }
       } else {
         if (!password) throw new Error('Password is required.');
         const res = await signup(username, password, captchaToken);
-        if (res.success) { setSuccess('Account created!'); setTimeout(resetForm, 800); }
+        if (res.success) { setSuccess(res.message || 'Account created!'); setTimeout(resetForm, 1800); }
         else setError(res.message);
       }
     } catch (err) { setError(err.message); }

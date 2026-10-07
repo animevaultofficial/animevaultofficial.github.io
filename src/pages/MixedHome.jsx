@@ -6,7 +6,8 @@ import { getAniPMTop, getAniPMRecent, getAniPMTitle } from '../api/anipm';
 import TMDBPoster from '../components/TMDBPoster';
 import { isHentai } from '../utils/animeContent';
 import { useUser } from '../api/UserContext';
-import { isBlockedForProfile } from '../utils/ageRating';
+import { isBlockedForProfile, isKidsProfile } from '../utils/ageRating';
+import { KIDS_ANIME_FEATURES, KIDS_FAMILY_MEDIA } from '../utils/kidsCatalog';
 import '../styles/homepage.css';
 
 const CACHE_KEY = 'animevault_home_v7';
@@ -30,6 +31,7 @@ const writeCache = data => { try { localStorage.setItem(CACHE_KEY, JSON.stringif
 export default function MixedHome({ mobile = false }) {
   const navigate = useNavigate();
   const { activeSubAccount } = useUser();
+  const isKidsMode = isKidsProfile(activeSubAccount);
   const cached = readCache();
   const [rawMovies, setMovies] = useState(cached?.movies || []);
   const [rawTvShows, setTvShows] = useState(cached?.tvShows || []);
@@ -37,11 +39,16 @@ export default function MixedHome({ mobile = false }) {
   const [rawAnimeRecent, setAnimeRecent] = useState(cached?.animeRecent || []);
   const [rawSlides, setSlides] = useState(cached?.slides || []);
   const isAllowed = item => !isBlockedForProfile(item, activeSubAccount);
-  const movies = rawMovies.filter(isAllowed);
-  const tvShows = rawTvShows.filter(isAllowed);
-  const anime = rawAnime.filter(isAllowed);
-  const animeRecent = rawAnimeRecent.filter(isAllowed);
-  const slides = rawSlides.filter(isAllowed);
+  const movies = isKidsMode ? KIDS_FAMILY_MEDIA.filter(item => item.type === 'movie') : rawMovies.filter(isAllowed);
+  const tvShows = isKidsMode ? KIDS_FAMILY_MEDIA.filter(item => item.type === 'tv') : rawTvShows.filter(isAllowed);
+  const anime = isKidsMode ? KIDS_ANIME_FEATURES : rawAnime.filter(isAllowed);
+  const animeRecent = isKidsMode ? KIDS_ANIME_FEATURES : rawAnimeRecent.filter(isAllowed);
+  const slides = isKidsMode
+    ? [
+      ...KIDS_ANIME_FEATURES.slice(0, 2).map(item => ({ ...item, _kind: 'anime' })),
+      ...KIDS_FAMILY_MEDIA.slice(0, 2).map(item => ({ ...item, _kind: item.type })),
+    ]
+    : rawSlides.filter(isAllowed);
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(!cached);
 

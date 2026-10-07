@@ -6,6 +6,7 @@ import { FocusableLink, FocusableButton } from '../components/FocusableWrapper';
 import TMDBPoster from '../components/TMDBPoster';
 import { useUser } from '../api/UserContext';
 import { isBlockedForProfile, isKidsProfile } from '../utils/ageRating';
+import { KIDS_FAMILY_MEDIA, isKidsCatalogApproved } from '../utils/kidsCatalog';
 
 const MOVIE_GENRES = [
   'Action', 'Romance', 'Thriller', 'Horror', 'Comedy', 'Drama', 'Sci-Fi', 'Crime', 'Fantasy', 'Mystery'
@@ -13,14 +14,6 @@ const MOVIE_GENRES = [
 
 
 const KIDS_MOVIE_GENRES = ['Animation', 'Family', 'Adventure', 'Comedy', 'Fantasy'];
-
-const KIDS_TRENDING_SHOWS = [
-  { id: '12', name: 'Finding Nemo', type: 'movie', year: '2003', rating: '8.2', poster: 'https://image.tmdb.org/t/p/w500/eHuGQ10FUzK1mdOY69wF5pGgEf5.jpg', banner: 'https://image.tmdb.org/t/p/original/h3b6pzm7tpomYz2ZVD4Rgoz5EEP.jpg', description: 'A little clownfish gets lost, and his dad crosses the ocean with new friends to bring him home.', genre: 'Animation, Family, Adventure' },
-  { id: '862', name: 'Toy Story', type: 'movie', year: '1995', rating: '8.3', poster: 'https://image.tmdb.org/t/p/w500/uXDfjJbdP4ijW5hWSBrPrlKpxab.jpg', banner: 'https://image.tmdb.org/t/p/original/3Rfvhy1Nl6sSGJwyjb0QiZzZYlB.jpg', description: 'Woody, Buzz, and a bedroom full of toys learn about friendship, teamwork, and imagination.', genre: 'Animation, Family, Comedy' },
-  { id: '508943', name: 'Luca', type: 'movie', year: '2021', rating: '7.4', poster: 'https://image.tmdb.org/t/p/w500/jTswp6KyDYKtvC52GbHagrZbGvD.jpg', banner: 'https://image.tmdb.org/t/p/original/620hnMVLu6RSZW6a5rwO8gqpt0t.jpg', description: 'Two young sea monsters enjoy a summer of discovery, scooters, and friendship on the Italian Riviera.', genre: 'Animation, Family, Fantasy' },
-  { id: '14160', name: 'Up', type: 'movie', year: '2009', rating: '8.0', poster: 'https://image.tmdb.org/t/p/w500/mFvoEwSfLqbcWwFsDjQebn9bzFe.jpg', banner: 'https://image.tmdb.org/t/p/original/hGGC9gKo7CFE3fW07RA587e5kol.jpg', description: 'A balloon-powered house carries an unlikely duo into a colorful wilderness adventure.', genre: 'Animation, Family, Adventure' },
-  { id: '92685', name: 'The Owl House', type: 'tv', year: '2020', rating: '8.6', poster: 'https://image.tmdb.org/t/p/w500/zhdy3PcNVE15wj1wrxn45ARZBnx.jpg', banner: 'https://image.tmdb.org/t/p/original/4tS0iyKQBDFqVpVcH21MSJwXZdq.jpg', description: 'A creative teen discovers a magical realm filled with odd creatures, big lessons, and found family.', genre: 'Animation, Family, Fantasy' }
-];
 
 const TRENDING_SHOWS = [
   {
@@ -96,10 +89,12 @@ function DramasMovies() {
   const navigate = useNavigate();
   const { activeSubAccount } = useUser();
   const isKidsMode = isKidsProfile(activeSubAccount);
-  const visibleMovies = movies.filter(item => !isBlockedForProfile(item, activeSubAccount));
-  const visibleTvShows = tvShows.filter(item => !isBlockedForProfile(item, activeSubAccount));
-  const visibleSearchResults = searchResults.filter(item => !isBlockedForProfile(item, activeSubAccount));
-  const heroShows = isKidsMode ? KIDS_TRENDING_SHOWS : TRENDING_SHOWS;
+  const isVisibleForProfile = item => !isBlockedForProfile(item, activeSubAccount)
+    && (!isKidsMode || isKidsCatalogApproved(item));
+  const visibleMovies = movies.filter(isVisibleForProfile);
+  const visibleTvShows = tvShows.filter(isVisibleForProfile);
+  const visibleSearchResults = searchResults.filter(isVisibleForProfile);
+  const heroShows = isKidsMode ? KIDS_FAMILY_MEDIA : TRENDING_SHOWS;
   const genresToShow = isKidsMode ? KIDS_MOVIE_GENRES : MOVIE_GENRES;
 
   useEffect(() => {
@@ -118,12 +113,12 @@ function DramasMovies() {
     setLoading(true);
     if (activeTab === 'movies') {
       const isCuratedKidsFeed = isKidsMode && !selectedGenre;
-      const data = isCuratedKidsFeed ? KIDS_TRENDING_SHOWS.filter(item => item.type === 'movie') : await fetchLatestMovies(moviePage, selectedGenre);
-      setMovies(isCuratedKidsFeed ? data : (data || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
+      const data = isCuratedKidsFeed ? KIDS_FAMILY_MEDIA.filter(item => item.type === 'movie') : await fetchLatestMovies(moviePage, selectedGenre);
+      setMovies(isCuratedKidsFeed ? data : (data || []).filter(isVisibleForProfile));
     } else {
       const isCuratedKidsFeed = isKidsMode && !selectedGenre;
-      const data = isCuratedKidsFeed ? KIDS_TRENDING_SHOWS.filter(item => item.type === 'tv') : await fetchLatestTVShows(tvPage, selectedGenre);
-      setTvShows(isCuratedKidsFeed ? data : (data || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
+      const data = isCuratedKidsFeed ? KIDS_FAMILY_MEDIA.filter(item => item.type === 'tv') : await fetchLatestTVShows(tvPage, selectedGenre);
+      setTvShows(isCuratedKidsFeed ? data : (data || []).filter(isVisibleForProfile));
     }
     setLoading(false);
   }
@@ -139,7 +134,7 @@ function DramasMovies() {
     setSearching(true);
     setSelectedGenre(''); // Clear genre filter on global query search
     const results = await searchMoviesAndSeries(query);
-    setSearchResults((results || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
+    setSearchResults((results || []).filter(isVisibleForProfile));
     setLoading(false);
   }
 

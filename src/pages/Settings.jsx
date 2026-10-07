@@ -50,7 +50,6 @@ import {
   getSettings,
   saveSettings,
   resetSettings,
-  toggle2FA,
   updateUsername,
   getUserDevices,
 } from '../api/db';
@@ -97,7 +96,6 @@ export default function Settings() {
   const [usernameInput, setUsernameInput] = useState(user?.username || '');
   const [emailInput, setEmailInput] = useState(user?.email || settings.email || '');
   const [bioInput, setBioInput] = useState(user?.bio || settings.bio || '');
-  const [is2FAEnabled, setIs2FAEnabled] = useState(user?.two_factor_enabled || false);
   const [sessions, setSessions] = useState(null);
   const [sessionsLoading, setSessionsLoading] = useState(false);
 
@@ -690,26 +688,8 @@ export default function Settings() {
 
               <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <h3 className="discord-section-subtitle" style={{ color: "Two-Factor Authentication (2FA)" === "Danger Zone" ? "var(--danger)" : "var(--text-muted)" }}>Two-Factor Authentication (2FA)</h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <ToggleSwitch
-                    checked={is2FAEnabled}
-                    ariaLabel="Two-factor authentication"
-                    onChange={async (val) => {
-                      setIs2FAEnabled(val);
-                      const success = await toggle2FA(user.id, val);
-                      if (success) {
-                        setSaveStatus(val ? '2-Step Verification Enabled!' : '2-Step Verification Disabled!');
-                        setTimeout(() => setSaveStatus(''), 3000);
-                      } else {
-                        setIs2FAEnabled(!val);
-                        setSaveStatus('Failed to update 2FA!');
-                      }
-                    }}
-                  />
-                  <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: is2FAEnabled ? 'var(--accent)' : 'var(--text-secondary)' }}>{is2FAEnabled ? 'Enabled' : 'Disabled'}</span>
-                </div>
                 <p style={{ marginTop: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  Add an extra layer of security to your account
+                  AnimeVault now uses Neon Auth for sign-in. Native multi-factor setup is unavailable in the installed Neon Auth client; legacy 2FA flags are not enforced. Enable MFA in Neon Auth after the project and client support it.
                 </p>
               </div>
 

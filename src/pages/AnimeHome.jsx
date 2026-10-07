@@ -5,13 +5,15 @@ import { getAniPMSchedule, getAniPMTop, getAniPMRecent } from '../api/anipm';
 import TMDBPoster from '../components/TMDBPoster';
 import { isHentai } from '../utils/animeContent';
 import { useUser } from '../api/UserContext';
-import { isBlockedForProfile } from '../utils/ageRating';
+import { isBlockedForProfile, isKidsProfile } from '../utils/ageRating';
+import { KIDS_ANIME_FEATURES } from '../utils/kidsCatalog';
 
 function Card({ item }) {
   const navigate = useNavigate();
+  const title = item.title?.english || item.title?.romaji || item.title?.native || item.title;
   return <button type="button" onClick={() => navigate('/anime/' + item.anilistId)} style={styles.card}>
-    <div style={styles.posterWrap}><TMDBPoster title={item.title} year={item.year} mediaType={item.format === 'MOVIE' ? 'movie' : 'tv'} requireAnimation fallbackSrc={item.poster} alt="" loading="lazy" style={styles.poster}/><span style={styles.play}><Play size={14} fill="currentColor"/></span></div>
-    <div style={styles.cardBody}><strong>{item.title}</strong><span>{item.year || 'Anime'}{item.format ? ' · ' + item.format : ''}</span></div>
+    <div style={styles.posterWrap}><TMDBPoster title={title} year={item.year || item.seasonYear} mediaType={item.format === 'MOVIE' ? 'movie' : 'tv'} requireAnimation fallbackSrc={item.poster || item.coverImage?.extraLarge} alt="" loading="lazy" style={styles.poster}/><span style={styles.play}><Play size={14} fill="currentColor"/></span></div>
+    <div style={styles.cardBody}><strong>{title}</strong><span>{item.year || item.seasonYear || 'Anime'}{item.format ? ' · ' + item.format : ''}</span></div>
   </button>;
 }
 export default function AnimeHome() {
@@ -19,12 +21,21 @@ export default function AnimeHome() {
   const [loading, setLoading] = useState(true), [query, setQuery] = useState('');
   const navigate = useNavigate();
   const { activeSubAccount } = useUser();
+  const kidsMode = isKidsProfile(activeSubAccount);
   const isAllowed = item => !isHentai(item) && !isBlockedForProfile(item, activeSubAccount);
-  const visibleTop = useMemo(() => top.filter(isAllowed), [top, activeSubAccount]);
-  const visibleRecent = useMemo(() => recent.filter(isAllowed), [recent, activeSubAccount]);
-  const visibleSchedule = useMemo(() => schedule.filter(isAllowed), [schedule, activeSubAccount]);
+  const visibleTop = useMemo(() => kidsMode ? KIDS_ANIME_FEATURES : top.filter(isAllowed), [top, activeSubAccount, kidsMode]);
+  const visibleRecent = useMemo(() => kidsMode ? KIDS_ANIME_FEATURES : recent.filter(isAllowed), [recent, activeSubAccount, kidsMode]);
+  const visibleSchedule = useMemo(() => kidsMode ? [] : schedule.filter(isAllowed), [schedule, activeSubAccount, kidsMode]);
   useEffect(() => {
     let cancelled = false;
+    if (kidsMode) {
+      setTop(KIDS_ANIME_FEATURES);
+      setRecent(KIDS_ANIME_FEATURES);
+      setSchedule([]);
+      setLoading(false);
+      return () => { cancelled = true; };
+    }
+    setLoading(true);
     Promise.all([getAniPMTop('week', 24).catch(() => []), getAniPMRecent(1, 24).catch(() => []), getAniPMSchedule().catch(() => [])])
       .then(([t,r,s]) => {
         if (cancelled) return;
@@ -34,7 +45,7 @@ export default function AnimeHome() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [activeSubAccount]);
+  }, [activeSubAccount, kidsMode]);
   const latestTitles = useMemo(() => { const seen = new Set(); return visibleRecent.filter(item => { if (seen.has(item.anilistId)) return false; seen.add(item.anilistId); return true; }); }, [visibleRecent]);
   const submit = e => {
     e.preventDefault();

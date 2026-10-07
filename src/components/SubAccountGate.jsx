@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Edit3, Plus, Trash2, UserPlus, X } from 'lucide-react';
+import { Edit3, LockKeyhole, Plus, ShieldCheck, Trash2, UserPlus, X } from 'lucide-react';
 import { useUser } from '../api/UserContext';
 import { assetPath } from '../utils/assetPath';
+import { fetchParentalPinCredential, saveParentalPinCredential } from '../api/db';
+import { createParentalPinCredential, isValidParentalPin, verifyParentalPin } from '../utils/parentalPin';
 import {
   MAX_SUB_ACCOUNTS,
   SUB_ACCOUNT_AGE_RATINGS,
@@ -249,6 +251,12 @@ export default function SubAccountGate({ children }) {
   const [profiles, setProfiles] = useState([]);
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
   const [confirmedUserId, setConfirmedUserId] = useState(null);
+  const [parentPinDialog, setParentPinDialog] = useState(null);
+  const [parentPin, setParentPin] = useState('');
+  const [parentPinConfirmation, setParentPinConfirmation] = useState('');
+  const [parentPinMessage, setParentPinMessage] = useState('');
+  const [isSavingParentPin, setIsSavingParentPin] = useState(false);
+  const [parentAuthorizationExpiresAt, setParentAuthorizationExpiresAt] = useState(0);
   const [createMessage, setCreateMessage] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editingProfile, setEditingProfile] = useState(null);
@@ -322,6 +330,14 @@ export default function SubAccountGate({ children }) {
   }
 
   function openEditProfile(profile) {
+    if (profile.ageRating === 'kids') {
+      void requestParentAuthorization(() => showEditProfile(profile));
+      return;
+    }
+    showEditProfile(profile);
+  }
+
+  function showEditProfile(profile) {
     setEditingProfile(profile);
     setNewName(profile.name || '');
     setNewAvatar(profile.avatar || '');
@@ -331,7 +347,7 @@ export default function SubAccountGate({ children }) {
     setShowCreate(true);
   }
 
-  async function handleDeleteProfile(profile) {
+  async function deleteProfile(profile) {
     if (profiles.length <= 1) {
       setCreateMessage('Keep at least one profile.');
       return;
@@ -358,14 +374,160 @@ export default function SubAccountGate({ children }) {
     }
   }
 
+  function handleDeleteProfile(profile) {
+    if (profile.ageRating === 'kids') {
+      void requestParentAuthorization(() => deleteProfile(profile));
+      return;
+    }
+    void deleteProfile(profile);
+  }
+
   function chooseProfile(profile) {
-    setActiveSubAccount(user.id, profile);
-    setActiveSubAccountState(profile);
-    setConfirmedUserId(user.id);
+    const activateProfile = () => {
+      setActiveSubAccount(user.id, profile);
+      setActiveSubAccountState(profile);
+      setConfirmedUserId(user.id);
+    };
+    if (profile.ageRating !== 'kids' && profiles.some(item => item.ageRating === 'kids')) {
+      void requestParentAuthorization(activateProfile);
+      return;
+    }
+    activateProfile();
   }
 
   function openProfile(profile) {
     chooseProfile(profile);
+  }
+
+  async function requestParentAuthorization(action, { changePin = false } = {}) {
+    if (!changePin && parentAuthorizationExpiresAt > Date.now()) {
+      await action();
+      return;
+    }
+
+    setParentPinMessage('');
+    setParentPin('');
+    setParentPinConfirmation('');
+    setIsSavingParentPin(true);
+    try {
+      const result = await fetchParentalPinCredential(user.id);
+      if (!result.success) {
+        setCreateMessage(result.message || 'Could not check parent controls.');
+        return;
+      }
+
+      const credential = result.credential;
+      const mode = changePin
+        ? (credential ? 'change-verify' : 'setup')
+        : (credential ? 'verify' : 'setup');
+      setParentPinDialog({ mode, credential, action });
+    } catch (error) {
+      setCreateMessage(error.message || 'Could not check parent controls.');
+    } finally {
+      setIsSavingParentPin(false);
+    }
+  }
+
+  async function submitParentPin(event) {
+    event.preventDefault();
+    if (!parentPinDialog || isSavingParentPin) return;
+
+    if (parentPinDialog.mode === 'setup') {
+      if (!isValidParentalPin(parentPin)) {
+        setParentPinMessage('Use a PIN with 6 to 12 digits.');
+        return;
+      }
+      if (parentPin !== parentPinConfirmation) {
+        setParentPinMessage('The PIN entries do not match.');
+        return;
+      }
+      setIsSavingParentPin(true);
+      try {
+        const credential = await createParentalPinCredential(parentPin);
+        const result = await saveParentalPinCredential(user.id, credential);
+        if (!result.success) throw new Error(result.message || 'Could not save parent PIN.');
+        setParentAuthorizationExpiresAt(Date.now() + 5 * 60 * 1000);
+        setParentPinDialog(null);
+        setParentPin('');
+        setParentPinConfirmation('');
+        await parentPinDialog.action?.();
+      } catch (error) {
+        setParentPinMessage(error.message || 'Could not save parent PIN.');
+      } finally {
+        setIsSavingParentPin(false);
+      }
+      return;
+    }
+
+    if (!isValidParentalPin(parentPin)) {
+      setParentPinMessage('Enter your 6 to 12 digit parent PIN.');
+      return;
+    }
+    setIsSavingParentPin(true);
+    try {
+      const valid = await verifyParentalPin(parentPin, parentPinDialog.credential);
+      if (!valid) {
+        setParentPinMessage('That parent PIN is incorrect.');
+        return;
+      }
+      if (parentPinDialog.mode === 'change-verify') {
+        setParentPinDialog({ ...parentPinDialog, mode: 'setup' });
+        setParentPin('');
+        setParentPinConfirmation('');
+        setParentPinMessage('Enter and confirm your new parent PIN.');
+        return;
+      }
+      setParentAuthorizationExpiresAt(Date.now() + 5 * 60 * 1000);
+      setParentPinDialog(null);
+      setParentPin('');
+      await parentPinDialog.action?.();
+    } catch (error) {
+      setParentPinMessage(error.message || 'Could not verify parent PIN.');
+    } finally {
+      setIsSavingParentPin(false);
+    }
+  }
+
+  async function saveProfile(event) {
+    event.preventDefault();
+    if ((!editingProfile && !canCreate) || createError) return;
+
+    if (newAgeRating === 'kids' || editingProfile?.ageRating === 'kids') {
+      await requestParentAuthorization(() => persistProfile());
+      return;
+    }
+    await persistProfile();
+  }
+
+  async function persistProfile() {
+    if ((!editingProfile && !canCreate) || createError) return;
+    setCreateMessage('');
+    const nextProfile = {
+      id: `${user.id}-profile-${Date.now()}`,
+      name: newName.trim(),
+      color: newColor,
+      avatar: newAvatar.trim() || null,
+      ageRating: newAgeRating,
+      isMain: editingProfile?.isMain || profiles.length === 0,
+      createdAt: new Date().toISOString()
+    };
+    const result = editingProfile
+      ? await updateSubAccount(editingProfile.id, { ...nextProfile, id: editingProfile.id })
+      : await createSubAccount(nextProfile);
+    if (!result.success) {
+      setCreateMessage(result.message || 'Could not save profile to the database.');
+      return;
+    }
+
+    const savedProfile = result.profile || nextProfile;
+    const nextProfiles = editingProfile
+      ? profiles.map(profile => profile.id === editingProfile.id ? savedProfile : profile)
+      : [...profiles, savedProfile];
+    saveSubAccounts(user.id, nextProfiles);
+    setProfiles(nextProfiles);
+    setShowCreate(false);
+    resetProfileForm();
+    if (!editingProfile || activeSubAccount?.id === editingProfile.id) chooseProfile(savedProfile);
   }
 
   async function handleAvatarUpload(event) {
@@ -405,39 +567,6 @@ export default function SubAccountGate({ children }) {
       setIsUploadingAvatar(false);
       event.target.value = '';
     }
-  }
-
-  async function handleCreate(event) {
-    event.preventDefault();
-    if ((!editingProfile && !canCreate) || createError) return;
-
-    setCreateMessage('');
-    const nextProfile = {
-      id: `${user.id}-profile-${Date.now()}`,
-      name: newName.trim(),
-      color: newColor,
-      avatar: newAvatar.trim() || null,
-      ageRating: newAgeRating,
-      isMain: editingProfile?.isMain || profiles.length === 0,
-      createdAt: new Date().toISOString()
-    };
-    const result = editingProfile
-      ? await updateSubAccount(editingProfile.id, { ...nextProfile, id: editingProfile.id })
-      : await createSubAccount(nextProfile);
-    if (!result.success) {
-      setCreateMessage(result.message || 'Could not save profile to the database.');
-      return;
-    }
-
-    const savedProfile = result.profile || nextProfile;
-    const nextProfiles = editingProfile
-      ? profiles.map(profile => profile.id === editingProfile.id ? savedProfile : profile)
-      : [...profiles, savedProfile];
-    saveSubAccounts(user.id, nextProfiles);
-    setProfiles(nextProfiles);
-    setShowCreate(false);
-    resetProfileForm();
-    if (!editingProfile || activeSubAccount?.id === editingProfile.id) chooseProfile(savedProfile);
   }
 
   if (authLoading) {
@@ -621,7 +750,165 @@ export default function SubAccountGate({ children }) {
           <p style={{ marginTop: 42, color: '#fda4af', fontSize: '.95rem', overflowWrap: 'anywhere' }}>
             {profiles.length}/{MAX_SUB_ACCOUNTS} profiles linked to {user.username}
           </p>
+          {createMessage && <p role="alert" style={{ color: '#fca5a5' }}>{createMessage}</p>}
+          <button
+            type="button"
+            onClick={() => { void requestParentAuthorization(() => {}, { changePin: true }); }}
+            disabled={isSavingParentPin}
+            style={{
+              marginTop: 8,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              minHeight: 44,
+              padding: '10px 14px',
+              borderRadius: 10,
+              border: '1px solid rgba(255,255,255,.16)',
+              background: 'rgba(255,255,255,.06)',
+              color: '#fff',
+              fontWeight: 800,
+              cursor: 'pointer'
+            }}
+          >
+            <ShieldCheck size={16} /> Set or change parent PIN
+          </button>
         </div>
+
+        {parentPinDialog && (
+          <div
+            className="sub-account-modal-backdrop"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="parent-pin-title"
+            onClick={() => {
+              setParentPinDialog(null);
+              setParentPin('');
+              setParentPinConfirmation('');
+            }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 20,
+              background: 'rgba(0,0,0,.78)',
+              display: 'grid',
+              placeItems: 'center',
+              padding: 20
+            }}
+          >
+            <form
+              className="sub-account-modal"
+              onSubmit={submitParentPin}
+              onClick={event => event.stopPropagation()}
+              style={{
+                width: 'min(420px,100%)',
+                background: '#09090f',
+                border: '1px solid rgba(255,26,117,.3)',
+                borderRadius: 18,
+                padding: 24,
+                color: '#fff',
+                boxShadow: '0 30px 80px rgba(0,0,0,.55)'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setParentPinDialog(null);
+                  setParentPin('');
+                  setParentPinConfirmation('');
+                }}
+                aria-label="Close parent PIN dialog"
+                style={{ float: 'right', background: 'transparent', color: '#fda4af', border: 0, cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+              <h2 id="parent-pin-title" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 0 }}>
+                <LockKeyhole size={22} />
+                {parentPinDialog.mode === 'verify'
+                  ? 'Parent approval'
+                  : parentPinDialog.mode === 'change-verify'
+                    ? 'Verify parent PIN'
+                    : 'Set parent PIN'}
+              </h2>
+              <p style={{ color: '#cbd5e1', lineHeight: 1.5 }}>
+                {parentPinDialog.mode === 'verify'
+                  ? 'Enter the parent PIN to open an adult profile or manage a kids profile.'
+                  : parentPinDialog.mode === 'change-verify'
+                    ? 'Verify the current PIN before changing parent controls.'
+                    : 'Create a 6–12 digit PIN. Parent approval is required to open adult profiles when kids profiles are enabled.'}
+              </p>
+              <label style={{ display: 'grid', gap: 7, margin: '16px 0', fontWeight: 750 }}>
+                {parentPinDialog.mode === 'setup' ? 'New parent PIN' : 'Parent PIN'}
+                <input
+                  autoFocus
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  type="password"
+                  pattern="[0-9]{6,12}"
+                  maxLength={12}
+                  value={parentPin}
+                  onChange={event => setParentPin(event.target.value.replace(/\D/g, '').slice(0, 12))}
+                  aria-label="Parent PIN"
+                  style={{
+                    width: '100%',
+                    minHeight: 46,
+                    boxSizing: 'border-box',
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    border: '1px solid rgba(255,255,255,.18)',
+                    background: '#111827',
+                    color: '#fff',
+                    fontSize: 18,
+                    letterSpacing: 4
+                  }}
+                />
+              </label>
+              {parentPinDialog.mode === 'setup' && (
+                <label style={{ display: 'grid', gap: 7, margin: '16px 0', fontWeight: 750 }}>
+                  Confirm parent PIN
+                  <input
+                    inputMode="numeric"
+                    autoComplete="new-password"
+                    type="password"
+                    pattern="[0-9]{6,12}"
+                    maxLength={12}
+                    value={parentPinConfirmation}
+                    onChange={event => setParentPinConfirmation(event.target.value.replace(/\D/g, '').slice(0, 12))}
+                    aria-label="Confirm parent PIN"
+                    style={{
+                      width: '100%',
+                      minHeight: 46,
+                      boxSizing: 'border-box',
+                      padding: '12px 14px',
+                      borderRadius: 10,
+                      border: '1px solid rgba(255,255,255,.18)',
+                      background: '#111827',
+                      color: '#fff',
+                      fontSize: 18,
+                      letterSpacing: 4
+                    }}
+                  />
+                </label>
+              )}
+              {parentPinMessage && <p role="alert" style={{ color: '#fca5a5' }}>{parentPinMessage}</p>}
+              <button
+                type="submit"
+                disabled={isSavingParentPin}
+                style={{
+                  width: '100%',
+                  minHeight: 46,
+                  border: 0,
+                  borderRadius: 10,
+                  background: 'linear-gradient(135deg,#ff1a75,#ef4444)',
+                  color: '#000',
+                  fontWeight: 900,
+                  cursor: isSavingParentPin ? 'wait' : 'pointer'
+                }}
+              >
+                {isSavingParentPin ? 'Checking…' : parentPinDialog.mode === 'setup' ? 'Save PIN' : 'Continue'}
+              </button>
+            </form>
+          </div>
+        )}
 
         {showCreate && (
           <div
@@ -639,7 +926,7 @@ export default function SubAccountGate({ children }) {
           >
             <form
               className="sub-account-modal"
-              onSubmit={handleCreate}
+              onSubmit={saveProfile}
               onClick={event => event.stopPropagation()}
               style={{
                 width: 'min(430px,100%)',

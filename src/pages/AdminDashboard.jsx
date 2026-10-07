@@ -459,7 +459,7 @@ export default function AdminDashboard() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '12px', fontSize: '0.85rem' }}>
                 <div><span style={{ color: '#64748b' }}>Verified:</span> <span style={{ color: userDetails.is_verified ? '#1d9bf0' : '#64748b', fontWeight: '700' }}>{userDetails.is_verified ? 'Yes' : 'No'}</span></div>
                 <div><span style={{ color: '#64748b' }}>Admin:</span> <span style={{ color: userDetails.is_admin ? '#ffd700' : '#64748b', fontWeight: '700' }}>{userDetails.is_admin ? 'Yes' : 'No'}</span></div>
-                <div><span style={{ color: '#64748b' }}>2FA:</span> <span style={{ color: '#94a3b8' }}>{userDetails.two_factor_enabled ? 'Enabled' : 'Disabled'}</span></div>
+                <div><span style={{ color: '#64748b' }}>Legacy 2FA flag:</span> <span style={{ color: '#94a3b8' }}>{userDetails.two_factor_enabled ? 'Set (not enforced)' : 'Not set'}</span></div>
                 <div><span style={{ color: '#64748b' }}>Created:</span> <span style={{ color: '#94a3b8' }}>{formatDate(userDetails.created_at)}</span></div>
                 <div><span style={{ color: '#64748b' }}>Watch History:</span> <span style={{ color: '#fff', fontWeight: '700' }}>{userDetails.watchHistoryCount}</span></div>
                 <div><span style={{ color: '#64748b' }}>Likes:</span> <span style={{ color: '#fff', fontWeight: '700' }}>{userDetails.likesCount}</span></div>

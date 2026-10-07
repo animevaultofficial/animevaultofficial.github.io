@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { authClient } from '../auth';
-import { updateUserPassword } from '../api/authDb.js';
 
 export default function SetNewPassword() {
   const navigate = useNavigate();
   const location = useLocation();
   const params = new URLSearchParams(`${window.location.search}${location.search ? `&${location.search.slice(1)}` : ''}`);
   const token = params.get('token');
-  const email = params.get('email');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [status, setStatus] = useState('idle');
@@ -28,12 +26,6 @@ export default function SetNewPassword() {
     try {
       const result = await authClient.resetPassword({ token, newPassword: password });
       if (result?.error) throw new Error(result.error.message || 'Failed to reset password.');
-
-      // Keep AnimeVault's legacy users table in sync using bcrypt as well.
-      if (email) {
-        const sync = await updateUserPassword(email, password);
-        if (!sync.success) throw new Error(sync.message || 'Password was reset but account sync failed.');
-      }
 
       setStatus('success');
       setMessage('Password reset successfully.');
