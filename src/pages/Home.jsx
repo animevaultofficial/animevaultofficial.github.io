@@ -5,6 +5,7 @@ import { fetchTrendingMedia, fetchAnimeBySeason, fetchAnimeByIds } from "../api/
 import { getTrendingBoard } from "../api/db";
 import LatestSection from "../components/LatestSection";
 import { useUser } from "../api/UserContext";
+import { isKidsProfile } from "../utils/ageRating";
 import { Play, Calendar, Star, Info, Sparkles } from "lucide-react";
 
 const SEASONS = ["WINTER", "SPRING", "SUMMER", "FALL"];
@@ -44,7 +45,7 @@ function Home() {
   const [activeSlide, setActiveSlide] = useState(0);
   const navigate = useNavigate();
   const { activeSubAccount } = useUser();
-  const isKidsProfile = activeSubAccount?.ageRating === "kids";
+  const isKidsMode = isKidsProfile(activeSubAccount);
 
   const [favoritesData, setFavoritesData] = useState(() => {
     try {
@@ -58,7 +59,7 @@ function Home() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (isKidsProfile) {
+      if (isKidsMode) {
         setAnimeList(KIDS_ANIME_HOME);
         setFeaturedSlides(KIDS_ANIME_HOME);
         return;
@@ -84,12 +85,12 @@ function Home() {
     }
     load();
     return () => { cancelled = true; };
-  }, [isKidsProfile]);
+  }, [isKidsMode]);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (isKidsProfile) {
+      if (isKidsMode) {
         setSeasonalList(KIDS_ANIME_HOME.slice().reverse());
         setSeasonalLoading(false);
         return;
@@ -101,7 +102,7 @@ function Home() {
     }
     load();
     return () => { cancelled = true; };
-  }, [selectedSeason, selectedYear, isKidsProfile]);
+  }, [selectedSeason, selectedYear, isKidsMode]);
 
   useEffect(() => {
     if (featuredSlides.length < 2) return;
@@ -110,7 +111,7 @@ function Home() {
   }, [featuredSlides.length]);
 
   const trending = animeList.slice(0, 12);
-  const genresToShow = isKidsProfile ? KIDS_GENRES : GENRES;
+  const genresToShow = isKidsMode ? KIDS_GENRES : GENRES;
 
   function toggleFavorite(anime) {
     setFavoritesData(cur => {
@@ -174,7 +175,7 @@ function Home() {
                 <img className="featured-art" src={anime.bannerImage || getImage(anime)} alt="" loading={index === 0 ? "eager" : "lazy"} decoding="async" />
                 <div className="featured-shade" />
                 <div className="featured-content">
-                  <span className="featured-kicker"><Sparkles size={12} /> {isKidsProfile ? "Kids Pick" : "Featured on AnimeVault"}</span>
+                  <span className="featured-kicker"><Sparkles size={12} /> {isKidsMode ? "Kids Pick" : "Featured on AnimeVault"}</span>
                   <h1 className="featured-title">{getTitle(anime)}</h1>
                   <div className="featured-meta">
                     <span><Calendar size={13} /> {anime?.seasonYear || "—"}</span>
@@ -197,12 +198,12 @@ function Home() {
       )}
 
       <div className="home-main-v2">
-        {!isKidsProfile && <LatestSection />}
+        {!isKidsMode && <LatestSection />}
 
         <section className="home-section-v2">
           <div className="section-header-v2">
             <div style={{ display: "flex", alignItems: "center", gap: ".8rem", flexWrap: "wrap" }}>
-              <h2>{isKidsProfile ? "Kids Anime Adventures" : "Seasonal Browser"}</h2>
+              <h2>{isKidsMode ? "Kids Anime Adventures" : "Seasonal Browser"}</h2>
               <div className="seasonal-controls-v2">
                 <select value={selectedSeason} onChange={e => setSelectedSeason(e.target.value)} className="server-dropdown-v2">{SEASONS.map(s => <option key={s}>{s}</option>)}</select>
                 <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} className="server-dropdown-v2">{YEARS.map(y => <option key={y}>{y}</option>)}</select>

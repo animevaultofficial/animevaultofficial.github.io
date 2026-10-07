@@ -47,5 +47,10 @@ export default defineConfig(({ command, mode }) => {
       outDir: isWebOSBuild ? 'dist-webos' : 'dist',
       rollupOptions: { external: isElectronBuild ? ['bcryptjs'] : [] },
     },
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      css: true,
+    },
   };
 });

@@ -128,8 +128,12 @@ export function getRatingCountry(storage) {
 
 const MATURE_GENRES = ['adult', 'ecchi', 'erotica', 'hentai', 'horror', 'gore', 'psychological', 'thriller'];
 
+export function isKidsProfile(profile) {
+  return String(profile?.ageRating ?? 'kids').trim().toLowerCase() === 'kids';
+}
+
 export function getProfileMaxAge(profile) {
-  return profile?.ageRating === 'kids' ? 12 : 18;
+  return isKidsProfile(profile) ? 12 : 18;
 }
 
 export function getContentMinAgeFromMedia(media, countryCode = 'US') {
@@ -140,10 +144,11 @@ export function getContentMinAgeFromMedia(media, countryCode = 'US') {
   if (certAge !== null) return certAge;
   const genres = (media.genres || media.genre || []).map((genre) => String(genre).toLowerCase());
   if (genres.some((genre) => MATURE_GENRES.some((blocked) => genre.includes(blocked)))) return 18;
-  return null;
+  return 13;
 }
 
 export function isBlockedForProfile(media, profile, countryCode = 'US') {
-  const maxAge = getProfileMaxAge(profile);
+  const effectiveProfile = profile ?? { ageRating: 'kids' };
+  const maxAge = getProfileMaxAge(effectiveProfile);
   return isRestricted(getContentMinAgeFromMedia(media, countryCode), maxAge);
 }

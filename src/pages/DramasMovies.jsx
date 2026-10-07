@@ -5,7 +5,7 @@ import { fetchLatestMovies, fetchLatestTVShows, searchMoviesAndSeries } from '..
 import { FocusableLink, FocusableButton } from '../components/FocusableWrapper';
 import TMDBPoster from '../components/TMDBPoster';
 import { useUser } from '../api/UserContext';
-import { isBlockedForProfile } from '../utils/ageRating';
+import { isBlockedForProfile, isKidsProfile } from '../utils/ageRating';
 
 const MOVIE_GENRES = [
   'Action', 'Romance', 'Thriller', 'Horror', 'Comedy', 'Drama', 'Sci-Fi', 'Crime', 'Fantasy', 'Mystery'
@@ -95,9 +95,9 @@ function DramasMovies() {
 
   const navigate = useNavigate();
   const { activeSubAccount } = useUser();
-  const isKidsProfile = activeSubAccount?.ageRating === 'kids';
-  const heroShows = isKidsProfile ? KIDS_TRENDING_SHOWS : TRENDING_SHOWS;
-  const genresToShow = isKidsProfile ? KIDS_MOVIE_GENRES : MOVIE_GENRES;
+  const isKidsMode = isKidsProfile(activeSubAccount);
+  const heroShows = isKidsMode ? KIDS_TRENDING_SHOWS : TRENDING_SHOWS;
+  const genresToShow = isKidsMode ? KIDS_MOVIE_GENRES : MOVIE_GENRES;
 
   useEffect(() => {
     loadLatest();
@@ -114,10 +114,10 @@ function DramasMovies() {
   async function loadLatest() {
     setLoading(true);
     if (activeTab === 'movies') {
-      const data = isKidsProfile && !selectedGenre ? KIDS_TRENDING_SHOWS.filter(item => item.type === 'movie') : await fetchLatestMovies(moviePage, selectedGenre);
+      const data = isKidsMode && !selectedGenre ? KIDS_TRENDING_SHOWS.filter(item => item.type === 'movie') : await fetchLatestMovies(moviePage, selectedGenre);
       setMovies((data || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
     } else {
-      const data = isKidsProfile && !selectedGenre ? KIDS_TRENDING_SHOWS.filter(item => item.type === 'tv') : await fetchLatestTVShows(tvPage, selectedGenre);
+      const data = isKidsMode && !selectedGenre ? KIDS_TRENDING_SHOWS.filter(item => item.type === 'tv') : await fetchLatestTVShows(tvPage, selectedGenre);
       setTvShows((data || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
     }
     setLoading(false);
@@ -286,7 +286,7 @@ function DramasMovies() {
               {searching ? 'Search Results' : selectedGenre ? `Genre: ${selectedGenre}` : 'Explore Collections'}
             </h2>
             <p style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem', marginTop: '4px', margin: '4px 0 0 0' }}>
-              {isKidsProfile ? 'A safer homepage with family movies and kid-friendly TV picks.' : 'Ad-neutral, high-speed streaming for Blockbusters & Series.'}
+              {isKidsMode ? 'A safer homepage with family movies and kid-friendly TV picks.' : 'Ad-neutral, high-speed streaming for Blockbusters & Series.'}
             </p>
           </div>
 
@@ -303,7 +303,7 @@ function DramasMovies() {
             <SearchIcon className="search-icon" size={18} style={{ color: 'var(--text-tertiary)', marginRight: '8px' }} />
             <input
               type="text"
-              placeholder={isKidsProfile ? 'Search kids movies and shows...' : 'Search movies, K-Dramas...'}
+              placeholder={isKidsMode ? 'Search kids movies and shows...' : 'Search movies, K-Dramas...'}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               style={{
@@ -482,7 +482,7 @@ function DramasMovies() {
                   fontSize: '0.85rem'
                 }}
               >
-                <Film size={16} /> {isKidsProfile ? 'Kids Movies' : 'Blockbuster Movies'}
+                <Film size={16} /> {isKidsMode ? 'Kids Movies' : 'Blockbuster Movies'}
               </FocusableButton>
               <FocusableButton
                 className={`movies-tab-btn ${activeTab === 'tv' ? 'active' : ''}`}
@@ -504,7 +504,7 @@ function DramasMovies() {
                   fontSize: '0.85rem'
                 }}
               >
-                <Tv size={16} /> {isKidsProfile ? 'Kids TV Shows' : 'TV Shows & K-Dramas'}
+                <Tv size={16} /> {isKidsMode ? 'Kids TV Shows' : 'TV Shows & K-Dramas'}
               </FocusableButton>
             </div>
 
