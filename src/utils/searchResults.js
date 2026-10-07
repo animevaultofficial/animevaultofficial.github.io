@@ -27,6 +27,47 @@ function getMediaTitle(item) {
   return normalizeSearchTitle(title);
 }
 
+export function normalizeAnimeSearchResults(payload) {
+  const items = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.results)
+        ? payload.results
+        : [];
+
+  return items.flatMap(item => {
+    const anilistId = item?.anilistId || item?.id;
+    if (anilistId == null) return [];
+    const titles = [
+      typeof item.title === 'string' ? item.title : '',
+      item.title?.english,
+      item.title?.romaji,
+      item.title?.native,
+      item.englishTitle,
+      item.romajiTitle,
+      item.nativeTitle,
+    ].filter(value => typeof value === 'string' && value.trim());
+    const title = titles[0] || item.name || 'Untitled';
+    const poster = typeof item.poster === 'string'
+      ? item.poster
+      : item.poster?.large || item.poster?.url || item.image
+        || item.coverImage?.extraLarge || item.coverImage?.large || '';
+
+    return [{
+      ...item,
+      id: anilistId,
+      anilistId,
+      title,
+      name: title,
+      searchTitleAliases: [...new Set([...titles, item.name].filter(Boolean))],
+      poster,
+      mediaType: 'anime',
+      _type: 'anime',
+    }];
+  });
+}
+
 function isAnimatedMedia(item) {
   const genres = Array.isArray(item?.genres) ? item.genres : [item?.genres];
   return item?.genre_ids?.includes(16)
@@ -51,4 +92,11 @@ export function removeMediaMatchesForAnime(results) {
     const mediaTitle = getMediaTitle(item);
     return !mediaTitle || !animeTitles.has(mediaTitle);
   });
+}
+
+export function mergeAnimeAndMediaResults(animePayload, mediaResults) {
+  return removeMediaMatchesForAnime([
+    ...normalizeAnimeSearchResults(animePayload),
+    ...(Array.isArray(mediaResults) ? mediaResults : []),
+  ]);
 }

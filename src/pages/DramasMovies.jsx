@@ -7,6 +7,8 @@ import TMDBPoster from '../components/TMDBPoster';
 import { useUser } from '../api/UserContext';
 import { isBlockedForProfile, isKidsProfile } from '../utils/ageRating';
 import { KIDS_FAMILY_MEDIA, isKidsCatalogApproved } from '../utils/kidsCatalog';
+import { searchAniPM } from '../api/anipm';
+import { mergeAnimeAndMediaResults } from '../utils/searchResults';
 
 const MOVIE_GENRES = [
   'Action', 'Romance', 'Thriller', 'Horror', 'Comedy', 'Drama', 'Sci-Fi', 'Crime', 'Fantasy', 'Mystery'
@@ -133,8 +135,21 @@ function DramasMovies() {
     setLoading(true);
     setSearching(true);
     setSelectedGenre(''); // Clear genre filter on global query search
-    const results = await searchMoviesAndSeries(query);
-    setSearchResults((results || []).filter(isVisibleForProfile));
+    const [mediaResult, animeResult] = await Promise.allSettled([
+      searchMoviesAndSeries(query),
+      isKidsMode ? Promise.resolve([]) : searchAniPM(query, 1, 20),
+    ]);
+    const mediaResults = mediaResult.status === 'fulfilled' ? mediaResult.value : [];
+    if (mediaResult.status === 'rejected') {
+      console.warn('[AnimeVault] Movie and TV search failed:', mediaResult.reason);
+    }
+    if (animeResult.status === 'rejected') {
+      console.warn('[AnimeVault] Anime search failed:', animeResult.reason);
+    }
+    setSearchResults(mergeAnimeAndMediaResults(
+      animeResult.status === 'fulfilled' ? animeResult.value : [],
+      mediaResults,
+    ).filter(isVisibleForProfile));
     setLoading(false);
   }
 
@@ -402,16 +417,20 @@ function DramasMovies() {
             ) : visibleSearchResults.length > 0 ? (
               <div className="trending-grid-v2">
                 {visibleSearchResults.map((item) => {
-                  const watchType = item.type === 'series' || item.mediaType === 'series' ? 'tv' : 'movie';
+                  const isAnime = item.mediaType === 'anime';
+                  const watchType = item.type === 'series' || item.mediaType === 'series' || item.media_type === 'tv' ? 'tv' : 'movie';
                   const posterUrl = item.poster;
+                  const destination = isAnime
+                    ? `/anime/${encodeURIComponent(item.anilistId || item.id)}`
+                    : `/media/${watchType}/${item.tmdbId || item.id}`;
 
                   return (
                     <FocusableLink
-                      to={`/media/${watchType}/${item.tmdbId || item.id}`}
-                      key={item.id}
+                      to={destination}
+                      key={`${isAnime ? 'anime' : watchType}-${item.anilistId || item.tmdbId || item.id}`}
                       className="movie-card"
                       onClick={() => {
-                        localStorage.setItem(`media_title_${item.id}`, item.name || item.title);
+                        if (!isAnime) localStorage.setItem(`media_title_${item.id}`, item.name || item.title);
                       }}
                       style={{ textDecoration: 'none' }}
                     >
@@ -419,9 +438,10 @@ function DramasMovies() {
                         <TMDBPoster
                           title={item.name || item.title}
                           year={item.year || item.releaseInfo}
-                          mediaType={watchType}
+                          mediaType={isAnime ? (item.format === 'MOVIE' ? 'movie' : 'tv') : watchType}
+                          requireAnimation={isAnime}
                           fallbackSrc={posterUrl}
-                          alt={item.name || item.title}
+                          alt={item.title || item.name}
                           onError={(e) => {
                             e.target.onerror = null;
                             e.target.src = 'https://images.unsplash.com/photo-1598899134739-24c46f58b8c0?q=80&w=300&auto=format&fit=crop';
@@ -433,12 +453,12 @@ function DramasMovies() {
                           <Play fill="white" size={24} />
                         </div>
                         <span className="movie-type-badge" style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: '0.65rem', fontWeight: 'bold', padding: '3px 8px', borderRadius: '4px' }}>
-                          {watchType === 'tv' ? 'TV SHOW' : 'MOVIE'}
+                          {isAnime ? 'ANIME' : watchType === 'tv' ? 'TV SHOW' : 'MOVIE'}
                         </span>
                       </div>
                       <div className="movie-card-info" style={{ marginTop: '10px' }}>
                         <h3 style={{ fontSize: '0.9rem', fontWeight: '600', color: '#fff', margin: '0 0 4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {item.name || item.title}
+                          {item.title || item.name}
                         </h3>
                         {item.releaseInfo && <span className="movie-year" style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{item.releaseInfo}</span>}
                       </div>

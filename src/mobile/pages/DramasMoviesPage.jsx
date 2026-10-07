@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Film, Tv, TrendingUp, Search, X, Play, Info, Sparkles, Hash } from 'lucide-react';
 import { fetchLatestMovies, fetchLatestTVShows, searchMoviesAndSeries } from '../api/movies';
+import { searchAniPM } from '../api/anipm';
 import { useUser } from '../../api/UserContext';
 import { isBlockedForProfile, isKidsProfile } from '../../utils/ageRating';
 import { KIDS_FAMILY_MEDIA, isKidsCatalogApproved } from '../../utils/kidsCatalog';
+import { mergeAnimeAndMediaResults } from '../../utils/searchResults';
 
 const GENRES = ['Action', 'Romance', 'Thriller', 'Horror', 'Comedy', 'Drama', 'Sci-Fi', 'Crime', 'Fantasy', 'Mystery', 'Adventure', 'Animation'];
 const FEATURED_SHOWS = [
@@ -22,10 +24,11 @@ function safeTitle(value) {
 
 function MediaCard({ item, onClick }) {
   const title = safeTitle(item?.title || item?.name);
-  const image = item?.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : null;
+  const image = item?.poster || (item?.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : null);
   const date = item?.release_date || item?.first_air_date || '';
   const year = date ? String(date).split('-')[0] : '';
-  const type = item?.media_type === 'movie' ? '🎬' : '📺';
+  const isAnime = item?.mediaType === 'anime';
+  const type = isAnime ? '✨' : item?.media_type === 'movie' ? '🎬' : '📺';
   const numericRating = Number(item?.vote_average);
   const rating = Number.isFinite(numericRating) && numericRating > 0 ? numericRating.toFixed(1) : '';
 
@@ -36,7 +39,7 @@ function MediaCard({ item, onClick }) {
       <div style={{ padding: '0 0.5rem 0.5rem', fontSize: '0.62rem', color: 'var(--text3)', display: 'flex', gap: '.35rem', alignItems: 'center' }}>
         <span>{year || '—'}</span>
         {rating ? <span>⭐ {rating}</span> : null}
-        <span>{item?.media_type === 'movie' ? 'Movie' : 'Drama/Show'}</span>
+        <span>{isAnime ? 'Anime' : item?.media_type === 'movie' ? 'Movie' : 'Drama/Show'}</span>
       </div>
     </div>
   );
@@ -124,11 +127,23 @@ export default function DramasMoviesPage({ navigate }) {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const tmdbResults = kidsMode
-          ? kidsMedia.filter(item => `${item.name} ${item.description}`.toLowerCase().includes(trimmed.toLowerCase()))
-          : await searchMoviesAndSeries(trimmed);
+        const [mediaResult, animeResult] = await Promise.allSettled([
+          kidsMode
+            ? Promise.resolve(kidsMedia.filter(item => `${item.name} ${item.description}`.toLowerCase().includes(trimmed.toLowerCase())))
+            : searchMoviesAndSeries(trimmed),
+          kidsMode ? Promise.resolve([]) : searchAniPM(trimmed, 1, 20),
+        ]);
         if (cancelled) return;
-        setSearchResults(Array.isArray(tmdbResults) ? tmdbResults.filter(isAllowed) : []);
+        if (mediaResult.status === 'rejected') {
+          console.warn('[AnimeVault Mobile] media search failed:', mediaResult.reason?.message || mediaResult.reason);
+        }
+        if (animeResult.status === 'rejected') {
+          console.warn('[AnimeVault Mobile] anime search failed:', animeResult.reason?.message || animeResult.reason);
+        }
+        setSearchResults(mergeAnimeAndMediaResults(
+          animeResult.status === 'fulfilled' ? animeResult.value : [],
+          mediaResult.status === 'fulfilled' ? mediaResult.value : [],
+        ).filter(isAllowed));
       } catch (error) {
         console.warn('[AnimeVault Mobile] media search failed:', error?.message || error);
         if (!cancelled) setSearchResults([]);
@@ -141,6 +156,10 @@ export default function DramasMoviesPage({ navigate }) {
 
   const handleMediaClick = (item) => {
     if (!item || item.id == null) return;
+    if (item.mediaType === 'anime') {
+      navigate('anime-detail', { id: item.anilistId || item.id });
+      return;
+    }
     const mediaType = item.media_type === 'movie' ? 'movie' : 'tv';
     navigate('drama-detail', { id: item.id, mediaType, title: item.title || item.name || 'Unknown', poster: item.poster_path || null });
   };
