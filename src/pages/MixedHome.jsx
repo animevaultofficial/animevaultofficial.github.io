@@ -134,7 +134,7 @@ export default function MixedHome({ mobile = false }) {
   const mediaKind = kind === 'tv' ? 'tv' : 'movie';
   const id = isAnime ? slide?.anilistId : (slide?.tmdbId || slide?.id);
   const title = slide?.title?.english || slide?.title?.romaji || slide?.title?.native || slide?.title || slide?.name || 'AnimeVault';
-  const image = slide?.backdrop || slide?.banner || slide?.poster || '/logo.png';
+  const image = slide?.backdrop || slide?.banner || slide?.poster || slide?.coverImage?.extraLarge || '/logo.png';
   const detailsPath = (item, type) => {
     const mediaId = item?.tmdbId || item?.id;
     return mediaId ? `/media/${type === 'movie' ? 'movie' : 'tv'}/${mediaId}` : '/';
@@ -155,7 +155,7 @@ export default function MixedHome({ mobile = false }) {
           mediaType={animeCard ? (item.format === 'MOVIE' ? 'movie' : 'tv') : type}
           requireAnimation={animeCard}
           alternateTitles={animeCard ? [item.nativeTitle, item.title?.romaji, item.title?.native] : []}
-          fallbackSrc={item.poster}
+          fallbackSrc={item.poster || item.coverImage?.extraLarge}
           loading="lazy"
           decoding="async"
         />

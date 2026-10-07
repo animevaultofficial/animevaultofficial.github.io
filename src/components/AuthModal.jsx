@@ -54,6 +54,7 @@ export default function AuthModal() {
         }
       } else {
         if (!password) throw new Error('Password is required.');
+        if (password.length < 6) throw new Error('Password must be at least 6 characters.');
         const res = await signup(username, password, captchaToken);
         if (res.success) { setSuccess(res.message || 'Account created!'); setTimeout(resetForm, 1800); }
         else setError(res.message);

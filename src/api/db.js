@@ -2416,6 +2416,17 @@ export async function syncNeonUserToDb(email, avatar, isEmailVerified, authSubje
     await db`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_auth_subject ON users (auth_subject) WHERE auth_subject IS NOT NULL`;
     await db`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_auth_email ON users (LOWER(auth_email)) WHERE auth_email IS NOT NULL`;
 
+    if (isEmailVerified) {
+      const legacyAccount = await db`
+        SELECT id, username, avatar, banner, is_admin, is_verified, created_at
+        FROM users
+        WHERE LOWER(username) = ${username}
+          AND auth_subject IS NULL
+        LIMIT 1
+      `;
+      if (legacyAccount.length) return { success: true, user: legacyAccount[0] };
+    }
+
     if (legacyUserId !== null) {
       const linked = await db`
         SELECT id FROM users
@@ -2430,7 +2441,6 @@ export async function syncNeonUserToDb(email, avatar, isEmailVerified, authSubje
         UPDATE users
         SET auth_subject = ${subject},
             auth_email = ${normalizedEmail},
-            password = 'neon_auth_managed',
             avatar = COALESCE(${avatar || null}, avatar),
             is_verified = CASE WHEN ${Boolean(isEmailVerified)} THEN TRUE ELSE is_verified END
         WHERE id = ${legacyUserId}
@@ -2483,22 +2493,22 @@ export async function syncNeonUserToDb(email, avatar, isEmailVerified, authSubje
     }
 
     if (isEmailVerified) {
-      const legacyOAuthUser = await db`
+      const legacyUser = await db`
         SELECT id, username, avatar, banner, is_admin, is_verified, created_at
         FROM users
         WHERE LOWER(username) = ${username}
-          AND password = 'google_oauth_bypass'
+          AND password <> 'neon_auth_managed'
           AND auth_subject IS NULL
         LIMIT 1
       `;
-      if (legacyOAuthUser.length) {
+      if (legacyUser.length) {
         const migrated = await db`
           UPDATE users
           SET auth_subject = ${subject},
               auth_email = ${normalizedEmail},
               avatar = COALESCE(${avatar || null}, avatar),
               is_verified = TRUE
-          WHERE id = ${legacyOAuthUser[0].id}
+          WHERE id = ${legacyUser[0].id}
           RETURNING id, username, avatar, banner, is_admin, is_verified, created_at
         `;
         return { success: true, user: migrated[0] };

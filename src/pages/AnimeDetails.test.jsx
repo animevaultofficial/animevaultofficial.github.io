@@ -49,9 +49,10 @@ describe('formatScore', () => {
 });
 
 describe('kids profile protections', () => {
-  it('treats missing profiles as a safe default for kids mode', () => {
-    expect(isKidsProfile(null)).toBe(true);
-    expect(getProfileMaxAge(null)).toBe(12);
+  it('uses the adult/main profile when no profile is selected', () => {
+    expect(isKidsProfile(null)).toBe(false);
+    expect(getProfileMaxAge(null)).toBe(18);
+    expect(isBlockedForProfile({ adult: true }, null)).toBe(false);
   });
 
   it('blocks unknown media for kids profiles by default', () => {
