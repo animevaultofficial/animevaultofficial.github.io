@@ -9,6 +9,8 @@ import { searchAniPM, getAniPMRecent } from '../api/anipm';
 import TMDBPoster from '../components/TMDBPoster';
 import { isHentai } from '../utils/animeContent';
 import { removeMediaMatchesForAnime } from '../utils/searchResults';
+import { useUser } from '../api/UserContext';
+import { isBlockedForProfile } from '../utils/ageRating';
 import '../styles/searchPage.css';
 
 const PAGE_SIZE = 20;
@@ -91,6 +93,7 @@ function mediaKind(item) {
 }
 
 export default function Search() {
+  const { activeSubAccount } = useUser();
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState(params.get('q') || '');
   const [results, setResults] = useState([]);
@@ -139,12 +142,13 @@ export default function Search() {
       const animeItems = Array.isArray(animeResponse)
         ? animeResponse
         : animeResponse?.data || [];
+      const isAllowed = item => !isBlockedForProfile(item, activeSubAccount);
       const normalized = [
         ...animeItems
-          .filter(item => searchQuery.trim() || !isHentai(item))
+          .filter(item => (searchQuery.trim() || !isHentai(item)) && isAllowed(item))
           .map(normalizeAnime),
-        ...movieItems,
-        ...tvItems,
+        ...(Array.isArray(movieItems) ? movieItems.filter(isAllowed) : []),
+        ...(Array.isArray(tvItems) ? tvItems.filter(isAllowed) : []),
       ];
       setResults(previous => removeMediaMatchesForAnime(dedupe(page === 1 ? normalized : [...previous, ...normalized])));
       if (failures === responses.length) setError('Search providers did not return results.');
@@ -157,16 +161,19 @@ export default function Search() {
       setLoading(false);
     });
     return () => { active = false; };
-  }, [page, searchQuery, retryKey]);
+  }, [activeSubAccount, page, searchQuery, retryKey]);
 
   const genres = useMemo(() => {
-    const found = new Set(results.flatMap(normalizeGenres));
+    const found = new Set(results
+      .filter(item => !isBlockedForProfile(item, activeSubAccount))
+      .flatMap(normalizeGenres));
     return [...new Set([...COMMON_GENRES.filter(name => [...found].some(value => value.toLowerCase() === name.toLowerCase())), ...found])]
       .sort((a, b) => a.localeCompare(b));
   }, [results]);
 
   const filteredResults = useMemo(() => {
     const list = results.filter(item => {
+      if (isBlockedForProfile(item, activeSubAccount)) return false;
       const kind = mediaKind(item);
       return (mediaFilter === 'all' || mediaFilter === kind) && matchesGenre(item, genreFilter);
     });
@@ -175,7 +182,7 @@ export default function Search() {
     if (sortBy === 'newest') return [...list].sort((a, b) => String(b.year || '').localeCompare(String(a.year || '')));
     if (sortBy === 'title') return [...list].sort((a, b) => getTitle(a).localeCompare(getTitle(b)));
     return list;
-  }, [results, mediaFilter, genreFilter, sortBy]);
+  }, [results, activeSubAccount, mediaFilter, genreFilter, sortBy]);
 
   const hasMore = results.length > 0 && results.length >= page * PAGE_SIZE;
 

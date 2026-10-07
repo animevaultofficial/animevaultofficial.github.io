@@ -99,7 +99,7 @@ const CERT_TO_AGE = {
 };
 
 export function certToMinAge(cert, countryCode) {
-  if (!cert || !cert.trim()) return null;
+  if (typeof cert !== "string" || !cert.trim()) return null;
   const map = CERT_TO_AGE[countryCode] || CERT_TO_AGE["US"];
   const key = cert.trim().toLowerCase();
   if (key in map) return map[key];
@@ -137,12 +137,26 @@ export function getProfileMaxAge(profile) {
 }
 
 export function getContentMinAgeFromMedia(media, countryCode = 'US') {
-  if (!media) return null;
-  if (media.adult || media.isAdult) return 18;
-  const cert = media.certification || media.contentRating || media.ratingCertification;
+  if (!media) return 13;
+  if (media.adult || media.isAdult || media.is_adult) return 18;
+  const tmdbCertification = media.release_dates?.results
+    ?.find(item => item.iso_3166_1 === countryCode)?.release_dates
+    ?.find(item => item.certification)?.certification
+    || media.content_ratings?.results
+      ?.find(item => item.iso_3166_1 === countryCode)?.rating;
+  const cert = media.certification
+    || media.contentRating
+    || media.content_rating
+    || media.ratingCertification
+    || media.ratingLabel
+    || media.rating_label
+    || tmdbCertification
+    || (typeof media.rating === 'string' ? media.rating : null);
   const certAge = certToMinAge(cert, countryCode);
   if (certAge !== null) return certAge;
-  const genres = (media.genres || media.genre || []).map((genre) => String(genre).toLowerCase());
+  const rawGenres = media.genres || media.genre || media.tags || [];
+  const genres = (Array.isArray(rawGenres) ? rawGenres : [rawGenres])
+    .map((genre) => String(typeof genre === 'object' ? genre.name || genre.label || '' : genre).toLowerCase());
   if (genres.some((genre) => MATURE_GENRES.some((blocked) => genre.includes(blocked)))) return 18;
   return 13;
 }

@@ -5,6 +5,8 @@ import { fetchLatestMovies, fetchLatestTVShows, fetchTMDBBackdrop } from '../api
 import { getAniPMTop, getAniPMRecent, getAniPMTitle } from '../api/anipm';
 import TMDBPoster from '../components/TMDBPoster';
 import { isHentai } from '../utils/animeContent';
+import { useUser } from '../api/UserContext';
+import { isBlockedForProfile } from '../utils/ageRating';
 import '../styles/homepage.css';
 
 const CACHE_KEY = 'animevault_home_v7';
@@ -27,17 +29,25 @@ const writeCache = data => { try { localStorage.setItem(CACHE_KEY, JSON.stringif
 
 export default function MixedHome({ mobile = false }) {
   const navigate = useNavigate();
+  const { activeSubAccount } = useUser();
   const cached = readCache();
-  const [movies, setMovies] = useState(cached?.movies || []);
-  const [tvShows, setTvShows] = useState(cached?.tvShows || []);
-  const [anime, setAnime] = useState(cached?.anime || []);
-  const [animeRecent, setAnimeRecent] = useState(cached?.animeRecent || []);
-  const [slides, setSlides] = useState(cached?.slides || []);
+  const [rawMovies, setMovies] = useState(cached?.movies || []);
+  const [rawTvShows, setTvShows] = useState(cached?.tvShows || []);
+  const [rawAnime, setAnime] = useState(cached?.anime || []);
+  const [rawAnimeRecent, setAnimeRecent] = useState(cached?.animeRecent || []);
+  const [rawSlides, setSlides] = useState(cached?.slides || []);
+  const isAllowed = item => !isBlockedForProfile(item, activeSubAccount);
+  const movies = rawMovies.filter(isAllowed);
+  const tvShows = rawTvShows.filter(isAllowed);
+  const anime = rawAnime.filter(isAllowed);
+  const animeRecent = rawAnimeRecent.filter(isAllowed);
+  const slides = rawSlides.filter(isAllowed);
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(!cached);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     Promise.allSettled([
       fetchLatestMovies(1),
       fetchLatestTVShows(1),
@@ -45,24 +55,24 @@ export default function MixedHome({ mobile = false }) {
       getAniPMRecent(1, 12),
     ]).then(async results => {
       if (cancelled) return;
-      const m = results[0]?.status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
-      const t = results[1]?.status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
-      const a = results[2]?.status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value.filter(item => !isHentai(item)) : [];
-      const ar = results[3]?.status === 'fulfilled' && Array.isArray(results[3].value) ? results[3].value.filter(item => !isHentai(item)) : [];
-      const animeFeatured = a.slice(0, 2).map(x => ({ ...x, _kind: 'anime' }));
+      const rawMovies = results[0]?.status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
+      const rawTvShows = results[1]?.status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
+      const rawAnime = results[2]?.status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value.filter(item => !isHentai(item)) : [];
+      const rawAnimeRecent = results[3]?.status === 'fulfilled' && Array.isArray(results[3].value) ? results[3].value.filter(item => !isHentai(item)) : [];
+      const animeFeatured = rawAnime.slice(0, 2).map(x => ({ ...x, _kind: 'anime' }));
       const mediaFeatured = [
-        ...m.slice(0, 2).map(x => ({ ...x, _kind: 'movie' })),
-        ...t.slice(0, 2).map(x => ({ ...x, _kind: 'tv' })),
+        ...rawMovies.slice(0, 2).map(x => ({ ...x, _kind: 'movie' })),
+        ...rawTvShows.slice(0, 2).map(x => ({ ...x, _kind: 'tv' })),
       ];
-      const featured = [...animeFeatured, ...mediaFeatured].slice(0, 5);
-      setMovies(m);
-      setTvShows(t);
-      setAnime(a);
-      setAnimeRecent(ar);
-      setSlides(featured);
+      const rawFeatured = [...animeFeatured, ...mediaFeatured].slice(0, 5);
+      setMovies(rawMovies);
+      setTvShows(rawTvShows);
+      setAnime(rawAnime);
+      setAnimeRecent(rawAnimeRecent);
+      setSlides(rawFeatured);
       setActive(0);
       setLoading(false);
-      writeCache({ movies: m, tvShows: t, anime: a, animeRecent: ar, slides: featured });
+      writeCache({ movies: rawMovies, tvShows: rawTvShows, anime: rawAnime, animeRecent: rawAnimeRecent, slides: rawFeatured });
 
       const animeBackdropResults = await Promise.allSettled(animeFeatured.map(async item => {
         const title = item.title?.english || item.title?.romaji || item.title?.native || item.title || item.name || '';
@@ -93,17 +103,17 @@ export default function MixedHome({ mobile = false }) {
         const backdropById = new Map(animeBackdropResults
           .filter(result => result.status === 'fulfilled')
           .map(result => [String(result.value.anilistId || result.value.id), result.value.backdrop]));
-        const enrichedSlides = featured.map(item => {
+        const enrichedSlides = rawFeatured.map(item => {
           if (item._kind !== 'anime') return item;
           const backdrop = backdropById.get(String(item.anilistId || item.id));
           return backdrop ? { ...item, backdrop } : item;
         });
         setSlides(enrichedSlides);
-        writeCache({ movies: m, tvShows: t, anime: a, animeRecent: ar, slides: enrichedSlides });
+        writeCache({ movies: rawMovies, tvShows: rawTvShows, anime: rawAnime, animeRecent: rawAnimeRecent, slides: enrichedSlides });
       }
     }).catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [activeSubAccount]);
 
   useEffect(() => {
     if (slides.length < 2) return;

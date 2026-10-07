@@ -3,11 +3,14 @@ import { ArrowLeft, Clock3, Play, Share2, Star, Tv } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { fetchMovieDetails, fetchTVDetails } from '../api/movies';
 import { withTimeout } from '../utils/withTimeout';
+import { useUser } from '../api/UserContext';
+import { isBlockedForProfile } from '../utils/ageRating';
 import '../styles/animeDetails.css';
 import '../styles/mediaDetails.css';
 
 export default function MovieDetails() {
   const { type, id } = useParams();
+  const { activeSubAccount } = useUser();
   const [searchParams] = useSearchParams();
   const [media, setMedia] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +60,14 @@ export default function MovieDetails() {
     return (
       <div className="media-details-state">
         <h1>{error || 'Title unavailable'}</h1>
+        <Link to="/dramas-movies"><ArrowLeft size={16} /> Back to movies</Link>
+      </div>
+    );
+  }
+  if (isBlockedForProfile(media, activeSubAccount)) {
+    return (
+      <div className="media-details-state">
+        <h1>This title is not available for this profile.</h1>
         <Link to="/dramas-movies"><ArrowLeft size={16} /> Back to movies</Link>
       </div>
     );

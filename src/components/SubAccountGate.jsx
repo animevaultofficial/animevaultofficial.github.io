@@ -475,7 +475,7 @@ export default function SubAccountGate({ children }) {
   }
 
   if (!user || user.is_guest) return children;
-  if (confirmedUserId === user.id) return children;
+  if (confirmedUserId === user.id && activeSubAccount?.id) return children;
 
   if (isLoadingProfiles) {
     return (

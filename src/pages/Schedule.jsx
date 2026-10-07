@@ -23,6 +23,7 @@ import {
 } from '../api/scheduleService';
 import { addNotification } from '../api/db';
 import { useUser } from '../api/UserContext';
+import { isBlockedForProfile } from '../utils/ageRating';
 import '../styles/designTokens.css';
 import '../styles/schedule.css';
 
@@ -33,7 +34,7 @@ const FALLBACK_TODAY = 'https://placehold.co/70x95/1a1a2e/ff1a75.png?text=No+Img
 
 export default function Schedule() {
   const queryClient = useQueryClient();
-  const { user, reminders, addReminder, removeReminder, isReminded } = useUser();
+  const { user, reminders, addReminder, removeReminder, isReminded, activeSubAccount } = useUser();
 
   // Mutation to add notification
   const addNotificationMutation = useMutation({
@@ -78,11 +79,15 @@ export default function Schedule() {
     refetchOnWindowFocus: true,
     retry: 2,
   });
+  const safeSchedule = useMemo(
+    () => rawSchedule.filter(item => !isBlockedForProfile(item, activeSubAccount)),
+    [rawSchedule, activeSubAccount]
+  );
 
   // Derived data
-  const scheduleByDay = useMemo(() => groupByDay(rawSchedule), [rawSchedule]);
-  const carouselItems = useMemo(() => pickCarouselItems(rawSchedule, 5), [rawSchedule]);
-  const airingTodayItems = useMemo(() => pickAiringToday(rawSchedule).slice(0, 6), [rawSchedule]);
+  const scheduleByDay = useMemo(() => groupByDay(safeSchedule), [safeSchedule]);
+  const carouselItems = useMemo(() => pickCarouselItems(safeSchedule, 5), [safeSchedule]);
+  const airingTodayItems = useMemo(() => pickAiringToday(safeSchedule).slice(0, 6), [safeSchedule]);
 
   // Day tabs: generate from today + 6 days
   const DAYS_DATA = useMemo(() => {
@@ -159,12 +164,12 @@ export default function Schedule() {
   }, [scheduleByDay, activeDay]);
 
   // Stats
-  const totalAiring = rawSchedule.length;
+  const totalAiring = safeSchedule.length;
   const airingToday = airingTodayItems.length;
   const uniqueAnime = useMemo(() => {
-    const ids = new Set(rawSchedule.map(s => s.id));
+    const ids = new Set(safeSchedule.map(s => s.id));
     return ids.size;
-  }, [rawSchedule]);
+  }, [safeSchedule]);
 
   // Loading state
   if (isLoading) {
@@ -428,7 +433,7 @@ export default function Schedule() {
           <div className="sidebar-panel">
             <h2 className="sidebar-panel-title">Activity Feed</h2>
             <div className="activity-feed-list">
-              {rawSchedule
+              {safeSchedule
                 .filter(item => item.timeUntilAiring <= 0)
                 .sort((a, b) => b.airingAt - a.airingAt)
                 .slice(0, 6)
@@ -456,7 +461,7 @@ export default function Schedule() {
                   );
                 })
               }
-              {rawSchedule.filter(item => item.timeUntilAiring <= 0).length === 0 && (
+              {safeSchedule.filter(item => item.timeUntilAiring <= 0).length === 0 && (
                 <p style={{ color: '#64748b', fontSize: '0.8rem', padding: '8px' }}>No recent releases yet today.</p>
               )}
             </div>
@@ -502,4 +507,3 @@ export default function Schedule() {
     </div>
   );
 }
-

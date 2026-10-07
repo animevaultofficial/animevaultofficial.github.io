@@ -54,8 +54,22 @@ describe('kids profile protections', () => {
   });
 
   it('blocks unknown media for kids profiles by default', () => {
+    expect(getContentMinAgeFromMedia(null)).toBe(13);
     expect(getContentMinAgeFromMedia({ title: 'Unknown' })).toBe(13);
     expect(isBlockedForProfile({ title: 'Unknown' }, { ageRating: 'kids' })).toBe(true);
+  });
+
+  it('handles browse-feed genre and rating metadata safely', () => {
+    expect(getContentMinAgeFromMedia({ genres: [{ name: 'Horror' }] })).toBe(18);
+    expect(getContentMinAgeFromMedia({ genre: 'Adventure' })).toBe(13);
+    expect(getContentMinAgeFromMedia({ certification: { name: 'PG-13' } })).toBe(13);
+    expect(getContentMinAgeFromMedia({ rating: 'PG' })).toBe(7);
+    expect(getContentMinAgeFromMedia({
+      release_dates: { results: [{ iso_3166_1: 'US', release_dates: [{ certification: 'PG' }] }] },
+    })).toBe(7);
+    expect(getContentMinAgeFromMedia({
+      content_ratings: { results: [{ iso_3166_1: 'US', rating: 'TV-14' }] },
+    })).toBe(14);
   });
 
   it('allows adult profiles to view mature content', () => {

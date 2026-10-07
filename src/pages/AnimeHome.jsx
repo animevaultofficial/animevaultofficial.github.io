@@ -4,6 +4,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { getAniPMSchedule, getAniPMTop, getAniPMRecent } from '../api/anipm';
 import TMDBPoster from '../components/TMDBPoster';
 import { isHentai } from '../utils/animeContent';
+import { useUser } from '../api/UserContext';
+import { isBlockedForProfile } from '../utils/ageRating';
 
 function Card({ item }) {
   const navigate = useNavigate();
@@ -16,14 +18,24 @@ export default function AnimeHome() {
   const [top, setTop] = useState([]), [recent, setRecent] = useState([]), [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true), [query, setQuery] = useState('');
   const navigate = useNavigate();
+  const { activeSubAccount } = useUser();
+  const isAllowed = item => !isHentai(item) && !isBlockedForProfile(item, activeSubAccount);
+  const visibleTop = useMemo(() => top.filter(isAllowed), [top, activeSubAccount]);
+  const visibleRecent = useMemo(() => recent.filter(isAllowed), [recent, activeSubAccount]);
+  const visibleSchedule = useMemo(() => schedule.filter(isAllowed), [schedule, activeSubAccount]);
   useEffect(() => {
     let cancelled = false;
     Promise.all([getAniPMTop('week', 24).catch(() => []), getAniPMRecent(1, 24).catch(() => []), getAniPMSchedule().catch(() => [])])
-      .then(([t,r,s]) => { if (cancelled) return; setTop(Array.isArray(t) ? t.filter(item => !isHentai(item)) : []); setRecent(Array.isArray(r) ? r.filter(item => !isHentai(item)) : []); setSchedule(Array.isArray(s) ? s.filter(item => !isHentai(item)) : []); })
+      .then(([t,r,s]) => {
+        if (cancelled) return;
+        setTop(Array.isArray(t) ? t.filter(isAllowed) : []);
+        setRecent(Array.isArray(r) ? r.filter(isAllowed) : []);
+        setSchedule(Array.isArray(s) ? s.filter(isAllowed) : []);
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
-  const latestTitles = useMemo(() => { const seen = new Set(); return recent.filter(item => { if (seen.has(item.anilistId)) return false; seen.add(item.anilistId); return true; }); }, [recent]);
+  }, [activeSubAccount]);
+  const latestTitles = useMemo(() => { const seen = new Set(); return visibleRecent.filter(item => { if (seen.has(item.anilistId)) return false; seen.add(item.anilistId); return true; }); }, [visibleRecent]);
   const submit = e => {
     e.preventDefault();
     if (!query.trim()) return;
@@ -31,7 +43,7 @@ export default function AnimeHome() {
   };
   return <div style={styles.page}>
     <section style={styles.hero}><div><div style={styles.kicker}><Sparkles size={15}/> ANIME IS BACK</div><h1 style={styles.heroH}>Watch anime on AnimeVault.</h1><p>Browse the latest releases, what is trending and this week's schedule — powered by the ani.pm catalogue.</p><form onSubmit={submit} style={styles.search}><Search size={18}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search anime..." aria-label="Search anime" style={styles.searchInput}/><button type="submit">Search</button></form></div></section>
-    {loading ? <div style={styles.loading}>Loading anime catalogue…</div> : <><Section icon={<TrendingUp size={19}/>} title="Trending This Week" items={top}/><Section icon={<Sparkles size={19}/>} title="Recently Added" items={latestTitles}/><section style={styles.section}><div style={styles.heading}><div><h2><CalendarDays size={19}/> This Week's Schedule</h2><p>Upcoming releases and ani.pm availability.</p></div></div><div style={styles.schedule}>{schedule.slice(0,20).map((item,index) => <Link key={item.anilistId + '-' + item.episode + '-' + item.kind + '-' + index} to={'/anime/' + item.anilistId + '?episode=' + item.episode + '&lang=' + (item.kind === 'dub' ? 'dub' : 'sub')} style={styles.scheduleItem}><div><strong>{item.title}</strong><span>Episode {item.episode} · {item.kind?.toUpperCase()}</span></div><small>{item.onAniPm ? 'Available' : 'Not available yet'}</small><ChevronRight size={17}/></Link>)}{!schedule.length && <div style={styles.empty}>No schedule data available right now.</div>}</div></section></>}
+    {loading ? <div style={styles.loading}>Loading anime catalogue…</div> : <><Section icon={<TrendingUp size={19}/>} title="Trending This Week" items={visibleTop}/><Section icon={<Sparkles size={19}/>} title="Recently Added" items={latestTitles}/><section style={styles.section}><div style={styles.heading}><div><h2><CalendarDays size={19}/> This Week's Schedule</h2><p>Upcoming releases and ani.pm availability.</p></div></div><div style={styles.schedule}>{visibleSchedule.slice(0,20).map((item,index) => <Link key={item.anilistId + '-' + item.episode + '-' + item.kind + '-' + index} to={'/anime/' + item.anilistId + '?episode=' + item.episode + '&lang=' + (item.kind === 'dub' ? 'dub' : 'sub')} style={styles.scheduleItem}><div><strong>{item.title}</strong><span>Episode {item.episode} · {item.kind?.toUpperCase()}</span></div><small>{item.onAniPm ? 'Available' : 'Not available yet'}</small><ChevronRight size={17}/></Link>)}{!visibleSchedule.length && <div style={styles.empty}>No schedule data available right now.</div>}</div></section></>}
   </div>;
 }
 function Section({ icon, title, items }) {

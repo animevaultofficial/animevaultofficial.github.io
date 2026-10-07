@@ -96,6 +96,9 @@ function DramasMovies() {
   const navigate = useNavigate();
   const { activeSubAccount } = useUser();
   const isKidsMode = isKidsProfile(activeSubAccount);
+  const visibleMovies = movies.filter(item => !isBlockedForProfile(item, activeSubAccount));
+  const visibleTvShows = tvShows.filter(item => !isBlockedForProfile(item, activeSubAccount));
+  const visibleSearchResults = searchResults.filter(item => !isBlockedForProfile(item, activeSubAccount));
   const heroShows = isKidsMode ? KIDS_TRENDING_SHOWS : TRENDING_SHOWS;
   const genresToShow = isKidsMode ? KIDS_MOVIE_GENRES : MOVIE_GENRES;
 
@@ -114,11 +117,13 @@ function DramasMovies() {
   async function loadLatest() {
     setLoading(true);
     if (activeTab === 'movies') {
-      const data = isKidsMode && !selectedGenre ? KIDS_TRENDING_SHOWS.filter(item => item.type === 'movie') : await fetchLatestMovies(moviePage, selectedGenre);
-      setMovies((data || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
+      const isCuratedKidsFeed = isKidsMode && !selectedGenre;
+      const data = isCuratedKidsFeed ? KIDS_TRENDING_SHOWS.filter(item => item.type === 'movie') : await fetchLatestMovies(moviePage, selectedGenre);
+      setMovies(isCuratedKidsFeed ? data : (data || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
     } else {
-      const data = isKidsMode && !selectedGenre ? KIDS_TRENDING_SHOWS.filter(item => item.type === 'tv') : await fetchLatestTVShows(tvPage, selectedGenre);
-      setTvShows((data || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
+      const isCuratedKidsFeed = isKidsMode && !selectedGenre;
+      const data = isCuratedKidsFeed ? KIDS_TRENDING_SHOWS.filter(item => item.type === 'tv') : await fetchLatestTVShows(tvPage, selectedGenre);
+      setTvShows(isCuratedKidsFeed ? data : (data || []).filter(item => !isBlockedForProfile(item, activeSubAccount)));
     }
     setLoading(false);
   }
@@ -399,9 +404,9 @@ function DramasMovies() {
                   <div key={i} className="skeleton-card" />
                 ))}
               </div>
-            ) : searchResults.length > 0 ? (
+            ) : visibleSearchResults.length > 0 ? (
               <div className="trending-grid-v2">
-                {searchResults.map((item) => {
+                {visibleSearchResults.map((item) => {
                   const watchType = item.type === 'series' || item.mediaType === 'series' ? 'tv' : 'movie';
                   const posterUrl = item.poster;
 
@@ -550,7 +555,7 @@ function DramasMovies() {
             ) : (
               <div className="latest-listings-wrapper">
                 <div className="trending-grid-v2">
-                  {(activeTab === 'movies' ? movies : tvShows).map((item) => {
+                  {(activeTab === 'movies' ? visibleMovies : visibleTvShows).map((item) => {
                     const cleanTitle = item.title;
                     const posterUrl = item.poster;
 
