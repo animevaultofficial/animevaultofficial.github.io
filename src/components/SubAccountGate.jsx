@@ -249,7 +249,6 @@ export default function SubAccountGate({ children }) {
   const [profiles, setProfiles] = useState([]);
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
   const [confirmedUserId, setConfirmedUserId] = useState(null);
-  const [openingProfileId, setOpeningProfileId] = useState(null);
   const [createMessage, setCreateMessage] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editingProfile, setEditingProfile] = useState(null);
@@ -264,7 +263,6 @@ export default function SubAccountGate({ children }) {
 
     async function loadProfiles() {
       setConfirmedUserId(null);
-      setOpeningProfileId(null);
 
       if (!user?.id) {
         setProfiles([]);
@@ -367,16 +365,6 @@ export default function SubAccountGate({ children }) {
   }
 
   function openProfile(profile) {
-    if (openingProfileId) return;
-    setOpeningProfileId(profile.id);
-  }
-
-  function handleProfileOpenAnimationEnd(event, profile) {
-    if (
-      event.target !== event.currentTarget ||
-      event.animationName !== 'profile-open' ||
-      openingProfileId !== profile.id
-    ) return;
     chooseProfile(profile);
   }
 
@@ -545,7 +533,6 @@ export default function SubAccountGate({ children }) {
             flexWrap: 'wrap'
           }}>
             {profiles.map((profile, index) => {
-              const isOpening = openingProfileId === profile.id;
               const avatarSize = typeof window !== 'undefined' && window.innerWidth < 520 ? 104 : 132;
               return (
                 <div
@@ -555,10 +542,8 @@ export default function SubAccountGate({ children }) {
                 >
                   <button
                     type="button"
-                    className={`sub-account-select${isOpening ? ' profile-opening' : ''}`}
+                    className="sub-account-select"
                     onClick={() => openProfile(profile)}
-                    onAnimationEnd={event => handleProfileOpenAnimationEnd(event, profile)}
-                    disabled={Boolean(openingProfileId)}
                     aria-label={`Open ${profile.name}'s profile`}
                   >
                     <ProfileAvatar profile={profile} size={avatarSize} />
@@ -582,7 +567,6 @@ export default function SubAccountGate({ children }) {
                       type="button"
                       className="sub-account-action"
                       onClick={() => openEditProfile(profile)}
-                      disabled={Boolean(openingProfileId)}
                     >
                       <Edit3 size={12} /> Edit
                     </button>
@@ -591,7 +575,6 @@ export default function SubAccountGate({ children }) {
                         type="button"
                         className="sub-account-action sub-account-action-remove"
                         onClick={() => handleDeleteProfile(profile)}
-                        disabled={Boolean(openingProfileId)}
                       >
                         <Trash2 size={12} /> Remove
                       </button>
@@ -605,7 +588,6 @@ export default function SubAccountGate({ children }) {
                 type="button"
                 className="sub-account-add"
                 onClick={openCreateProfile}
-                disabled={Boolean(openingProfileId)}
                 style={{
                   width: 152,
                   background: 'transparent',
