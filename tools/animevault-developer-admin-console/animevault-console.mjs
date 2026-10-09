@@ -1,11 +1,24 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, copyFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, copyFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 
-const ROOT = process.cwd();
+let ROOT = process.cwd();
+const APP_DIR = resolve(process.env.APPDATA || process.env.HOME || '.', 'AnimeVaultDeveloperAdminConsole');
+const CONFIG_PATH = resolve(APP_DIR, 'config.json');
+function isProjectRoot(path) {
+  try { return existsSync(resolve(path, 'package.json')) && JSON.parse(readFileSync(resolve(path, 'package.json'), 'utf8')).name === 'animevault'; }
+  catch { return false; }
+}
+try {
+  if (!isProjectRoot(ROOT) && existsSync(CONFIG_PATH)) {
+    const saved = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
+    if (saved.projectRoot && isProjectRoot(saved.projectRoot)) ROOT = resolve(saved.projectRoot);
+  }
+} catch {}
+if (isProjectRoot(ROOT)) process.chdir(ROOT);
 const SITE = process.env.ANIMEVAULT_URL || 'https://animevaultofficial.fun';
 const LOCAL = process.env.ANIMEVAULT_LOCAL_URL || 'http://localhost:5173';
 const rl = createInterface({ input, output });
@@ -21,7 +34,7 @@ function banner() {
   console.log(paint(C.pink, '║') + '       project control • diagnostics • API lab           ' + paint(C.pink, '║'));
   console.log(paint(C.pink, '╚════════════════════════════════════════════════════════════════╝'));
   console.log(paint(C.dim, '  Repo: animevaultofficial/animevaultofficial.github.io'));
-  console.log('  Folder: ' + ROOT + '\n');
+  console.log('  Project: ' + (isProjectRoot(ROOT) ? ROOT : 'Not linked — choose [P] Link project folder') + '\n');
 }
 function say(type, msg) {
   const color = type === 'PASS' ? C.green : type === 'FAIL' ? C.red : C.yellow;
@@ -98,6 +111,26 @@ async function envWizard() {
   say('PASS','Created .env.local from .env.example.');
   console.log('  Open .env.local in a text editor and configure only values you understand.');
   console.log('  Never commit .env.local or share private keys. VITE_* values are public in the browser bundle.');
+}
+async function selectProject() {
+  const initial = isProjectRoot(ROOT) ? ROOT : '';
+  const entered = (await rl.question('Path to your local AnimeVault repository folder' + (initial ? ' [' + initial + ']' : '') + ': ')).trim().replace(/^['"]|['"]$/g, '');
+  const candidate = resolve(entered || initial || '.');
+  if (!isProjectRoot(candidate)) {
+    say('FAIL', 'That folder does not contain AnimeVault package.json (expected package name: animevault).');
+    return false;
+  }
+  ROOT = candidate;
+  process.chdir(ROOT);
+  mkdirSync(APP_DIR, { recursive: true });
+  writeFileSync(CONFIG_PATH, JSON.stringify({ projectRoot: ROOT }, null, 2) + '\n', 'utf8');
+  say('PASS', 'Linked AnimeVault project: ' + ROOT);
+  return true;
+}
+async function ensureProject() {
+  if (isProjectRoot(ROOT)) return true;
+  say('INFO', 'This console is installed independently. Link a local AnimeVault project folder to run project tests/builds.');
+  return await selectProject();
 }
 async function repositoryCheck() {
   console.log('\n' + paint(C.cyan,'REPOSITORY & TOOLCHAIN'));
@@ -184,6 +217,7 @@ async function allDiagnostics() {
 async function menu() {
   while (true) {
     banner();
+    console.log('  [P] Link / change local AnimeVault project folder');
     console.log('  [1] Launch AnimeVault locally (opens browser)');
     console.log('  [2] Run all diagnostics');
     console.log('  [3] Unit tests');
@@ -199,7 +233,9 @@ async function menu() {
     console.log('  [0] Exit\n');
     const choice = (await rl.question('  AV Admin > ')).trim().toLowerCase();
     if (choice==='0') break;
-    if (choice==='1') await launchLocal();
+    if (choice==='p') await selectProject();
+    else if (['1','2','3','4','6','e','7','8','9'].includes(choice) && !(await ensureProject())) { /* remain in menu */ }
+    else if (choice==='1') await launchLocal();
     else if (choice==='2') await allDiagnostics();
     else if (choice==='3') await tests();
     else if (choice==='4') await build();
@@ -217,9 +253,5 @@ async function menu() {
   await stopServer();
   rl.close();
   console.log('\nAnimeVault Developer Admin Console closed. See you next time.\n');
-}
-if (!existsSync(resolve(ROOT,'package.json'))) {
-  console.error('Run this console from the AnimeVault repository root.');
-  process.exit(1);
 }
 menu().catch(async e=>{ console.error(e); await stopServer(); rl.close(); process.exitCode=1; });
