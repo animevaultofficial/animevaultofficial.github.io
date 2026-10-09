@@ -1,9 +1,12 @@
 $ErrorActionPreference = 'Stop'
 
 # Standalone installer: intentionally does not require a cloned repository.
-$releaseBase = 'https://raw.githubusercontent.com/animevaultofficial/animevaultofficial.github.io/main/tools/animevault-developer-admin-console'
+# Use the GitHub Contents API rather than raw.githubusercontent.com, which may
+# serve a stale cached copy of this installer or the console.
+$repo = 'animevaultofficial/animevaultofficial.github.io'
+$consoleRepoPath = 'tools/animevault-developer-admin-console/animevault-console.mjs'
+$apiUrl = "https://api.github.com/repos/$repo/contents/$consoleRepoPath?ref=main"
 
-# Resolve folders safely even if a Windows environment variable is missing.
 $profileDir = [Environment]::GetFolderPath('UserProfile')
 if ([string]::IsNullOrWhiteSpace($profileDir)) { $profileDir = $HOME }
 if ([string]::IsNullOrWhiteSpace($profileDir)) { throw 'Could not determine your Windows user profile folder.' }
@@ -20,13 +23,16 @@ $commandPath = Join-Path $binDir 'animevault.cmd'
 New-Item -ItemType Directory -Path $appDir -Force | Out-Null
 New-Item -ItemType Directory -Path $binDir -Force | Out-Null
 
-Write-Host 'Downloading AnimeVault Developer Admin Console...' -ForegroundColor Cyan
-$downloadUrl = "$releaseBase/animevault-console.mjs"
-Invoke-WebRequest -Uri $downloadUrl -OutFile $consolePath
-
-if (-not (Test-Path -LiteralPath $consolePath) -or (Get-Item -LiteralPath $consolePath).Length -lt 1000) {
-    throw "The console download appears incomplete from $downloadUrl. No command was installed."
+Write-Host 'Downloading AnimeVault Developer Admin Console from GitHub...' -ForegroundColor Cyan
+$response = Invoke-RestMethod -Uri $apiUrl -Headers @{ 'User-Agent' = 'AnimeVault-Developer-Admin-Console-Installer'; 'Accept' = 'application/vnd.github+json' }
+if ($response.encoding -ne 'base64' -or [string]::IsNullOrWhiteSpace($response.content)) {
+    throw "GitHub did not return the console source in the expected format: $apiUrl"
 }
+$source = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(($response.content -replace '\s', '')))
+if ($source.Length -lt 1000 -or $source -notmatch 'AnimeVault') {
+    throw 'The downloaded console source looks incomplete. No command was installed.'
+}
+[IO.File]::WriteAllText($consolePath, $source, [Text.UTF8Encoding]::new($false))
 
 $escapedConsole = $consolePath.Replace('"', '""')
 $command = @"
@@ -55,5 +61,5 @@ Write-Host 'AnimeVault Developer Admin Console installed successfully.' -Foregro
 Write-Host "App files: $appDir"
 Write-Host "Command:   $commandPath"
 Write-Host ''
-Write-Host 'Open a NEW Windows Terminal window and type: animevault'
+Write-Host 'Open a NEW PowerShell or Windows Terminal window and type: animevault'
 Write-Host 'Inside the console, choose [P] to link a local AnimeVault repository.'
