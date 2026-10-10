@@ -1,0 +1,31 @@
+name: AnimeVault Studio
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/animevault-studio/**'
+      - '.github/workflows/animevault-studio.yml'
+  pull_request:
+    paths:
+      - 'tools/animevault-studio/**'
+      - '.github/workflows/animevault-studio.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/animevault-studio
+    steps:
+      - name: Checkout official AnimeVault repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.12'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build IDE renderer
+        run: npm run build
