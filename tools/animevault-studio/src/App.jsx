@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Editor from '@monaco-editor/react';
+import Editor, { loader } from '@monaco-editor/react';
+import * as monaco from 'monaco-editor';
 import { Activity, AppWindow, BookOpen, Braces, Check, ChevronDown, ChevronRight, CircleHelp, Code2, Command, File, FileCode2, FileJson, FileText, Folder, FolderOpen, GitBranch, Keyboard, PanelLeftClose, Play, Plus, RefreshCw, Save, Search, Settings2, ShieldCheck, Terminal, X } from 'lucide-react';
+
+loader.config({ monaco });
 
 const extLanguage = { js:'javascript', jsx:'javascript', mjs:'javascript', cjs:'javascript', ts:'typescript', tsx:'typescript', json:'json', css:'css', scss:'scss', html:'html', md:'markdown', mdx:'markdown', yml:'yaml', yaml:'yaml', py:'python', sh:'shell', ps1:'powershell', c:'c', cpp:'cpp', h:'c', sql:'sql', xml:'xml', svg:'xml', env:'plaintext', txt:'plaintext', gitignore:'plaintext' };
 const extIcon = (name) => { const ext = name.split('.').pop().toLowerCase(); if (ext === 'json') return FileJson; if (['js','jsx','ts','tsx','css','html'].includes(ext)) return FileCode2; if (['md','mdx','txt'].includes(ext)) return FileText; return File; };
