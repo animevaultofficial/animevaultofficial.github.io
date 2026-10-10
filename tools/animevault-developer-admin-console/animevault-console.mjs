@@ -69,13 +69,13 @@ function banner() {
   console.log(paint(C.pink, '│') + '             slash commands • project tools • diagnostics          ' + paint(C.pink, '│'));
   console.log(paint(C.pink, '╰──────────────────────────────────────────────────────────────────╯'));
   console.log('  Project: ' + (isProjectRoot(ROOT) ? ROOT : 'Not linked — use /project link'));
-  console.log('  Type /help for commands. Use Tab for suggestions.\\n');
+  console.log('  Type /help for commands. Use Tab for suggestions.\n');
 }
 function say(type, message) {
   const color = type === 'PASS' ? C.green : type === 'FAIL' ? C.red : type === 'WARN' ? C.yellow : C.cyan;
   console.log('  ' + paint(color, type.padEnd(5)) + message);
 }
-function section(title) { console.log('\\n' + paint(C.cyan + C.bold, '  ' + title)); }
+function section(title) { console.log('\n' + paint(C.cyan + C.bold, '  ' + title)); }
 function projectRequired() {
   if (isProjectRoot(ROOT)) return true;
   say('WARN', 'No local AnimeVault checkout linked. Run /project link. The console installs independently.');
@@ -418,8 +418,8 @@ async function help() {
     ['FILES & UTILITIES','/search <text>  /open <path>  /backup  /tasks  /config show'],
     ['WEB','/site  /site local  /update']
   ];
-  for (const [title,commands] of groups) { console.log('\\n  ' + paint(C.pink + C.bold,title)); console.log('  ' + commands); }
-  console.log('\\n  Tip: commands are case-insensitive. Press Tab for command suggestions.');
+  for (const [title,commands] of groups) { console.log('\n  ' + paint(C.pink + C.bold,title)); console.log('  ' + commands); }
+  console.log('\n  Tip: commands are case-insensitive. Press Tab for command suggestions.');
   console.log('  Safety: pull asks for confirmation; this console does not auto-commit or auto-deploy.');
 }
 async function execute(line) {
@@ -435,7 +435,7 @@ async function execute(line) {
   if (command==='help'||command==='?') await help();
   else if (command==='clear'||command==='cls') console.clear();
   else if (command==='menu') { banner(); await help(); }
-  else if (command==='about') { section('ABOUT'); console.log('  AnimeVault Terminal v'+VERSION+'\\n  Developer console for animevaultofficial/animevaultofficial.github.io\\n  '+REPO_URL); }
+  else if (command==='about') { section('ABOUT'); console.log('  AnimeVault Terminal v'+VERSION+'\n  Developer console for animevaultofficial/animevaultofficial.github.io\n  '+REPO_URL); }
   else if (command==='exit'||command==='quit') quitting=true;
   else if (command==='history') await history();
   else if (command==='status') await status();
@@ -517,7 +517,7 @@ async function shutdown() {
     if (entries.length) appendFileSync(HISTORY_PATH,entries.join('\n')+'\n','utf8');
   } catch {}
   rl.close();
-  console.log('\\nAnimeVault Terminal closed. See you next time.\\n');
+  console.log('\nAnimeVault Terminal closed. See you next time.\n');
 }
 async function main() {
   banner();
