@@ -101,7 +101,7 @@ function run(command, args, label, options = {}) {
     const child = spawn(command, args, {
       cwd: options.cwd || ROOT,
       stdio: options.capture ? ['ignore','pipe','pipe'] : 'inherit',
-      shell: platform() === 'win32',
+      shell: platform() === 'win32' && command.toLowerCase() === 'npm',
       env: process.env
     });
     lastTask = { label, pid:child.pid, startedAt:new Date().toISOString() };
@@ -443,7 +443,7 @@ async function execute(line) {
   else if (command==='project') {
     if (sub==='link') await linkProject();
     else if (sub==='show'||!sub) say('INFO','Linked project: '+(isProjectRoot(ROOT)?ROOT:'none'));
-    else if (sub==='clear') { saveConfig({projectRoot:null}); say('PASS','Saved project link cleared. Use /project link to select a new folder.'); }
+    else if (sub==='clear') { saveConfig({projectRoot:null}); say('PASS','Saved project link cleared. The current session keeps its active folder; restart to detach fully.'); }
     else say('WARN','Usage: /project link|show|clear');
   }
   else if (command==='dev') {
@@ -530,5 +530,5 @@ async function main() {
   }
   await shutdown();
 }
-process.on('SIGINT',()=>{ quitting=true; });
+process.on('SIGINT',()=>{ quitting=true; rl.close(); });
 main().catch(error=>{ console.error(error); process.exitCode=1; });
