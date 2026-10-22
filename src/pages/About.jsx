@@ -29,7 +29,7 @@ export default function About() {
     <section className="about-page-v2">
       <header className="about-hero">
         <span className="static-eyebrow">ABOUT THE PROJECT</span>
-        <h1>Entertainment, organized around you.</h1>
+        <h1>Find your next series. Keep your progress in one place.</h1>
         <p>
           AnimeVault brings anime, movies, and series discovery together in one
           easy-to-use experience, with tools to make your library feel like yours.

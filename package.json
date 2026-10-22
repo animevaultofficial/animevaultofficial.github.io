@@ -2,7 +2,7 @@
   "name": "animevault",
   "private": true,
   "version": "0.2.280",
-  "description": "The ultimate anime streaming experience",
+  "description": "Discover anime, movies, and series; save favorites and track viewing progress.",
   "author": "AnimeVault Team",
   "type": "module",
   "main": "electron/main.cjs",

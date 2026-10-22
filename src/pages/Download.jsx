@@ -8,7 +8,7 @@ import packageJson from '../../package.json';
 
 const VERSION = packageJson.version;
 const REPOSITORY = 'animevaultofficial/animevaultofficial.github.io';
-const releaseAssetUrl = (assetName) => `https://github.com/${REPOSITORY}/releases/latest/download/${assetName}`;
+const releaseAssetUrl = (assetName) => `https://github.com/${REPOSITORY}/releases/latest/download/${encodeURIComponent(assetName)}`;
 
 const platforms = [
   {
@@ -52,7 +52,7 @@ const platforms = [
     icon: 'https://cdn.simpleicons.org/linux/f5c300',
     iconAlt: 'Linux logo',
     fileName: `AnimeVault Linux x64 v${VERSION}.AppImage`,
-    url: releaseAssetUrl('AnimeVault-Linux-x86_64.AppImage'),
+    url: releaseAssetUrl('AnimeVault-Linux-x64.AppImage'),
     note: 'Make executable, then run',
   },
   {
@@ -63,7 +63,7 @@ const platforms = [
     icon: 'https://cdn.simpleicons.org/linux/f5c300',
     iconAlt: 'Linux logo',
     fileName: `AnimeVault Linux amd64 v${VERSION}.deb`,
-    url: releaseAssetUrl('AnimeVault-Linux-amd64.deb'),
+    url: releaseAssetUrl('AnimeVault-Linux-x64.deb'),
     note: 'Install with your package manager',
   },
   {
@@ -74,16 +74,16 @@ const platforms = [
     icon: androidIcon,
     iconAlt: 'Android logo',
     fileName: `AnimeVault Android v${VERSION}.apk`,
-    url: releaseAssetUrl('Anime.Vault.apk'),
+    url: releaseAssetUrl('Anime Vault.apk'),
     note: 'Side-load APK release',
   },
 ];
 
 const features = [
   { icon: PlayCircle, title: 'Playback options', text: 'Playback availability depends on the selected title, provider, and your device.' },
-  { icon: Tv, title: 'Huge Library', text: 'Explore anime, dramas, movies, and TV shows from one responsive experience.' },
+  { icon: Tv, title: 'Browse the catalog', text: 'Explore anime, dramas, movies, and TV shows from one responsive interface.' },
   { icon: Bookmark, title: 'Track Progress', text: 'Save watch history and continue from where you left off across sessions.' },
-  { icon: Laptop, title: 'Always Up To Date', text: 'Every download button targets the latest GitHub Release asset.' },
+  { icon: Laptop, title: 'Desktop and mobile', text: 'Choose the installer built for your operating system and device.' },
 ];
 
 const Download = () => (
