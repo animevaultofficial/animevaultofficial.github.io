@@ -16,6 +16,22 @@ function isChunkError(error) {
     message.includes('unable to preload css') ||
     message.includes('failed to load module script')
   );
+
+  // Let a recovered page settle before allowing another recovery attempt in
+  // this tab. Keep the counter through the immediate retry so a bad deploy
+  // cannot cause an endless reload loop.
+  window.addEventListener('load', () => {
+    try {
+      const currentUrl = new URL(window.location.href);
+      if (currentUrl.searchParams.has('av-recover')) {
+        window.setTimeout(() => {
+          try { sessionStorage.removeItem(RECOVERY_KEY); } catch {}
+        }, 60000);
+      } else {
+        sessionStorage.removeItem(RECOVERY_KEY);
+      }
+    } catch {}
+  }, { once: true });
 }
 
 async function clearAppCaches() {
