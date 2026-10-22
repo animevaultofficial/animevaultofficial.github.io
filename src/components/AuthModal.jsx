@@ -1,85 +1,174 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
-import { X, Lock, Sparkles, AlertCircle, CheckCircle, UserRound, Mail } from 'lucide-react';
+import { ArrowRight, AlertCircle, CheckCircle2, Eye, EyeOff, LockKeyhole, Mail, Sparkles, UserRound, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../api/UserContext';
+import './AuthModal.css';
 
 const hcaptchaSiteKey = import.meta.env.VITE_HCAPTCHA_SITEKEY || '';
-const isNativeApp = Capacitor.isNativePlatform();
-const hcaptchaEnabled = Boolean(hcaptchaSiteKey) && !isNativeApp;
+const hcaptchaEnabled = Boolean(hcaptchaSiteKey) && !Capacitor.isNativePlatform();
 
 export default function AuthModal() {
   const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup, loginAsGuest } = useUser();
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const resetForm = () => {
+    setEmail(''); setPassword(''); setConfirmPassword(''); setShowPassword(false);
+    setCaptchaToken(''); setError(''); setSuccess('');
+  };
+
+  useEffect(() => {
+    if (!showAuthModal) return undefined;
+    const onKeyDown = event => {
+      if (event.key === 'Escape' && !loading) setShowAuthModal(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showAuthModal, loading, setShowAuthModal]);
+
   if (!showAuthModal) return null;
 
-  const resetForm = () => { setUsername(''); setPassword(''); setCaptchaToken(''); setError(''); setSuccess(''); };
+  const switchTab = tab => { setAuthTab(tab); resetForm(); };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(''); setSuccess(''); setLoading(true);
+  const handleSubmit = async event => {
+    event.preventDefault();
+    setError(''); setSuccess('');
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) { setError('Enter your email address to continue.'); return; }
+    if (!password) { setError('Enter your password to continue.'); return; }
+    if (authTab === 'signup') {
+      if (password.length < 6) { setError('Choose a password with at least 6 characters.'); return; }
+      if (password !== confirmPassword) { setError('Those passwords do not match. Try again.'); return; }
+    }
+    if (hcaptchaEnabled && !captchaToken) { setError('Complete the security check before continuing.'); return; }
+
+    setLoading(true);
     try {
-      if (!username.trim()) throw new Error('Email is required.');
-      if (hcaptchaEnabled && !captchaToken) throw new Error('Please complete the security check before continuing.');
-      if (authTab === 'login') {
-        if (!password) throw new Error('Password is required.');
-        const res = await login(username, password, null, captchaToken);
-        if (res.success) { setSuccess('Welcome back!'); setTimeout(resetForm, 800); }
-        else setError(res.message);
-      } else {
-        if (!password) throw new Error('Password is required.');
-        if (password.length < 6) throw new Error('Password must be at least 6 characters.');
-        const res = await signup(username, password, captchaToken);
-        if (res.success) { setSuccess(res.message || 'Account created!'); setTimeout(resetForm, 1800); }
-        else setError(res.message);
+      const result = authTab === 'login'
+        ? await login(normalizedEmail, password, null, captchaToken)
+        : await signup(normalizedEmail, password, captchaToken);
+      if (!result?.success) {
+        setError(result?.message || 'We couldn’t complete that request. Please try again.');
+        return;
       }
-    } catch (err) { setError(err.message); }
-    finally { setLoading(false); }
+      setSuccess(authTab === 'login' ? 'You’re signed in. Welcome back!' : (result.message || 'Your account is ready.'));
+      window.setTimeout(resetForm, 900);
+    } catch (err) {
+      setError(err?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGuest = async () => {
     setError(''); setSuccess(''); setLoading(true);
     try {
-      const res = await loginAsGuest();
-      if (!res?.success) throw new Error(res?.message || 'Guest mode could not be started.');
-    } catch (err) { setError(err.message); setLoading(false); }
+      const result = await loginAsGuest();
+      if (!result?.success) { setError(result?.message || 'Guest mode could not be started.'); setLoading(false); }
+    } catch (err) {
+      setError(err?.message || 'Guest mode could not be started.');
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="auth-overlay" onClick={() => setShowAuthModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(5,5,10,0.88)', backdropFilter: 'blur(16px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'linear-gradient(145deg, rgba(22,22,34,0.97), rgba(11,11,19,0.97))', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,26,117,0.22)', borderRadius: '22px', padding: '30px', width: '100%', maxWidth: '420px', position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.55)' }}>
-        <button aria-label="Close" onClick={() => setShowAuthModal(false)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.08)', width: '34px', height: '34px', borderRadius: '50%', display: 'grid', placeItems: 'center' }}><X size={17} /></button>
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}><div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#ff1a75', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Sparkles size={20} /> AnimeVault</div><p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '6px' }}>Sync your progress & favorites</p></div>
+    <div className="auth-overlay" onMouseDown={event => {
+      if (event.target === event.currentTarget && !loading) setShowAuthModal(false);
+    }}>
+      <section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-heading" aria-describedby="auth-subheading">
+        <aside className="auth-showcase">
+          <div className="auth-brand">
+            <span className="auth-brand-mark"><Sparkles size={18} strokeWidth={2.3} /></span>
+            <span>AnimeVault</span>
+          </div>
+          <div className="auth-showcase-copy">
+            <p className="auth-kicker">Your next obsession awaits</p>
+            <h2>Every story.<br />Your <span>vault.</span></h2>
+            <p>Pick up where you left off. Keep your watchlist close. Make every anime night yours.</p>
+          </div>
+          <div className="auth-showcase-footer"><span className="auth-live-dot" /><span>Your anime world, all in one place</span></div>
+        </aside>
 
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>{['login', 'signup'].map(tab => <button key={tab} onClick={() => { setAuthTab(tab); resetForm(); }} style={{ flex: 1, padding: '10px', borderRadius: '10px', border: 'none', background: authTab === tab ? '#ff1a75' : 'rgba(255,255,255,0.04)', color: authTab === tab ? '#000' : '#fff', fontWeight: '900', fontSize: '0.8rem', cursor: 'pointer' }}>{tab === 'login' ? 'Sign In' : 'Sign Up'}</button>)}</div>
+        <div className="auth-form-panel">
+          <button className="auth-close" type="button" aria-label="Close sign in" onClick={() => setShowAuthModal(false)} disabled={loading}><X size={18} /></button>
+          <h1 className="auth-heading" id="auth-heading">{authTab === 'login' ? 'Welcome back' : 'Create your account'}</h1>
+          <p className="auth-subheading" id="auth-subheading">
+            {authTab === 'login' ? 'Sign in to get back to your personal vault.' : 'Join AnimeVault and keep your anime life in sync.'}
+          </p>
 
-        {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', borderRadius: '12px', padding: '11px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}><AlertCircle size={16} /><span>{error}</span></div>}
-        {success && <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', borderRadius: '12px', padding: '11px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}><CheckCircle size={16} /><span>{success}</span></div>}
+          <div className="auth-tabs" role="tablist" aria-label="Account access">
+            <button className="auth-tab" type="button" role="tab" aria-selected={authTab === 'login'} onClick={() => switchTab('login')} disabled={loading}>Sign in</button>
+            <button className="auth-tab" type="button" role="tab" aria-selected={authTab === 'signup'} onClick={() => switchTab('signup')} disabled={loading}>Create account</button>
+          </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '14px', position: 'relative' }}><Mail size={16} style={{ position: 'absolute', top: '13px', left: '12px', color: 'var(--text-tertiary)' }} /><input type="email" value={username} onChange={e => setUsername(e.target.value)} placeholder="Email address" autoComplete="email" style={{ width: '100%', boxSizing: 'border-box', padding: '12px 12px 12px 38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '11px', color: '#fff', outline: 'none', fontSize: '0.86rem' }} /></div>
-          <div style={{ marginBottom: '20px', position: 'relative' }}><Lock size={16} style={{ position: 'absolute', top: '13px', left: '12px', color: 'var(--text-tertiary)' }} /><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" autoComplete={authTab === 'login' ? 'current-password' : 'new-password'} style={{ width: '100%', boxSizing: 'border-box', padding: '12px 12px 12px 38px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '11px', color: '#fff', outline: 'none', fontSize: '0.86rem' }} /></div>
-          {authTab === 'login' && <div style={{ textAlign: 'right', marginTop: '-8px', marginBottom: '16px' }}><button type="button" onClick={() => { setShowAuthModal(false); navigate('/forgot-password'); }} style={{ background: 'none', border: 'none', color: '#ff1a75', fontSize: '0.75rem', cursor: 'pointer', padding: 0 }}>Forgot password?</button></div>}
+          {error && <div className="auth-feedback auth-feedback-error" role="alert"><AlertCircle size={17} /><span>{error}</span></div>}
+          {success && <div className="auth-feedback auth-feedback-success" role="status"><CheckCircle2 size={17} /><span>{success}</span></div>}
 
-          {hcaptchaEnabled && <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><HCaptcha sitekey={hcaptchaSiteKey} theme="dark" onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} onError={() => setCaptchaToken('')} /></div>}
-          <button type="submit" disabled={loading || (hcaptchaEnabled && !captchaToken)} style={{ width: '100%', padding: '13px', background: '#ff1a75', color: '#000', fontWeight: '900', border: 'none', borderRadius: '11px', cursor: loading ? 'wait' : 'pointer', fontSize: '0.86rem', boxShadow: '0 0 20px rgba(255,26,117,0.25)', opacity: loading || (hcaptchaEnabled && !captchaToken) ? 0.65 : 1 }}>{loading ? 'Processing...' : (authTab === 'login' ? 'Sign In' : 'Create Account')}</button>
-
-          {authTab === 'login' && <>
-            <div role="status" style={{ padding: '11px 12px', marginBottom: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-secondary)', fontSize: '0.76rem', lineHeight: 1.5, textAlign: 'center' }}>
-              Google and email-code sign-in are temporarily unavailable. Use email and password while authentication is repaired.
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="auth-field">
+              <label htmlFor="animevault-auth-email">Email address</label>
+              <div className="auth-input-wrap">
+                <Mail className="auth-input-icon" aria-hidden="true" />
+                <input className="auth-input" id="animevault-auth-email" name="email" type="email" value={email}
+                  onChange={event => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email"
+                  autoCapitalize="none" spellCheck="false" autoFocus required disabled={loading} />
+              </div>
             </div>
-          </>}
-          <button type="button" onClick={handleGuest} disabled={loading} style={{ width: '100%', padding: '12px', marginTop: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: '800', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '11px', cursor: loading ? 'wait' : 'pointer', fontSize: '0.84rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', opacity: loading ? 0.65 : 1 }}><UserRound size={17} /> Use as Guest</button>
-        </form>
-      </div>
+
+            <div className="auth-field">
+              <label htmlFor="animevault-auth-password">Password</label>
+              <div className="auth-input-wrap">
+                <LockKeyhole className="auth-input-icon" aria-hidden="true" />
+                <input className="auth-input auth-password-input" id="animevault-auth-password" name="password"
+                  type={showPassword ? 'text' : 'password'} value={password} onChange={event => setPassword(event.target.value)}
+                  placeholder={authTab === 'login' ? 'Enter your password' : 'At least 6 characters'}
+                  autoComplete={authTab === 'login' ? 'current-password' : 'new-password'} minLength={6} required disabled={loading} />
+                <button className="auth-reveal" type="button" aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  onClick={() => setShowPassword(value => !value)}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
+              </div>
+            </div>
+
+            {authTab === 'signup' && <div className="auth-field">
+              <label htmlFor="animevault-auth-confirm-password">Confirm password</label>
+              <div className="auth-input-wrap">
+                <LockKeyhole className="auth-input-icon" aria-hidden="true" />
+                <input className="auth-input" id="animevault-auth-confirm-password" name="confirmPassword"
+                  type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)}
+                  placeholder="Enter your password again" autoComplete="new-password" minLength={6} required disabled={loading} />
+              </div>
+            </div>}
+
+            {authTab === 'login' && <div className="auth-form-options">
+              <button className="auth-text-link" type="button" onClick={() => {
+                setShowAuthModal(false); navigate('/forgot-password');
+              }}>Forgot password?</button>
+            </div>}
+
+            {hcaptchaEnabled && <div className="auth-captcha"><HCaptcha sitekey={hcaptchaSiteKey} theme="dark"
+              onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} onError={() => setCaptchaToken('')} /></div>}
+
+            <button className="auth-submit" type="submit" disabled={loading || (hcaptchaEnabled && !captchaToken)}>
+              <span>{loading ? 'Please wait…' : authTab === 'login' ? 'Sign in to AnimeVault' : 'Create my account'}</span>
+              {!loading && <ArrowRight size={17} />}
+            </button>
+          </form>
+
+          <div className="auth-divider"><span>or keep exploring</span></div>
+          <button className="auth-guest" type="button" onClick={handleGuest} disabled={loading}>
+            <UserRound size={17} /><span>Continue as guest</span>
+          </button>
+          <p className="auth-legal">By continuing, you agree to use AnimeVault responsibly. <strong>Your account, your watchlist, your pace.</strong></p>
+        </div>
+      </section>
     </div>
   );
 }
