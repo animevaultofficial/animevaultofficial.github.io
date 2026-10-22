@@ -10,11 +10,14 @@ const hcaptchaSiteKey = import.meta.env.VITE_HCAPTCHA_SITEKEY || '';
 const hcaptchaEnabled = Boolean(hcaptchaSiteKey) && !Capacitor.isNativePlatform();
 
 export default function AuthModal() {
-  const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup, loginAsGuest } = useUser();
+  const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup, loginAsGuest, sendEmailOtp, loginWithEmailOtp } = useUser();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [otpMode, setOtpMode] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [captchaToken, setCaptchaToken] = useState('');
   const [error, setError] = useState('');
@@ -23,6 +26,7 @@ export default function AuthModal() {
 
   const resetForm = () => {
     setEmail(''); setPassword(''); setConfirmPassword(''); setShowPassword(false);
+    setOtp(''); setOtpSent(false);
     setCaptchaToken(''); setError(''); setSuccess('');
   };
 
@@ -37,13 +41,32 @@ export default function AuthModal() {
 
   if (!showAuthModal) return null;
 
-  const switchTab = tab => { setAuthTab(tab); resetForm(); };
+  const switchTab = tab => { setAuthTab(tab); setOtpMode(false); resetForm(); };
 
   const handleSubmit = async event => {
     event.preventDefault();
     setError(''); setSuccess('');
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) { setError('Enter your email address to continue.'); return; }
+
+    if (otpMode && authTab === 'login') {
+      if (otpSent && !/^\\d{6}$/.test(otp.trim())) { setError('Enter the 6-digit code from your email.'); return; }
+      setLoading(true);
+      try {
+        const result = otpSent
+          ? await loginWithEmailOtp(normalizedEmail, otp.trim())
+          : await sendEmailOtp(normalizedEmail);
+        if (!result?.success) { setError(result?.message || 'Email code sign-in failed. Please try again.'); return; }
+        if (!otpSent) { setOtpSent(true); setSuccess(result.message || 'Check your email for a 6-digit code.'); }
+        else { setSuccess('You’re signed in. Welcome back!'); }
+      } catch (err) {
+        setError(err?.message || 'Email code sign-in failed. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!password) { setError('Enter your password to continue.'); return; }
     if (authTab === 'signup') {
       if (password.length < 6) { setError('Choose a password with at least 6 characters.'); return; }
@@ -111,7 +134,7 @@ export default function AuthModal() {
               </div>
             </div>
 
-            <div className="auth-field">
+            {!otpMode && <div className="auth-field">
               <label htmlFor="animevault-auth-password">Password</label>
               <div className="auth-input-wrap">
                 <LockKeyhole className="auth-input-icon" aria-hidden="true" />
@@ -122,9 +145,19 @@ export default function AuthModal() {
                 <button className="auth-reveal" type="button" aria-label={showPassword ? 'Hide password' : 'Show password'}
                   onClick={() => setShowPassword(value => !value)}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button>
               </div>
-            </div>
+            </div>}
 
-            {authTab === 'signup' && <div className="auth-field">
+            {otpMode && authTab === 'login' && otpSent && <div className="auth-field">
+              <label htmlFor="animevault-auth-otp">6-digit email code</label>
+              <div className="auth-input-wrap">
+                <Mail className="auth-input-icon" aria-hidden="true" />
+                <input className="auth-input" id="animevault-auth-otp" name="otp" type="text" inputMode="numeric" autoComplete="one-time-code"
+                  pattern="[0-9]{6}" maxLength={6} value={otp} onChange={event => setOtp(event.target.value.replace(/\\D/g, '').slice(0, 6))}
+                  placeholder="Enter code" required disabled={loading} />
+              </div>
+            </div>}
+
+            {!otpMode && authTab === 'signup' && <div className="auth-field">
               <label htmlFor="animevault-auth-confirm-password">Confirm password</label>
               <div className="auth-input-wrap">
                 <LockKeyhole className="auth-input-icon" aria-hidden="true" />
@@ -134,7 +167,7 @@ export default function AuthModal() {
               </div>
             </div>}
 
-            {authTab === 'login' && <div className="auth-form-options">
+            {!otpMode && authTab === 'login' && <div className="auth-form-options">
               <button className="auth-text-link" type="button" onClick={() => {
                 setShowAuthModal(false); navigate('/forgot-password');
               }}>Forgot password?</button>
@@ -143,11 +176,15 @@ export default function AuthModal() {
             {hcaptchaEnabled && <div className="auth-captcha"><HCaptcha sitekey={hcaptchaSiteKey} theme="dark"
               onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} onError={() => setCaptchaToken('')} /></div>}
 
-            <button className="auth-submit" type="submit" disabled={loading || (hcaptchaEnabled && !captchaToken)}>
-              <span>{loading ? 'Please wait…' : authTab === 'login' ? 'Sign in to AnimeVault' : 'Create my account'}</span>
+            <button className="auth-submit" type="submit" disabled={loading || (!otpMode && hcaptchaEnabled && !captchaToken)}>
+              <span>{loading ? 'Please wait…' : otpMode ? (otpSent ? 'Verify code and sign in' : 'Send sign-in code') : authTab === 'login' ? 'Sign in to AnimeVault' : 'Create my account'}</span>
               {!loading && <ArrowRight size={17} />}
             </button>
           </form>
+
+          {authTab === 'login' && <button className="auth-text-link auth-otp-toggle" type="button" onClick={() => {
+            setOtpMode(value => !value); setOtp(''); setOtpSent(false); setError(''); setSuccess('');
+          }} disabled={loading}>{otpMode ? 'Use password instead' : 'Sign in with email code'}</button>}
 
           <div className="auth-divider"><span>or keep exploring</span></div>
           <button className="auth-guest" type="button" onClick={handleGuest} disabled={loading}>
