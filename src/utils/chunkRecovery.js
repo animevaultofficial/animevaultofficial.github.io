@@ -69,10 +69,12 @@ export function installChunkRecovery() {
     if (isChunkError(event?.reason)) recover();
   });
 
-  // Only clear the recovery marker after a successful page load.
-  window.addEventListener('load', () => {
-    try {
-      sessionStorage.removeItem(RECOVERY_KEY);
-    } catch {}
-  }, { once: true });
+  // Vite emits this event when a lazy route's hashed chunk is missing.
+  window.addEventListener('vite:preloadError', event => {
+    if (isChunkError(event?.payload) || isChunkError(event?.message) || event?.payload) {
+      event.preventDefault?.();
+      recover();
+    }
+  });
+
 }
