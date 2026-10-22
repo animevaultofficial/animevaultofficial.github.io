@@ -26,7 +26,7 @@ export default function AuthModal() {
 
   const resetForm = () => {
     setEmail(''); setPassword(''); setConfirmPassword(''); setShowPassword(false);
-    setOtp(''); setOtpSent(false);
+    setOtpMode(false); setOtp(''); setOtpSent(false);
     setCaptchaToken(''); setError(''); setSuccess('');
   };
 
