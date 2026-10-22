@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AnimeVault – Page Not Found</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    // ─── GitHub Pages SPA redirect ───
+    // This script runs BEFORE the page renders. It takes the current path +
+    // query string, stores them, and navigates to "/" so that the SPA's
+    // index.html loads. A companion script in index.html picks it up and
+    // tells React Router about the original route.
+    (function () {
+      var path = window.location.pathname;
+      var query = window.location.search;
+      var hash = window.location.hash;
+
+      // Only redirect if we're NOT already on the root
+      if (path && path !== '/') {
+        // Store the original route so index.html can restore it
+        sessionStorage.setItem('spa-redirect', path + query + hash);
+        // Navigate to the root – this loads index.html from GitHub Pages
+        window.location.replace('/' + query + hash);
+      }
+    })();
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a0a;
+      color: #f0f0f0;
+      font-family: 'Sora', system-ui, sans-serif;
+      overflow: hidden;
+    }
+
+    /* Animated background particles */
+    .bg-glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.3;
+      pointer-events: none;
+      animation: float 8s ease-in-out infinite;
+    }
+    .bg-glow-1 {
+      width: 400px; height: 400px;
+      background: hsl(340, 85%, 55%);
+      top: -100px; left: -100px;
+      animation-delay: 0s;
+    }
+    .bg-glow-2 {
+      width: 300px; height: 300px;
+      background: #e50914;
+      bottom: -80px; right: -80px;
+      animation-delay: -3s;
+      opacity: 0.2;
+    }
+    .bg-glow-3 {
+      width: 200px; height: 200px;
+      background: hsl(340, 85%, 65%);
+      top: 50%; left: 60%;
+      animation-delay: -5s;
+      opacity: 0.15;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -20px) scale(1.05); }
+      66% { transform: translate(-20px, 15px) scale(0.95); }
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 20px;
+      max-width: 520px;
+    }
+
+    /* Glitch-style 404 number */
+    .error-code {
+      font-size: clamp(6rem, 20vw, 10rem);
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -4px;
+      background: linear-gradient(135deg, #e50914, hsl(340, 85%, 55%), #ff1a24);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      position: relative;
+      animation: glitch-pulse 3s ease-in-out infinite;
+      margin-bottom: 8px;
+    }
+    .error-code::after {
+      content: '404';
+      position: absolute;
+      left: 3px; top: 3px;
+      background: linear-gradient(135deg, rgba(229,9,20,0.3), transparent);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      z-index: -1;
+      filter: blur(2px);
+    }
+
+    @keyframes glitch-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.95; transform: scale(1.01); }
+      52% { transform: translate(-2px, 1px) scale(1.01); }
+      54% { transform: translate(2px, -1px) scale(1); }
+    }
+
+    .subtitle {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #c0c0c0;
+      margin-bottom: 8px;
+    }
+
+    .description {
+      font-size: 0.9rem;
+      color: #909090;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 40px 36px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
+                  0 0 60px rgba(229, 9, 20, 0.05);
+    }
+
+    .divider {
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, #e50914, hsl(340, 85%, 55%));
+      border-radius: 3px;
+      margin: 0 auto 28px;
+    }
+
+    .btn-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #e50914, hsl(340, 85%, 55%));
+      color: #fff;
+      font-family: 'Sora', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 4px 16px rgba(229, 9, 20, 0.3);
+    }
+    .btn-home:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(229, 9, 20, 0.45);
+    }
+    .btn-home:active {
+      transform: translateY(0);
+    }
+
+    /* SVG arrow icon */
+    .btn-home svg {
+      width: 18px; height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .footer-text {
+      margin-top: 28px;
+      font-size: 0.75rem;
+      color: #505050;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .card { padding: 28px 20px; }
+      .error-code { letter-spacing: -2px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background glows -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+  <div class="bg-glow bg-glow-3"></div>
+
+  <div class="container">
+    <div class="card">
+      <div class="error-code">404</div>
+      <div class="divider"></div>
+      <p class="subtitle">Lost in the Void</p>
+      <p class="description">
+        The page you're looking for doesn't exist or has been moved.<br>
+        Don't worry — let's get you back to the action.
+      </p>
+      <a href="/" class="btn-home">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M5 12l6-6M5 12l6 6"/></svg>
+        Back to AnimeVault
+      </a>
+      <p class="footer-text">AnimeVault</p>
+    </div>
+  </div>
+</body>
+</html>
