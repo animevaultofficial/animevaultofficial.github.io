@@ -93,3 +93,24 @@ input, select, textarea { border-radius: var(--av-radius-md); }
 }
 .achievement-card:hover { transform: none !important; box-shadow: none !important; }
 .achievement-icon { display: grid; min-height: 36px; margin-bottom: 8px; place-items: center; color: var(--brand-primary, #ff1a75); }
+
+/* Keep dense grids usable on tablet and phone widths, including legacy inline grids. */
+button:disabled, [aria-disabled="true"] { cursor: not-allowed; opacity: .68; }
+[aria-busy="true"] { cursor: progress; }
+@media (max-width: 920px) {
+  [style*="grid-template-columns: repeat(5, 1fr)"],
+  [style*="grid-template-columns: repeat(4, 1fr)"],
+  [style*="grid-template-columns: repeat(3, 1fr)"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 560px) {
+  [style*="grid-template-columns: repeat(5, 1fr)"],
+  [style*="grid-template-columns: repeat(4, 1fr)"],
+  [style*="grid-template-columns: repeat(3, 1fr)"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+  .content, .page-container, .static-page-v2 { min-width: 0; max-width: 100%; }
+  img, video, iframe { max-width: 100%; }
+}

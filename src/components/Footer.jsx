@@ -14,8 +14,8 @@ function Footer() {
         <div className="footer-links-grid">
           <div className="footer-link-group">
             <h3>Explore</h3>
-            <Link to="/search?type=ANIME">Animes</Link>
-            <Link to="/search?type=MANGA">Mangas</Link>
+            <Link to="/search?type=ANIME">Anime</Link>
+            <Link to="/search?type=MANGA">Manga</Link>
             <Link to="/search?trending=true">Trending</Link>
           </div>
           <div className="footer-link-group">
