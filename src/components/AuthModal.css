@@ -300,3 +300,50 @@
   .auth-overlay, .auth-dialog { animation: none; }
   .auth-tab, .auth-input, .auth-submit, .auth-guest, .auth-close { transition: none; }
 }
+
+
+/* Content-first auth: let the AnimeVault catalogue remain visible behind sign-in. */
+.auth-overlay {
+  background: rgba(3, 7, 13, .64);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  padding: 20px;
+}
+.auth-dialog.auth-dialog-compact {
+  display: block;
+  width: min(100%, 460px);
+  min-height: 0;
+  border-radius: 16px;
+  background: rgba(11, 16, 23, .97);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .58), 0 0 0 1px rgba(255, 255, 255, .025);
+}
+.auth-dialog-compact .auth-form-panel {
+  padding: 38px 36px 30px;
+}
+.auth-dialog-compact .auth-heading {
+  padding-right: 30px;
+  font-size: 1.65rem;
+}
+.auth-dialog-compact .auth-subheading {
+  max-width: 34ch;
+  margin-bottom: 21px;
+}
+.auth-dialog-compact .auth-tabs {
+  margin-bottom: 21px;
+}
+.auth-dialog-compact .auth-legal {
+  margin-top: 15px;
+}
+@media (max-width: 700px) {
+  .auth-overlay {
+    padding: 12px;
+    align-items: center;
+  }
+  .auth-dialog.auth-dialog-compact {
+    width: min(100%, 460px);
+    margin: auto 0;
+  }
+  .auth-dialog-compact .auth-form-panel {
+    padding: 30px 22px 24px;
+  }
+}
