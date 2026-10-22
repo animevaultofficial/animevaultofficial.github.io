@@ -18,7 +18,7 @@ button, a, input, select, textarea, summary { -webkit-tap-highlight-color: trans
 }
 input, select, textarea { border-radius: var(--av-radius-md); }
 .glass-card, .about-feature-card, .contact-card, .faq-item, .platform-card, .feature-card {
-  background-color: var(--av-surface); border-color: var(--av-border);
+  background: var(--av-surface); background-image: none; border-color: var(--av-border);
   border-radius: var(--av-radius-lg); box-shadow: none;
   -webkit-backdrop-filter: none; backdrop-filter: none;
 }

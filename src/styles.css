@@ -9,7 +9,7 @@
   --white-10: rgba(255, 255, 255, 0.1);
   --white-20: rgba(255, 255, 255, 0.2);
   --pink-variant-2: #ff4d94;
-  --font-main: "Outfit", "Inter", system-ui, -apple-system, sans-serif;
+  --font-main: "Geist", system-ui, -apple-system, sans-serif;
   --glass: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.08);
   --accent-glow: 0 0 20px rgba(255, 26, 117, 0.3);
@@ -253,7 +253,7 @@ select {
 }
 .hero-content h1 {
   margin: 0;
-  font-family: "Sora", sans-serif;
+  font-family: var(--font-main);
   font-size: clamp(3rem, 4vw, 5rem);
   line-height: 1;
   letter-spacing: 0;
