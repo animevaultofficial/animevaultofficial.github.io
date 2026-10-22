@@ -116,7 +116,7 @@ export function UserProvider({ children }) {
   const loginWithEmailOtp = async (email, otp) => {
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const code = String(otp || '').trim();
-    if (!normalizedEmail || !/^\\d{6}$/.test(code)) return { success: false, message: 'Enter the email address and 6-digit code.' };
+    if (!normalizedEmail || !/^\d{6}$/.test(code)) return { success: false, message: 'Enter the email address and 6-digit code.' };
     try {
       const result = await authClient.signIn.emailOtp({ email: normalizedEmail, otp: code });
       if (result?.error) return { success: false, message: result.error.message || 'That code could not be verified.' };
@@ -149,6 +149,29 @@ export function UserProvider({ children }) {
         setUser(databaseUser);
         return;
       }
+
+      // Email-code sign-in is backed by Neon Auth, so restore that session too.
+      try {
+        const authResult = await authClient.getSession();
+        const authUser = authResult?.data?.user || authResult?.data?.session?.user;
+        if (authUser?.id) {
+          const email = String(authUser.email || '').trim().toLowerCase();
+          setUser({
+            id: authUser.id,
+            username: authUser.name || email.split('@')[0] || 'AnimeVault User',
+            email,
+            avatar: authUser.image || null,
+            banner: null,
+            is_admin: false,
+            is_verified: Boolean(authUser.emailVerified ?? authUser.email_verified),
+            is_guest: false,
+          });
+          return;
+        }
+      } catch (authError) {
+        warn('[AnimeVault Auth] Neon session restore failed:', authError?.message || authError);
+      }
+
       try {
         localStorage.removeItem(CACHED_USER_KEY);
       } catch (error) {
