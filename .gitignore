@@ -1,4 +1,8 @@
 node_modules/
+
+# Local developer credentials and environment overrides
+.env.local
+.env.*.local
 /dist/
 .DS_Store
 npm-debug.log*

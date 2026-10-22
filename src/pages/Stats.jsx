@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle, TrendingUp, Trophy, Calendar, Star, Flame, User } from 'lucide-react';
+import { Clock, CheckCircle, TrendingUp, Trophy, Calendar, Star, Flame, User, X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getUserStats, getLevel, getFavorites, setFavorite, getActivity, getWatchHistory } from '../api/db';
 import { searchAnime, fetchTrendingMedia, searchCharacters, fetchTrendingCharacters, searchStudios, fetchTrendingStudios, fetchAnimeById } from '../api/anilist';
@@ -243,11 +243,11 @@ export default function Stats() {
 
   // Mock achievements (we can enhance this later)
   const mockAchievements = [
-    { id: 1, title: 'Binge Watcher', rarity: 'Ultra Rare', icon: '🏆' },
-    { id: 2, title: 'Genre Master', rarity: 'Legendary', icon: '🏆' },
-    { id: 3, title: 'Top Mash', rarity: 'Rare', icon: '🏆' },
-    { id: 4, title: 'Completionist', rarity: 'Rare', icon: '🏆' },
-    { id: 5, title: 'Completionist', rarity: 'Rare', icon: '🏆' }
+    { id: 1, title: 'Binge Watcher', rarity: 'Ultra Rare' },
+    { id: 2, title: 'Genre Master', rarity: 'Legendary' },
+    { id: 3, title: 'Top Mash', rarity: 'Rare' },
+    { id: 4, title: 'Completionist', rarity: 'Rare' },
+    { id: 5, title: 'Completionist', rarity: 'Rare' }
   ];
 
   return (
@@ -507,7 +507,7 @@ export default function Stats() {
                 }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
-                  <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{achievement.icon}</div>
+                  <div className="achievement-icon" aria-hidden="true"><Trophy size={26} /></div>
                   <p style={{ color: 'white', fontSize: '0.75rem', margin: '0 0 0.25rem 0', textAlign: 'center', overflowWrap: 'anywhere' }}>{achievement.title}</p>
                   <p style={{ color: '#94a3b8', fontSize: '0.65rem', margin: 0 }}>{achievement.rarity}</p>
                 </div>
@@ -519,7 +519,7 @@ export default function Stats() {
                   background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
                   borderRadius: '12px', opacity: '0.5'
                 }}>
-                  <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem', filter: 'grayscale(100%)' }}>🏆</div>
+                  <div className="achievement-icon" aria-hidden="true"><Trophy size={26} /></div>
                 </div>
               ))}
             </div>
@@ -627,7 +627,7 @@ export default function Stats() {
                   <h3 style={{ color: 'white', margin: '0', fontSize: '1.25rem' }}>Select Favorite {favoriteType.charAt(0).toUpperCase() + favoriteType.slice(1)}</h3>
                   <button 
                     onClick={() => { setFavoriteType(null); setSearchTerm(''); }} 
-                    style={{ width: '36px', height: '36px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '50%', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+                    style={{ width: '36px', height: '36px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '50%', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }}><X size={18} aria-hidden="true" /></button>
                 </div>
                 
                 <input 

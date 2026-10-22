@@ -19,7 +19,9 @@ import {
   Calendar,
   Star,
   Info,
-  Sparkles
+  Heart,
+  Users,
+  Image as ImageIcon
 } from 'lucide-react';
 import {
   fetchAllCollections,
@@ -258,7 +260,7 @@ const DashboardView = ({ user, onGoToMyCollections, onGoToCollection, onGoToComm
                           width: "fit-content",
                         }}
                       >
-                        <Sparkles size={14} /> #{index + 1} Trending Classic
+                        <Star size={14} aria-hidden="true" /> #{index + 1} Trending Classic
                       </span>
                       <h1 className="hero-title-v2" style={{ fontSize: "2.5rem", margin: "1rem 0" }}>{getTitle(anime)}</h1>
                       <div className="hero-meta-v2" style={{ display: "flex", gap: "1.5rem", marginBottom: "1rem" }}>
@@ -454,8 +456,8 @@ const DashboardView = ({ user, onGoToMyCollections, onGoToCollection, onGoToComm
               <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)' }}>
                 <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>{c.title}</h4>
                 <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', color: '#cfc2d6' }}>
-                  <span>❤️ {c.likes_count || 0}</span>
-                  <span>👥 {c.followers_count || 0}</span>
+                  <span><Heart size={14} aria-hidden="true" /> {c.likes_count || 0}</span>
+                  <span><Users size={14} aria-hidden="true" /> {c.followers_count || 0}</span>
                 </div>
               </div>
             </div>
@@ -825,7 +827,7 @@ const MakeCollectionView = ({ user, onBack, onSave }) => {
                 justifyContent: 'center',
                 margin: '0 auto 0.75rem'
               }}>
-                🖼️
+                <ImageIcon size={24} aria-hidden="true" />
               </div>
               <button onClick={() => {
                 const url = prompt('Enter banner URL');
@@ -1277,7 +1279,7 @@ const CollectionDetailsView = ({ collection, user, onBack, onEdit, onDuplicate }
                   gap: '0.5rem'
                 }}
               >
-                ❤️ {liked ? 'Liked' : 'Like'}
+                <Heart size={16} fill={liked ? 'currentColor' : 'none'} aria-hidden="true" /> {liked ? 'Liked' : 'Like'}
               </button>
               <button
                 onClick={handleFollow}
@@ -1720,7 +1722,7 @@ const EditCollectionView = ({ collection, user, onBack, onSave, onDelete }) => {
                 justifyContent: 'center',
                 margin: '0 auto 0.75rem'
               }}>
-                🖼️
+                <ImageIcon size={24} aria-hidden="true" />
               </div>
               <button onClick={() => {
                 const url = prompt('Enter banner URL');

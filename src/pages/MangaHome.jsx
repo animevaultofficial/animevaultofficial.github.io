@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Flame, Clock, Sparkles, CheckCircle2, BookOpen, Eye, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, Flame, Clock, CheckCircle2, BookOpen, Eye, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react';
 import {
   fetchMangaKakalotHome,
   fetchMangaKakalotPopular,
@@ -153,7 +153,7 @@ export default function MangaHome() {
                   cursor: 'pointer'
                 }}
               >
-                ✕
+                <X size={16} aria-hidden="true" />
               </button>
             )}
           </div>
@@ -191,7 +191,7 @@ export default function MangaHome() {
           {[
             { id: 'popular', label: 'Popular', icon: Flame },
             { id: 'latest', label: 'Latest Updates', icon: Clock },
-            { id: 'newest', label: 'New Releases', icon: Sparkles },
+            { id: 'newest', label: 'New Releases', icon: BookOpen },
             { id: 'completed', label: 'Completed', icon: CheckCircle2 }
           ].map(tab => {
             const Icon = tab.icon;

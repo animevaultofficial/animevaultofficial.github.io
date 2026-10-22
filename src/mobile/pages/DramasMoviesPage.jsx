@@ -188,7 +188,7 @@ export default function DramasMoviesPage({ navigate }) {
       </div>
 
       <div className="tbar" style={{ margin: '0 .75rem .75rem' }}>
-        {[{ id: 'movies', label: '🎬 Movies' }, { id: 'tv', label: '📺 Dramas & Shows' }].map(t => <button key={t.id} className={`titem ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>{t.label}</button>)}
+        {[{ id: 'movies', label: 'Movies', Icon: Film }, { id: 'tv', label: 'Dramas & Shows', Icon: Tv }].map(t => <button key={t.id} className={`titem ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}><t.Icon size={14} aria-hidden="true" /> {t.label}</button>)}
       </div>
 
       {searchQuery ? (
