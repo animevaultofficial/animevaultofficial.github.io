@@ -351,7 +351,7 @@ export default function Profile() {
           <img
             src={bannerUrl}
             alt="User Profile Banner"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isEditing ? 'brightness(0.6)' : 'none', transition: 'all 0.3s ease' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isEditing ? 'brightness(0.6)' : 'none', transition: 'border-color 0.16s ease, background-color 0.16s ease' }}
             onError={() => { }}
           />
         ) : (
@@ -822,9 +822,9 @@ export default function Profile() {
                     <div key={idx} style={{
                       background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.04)',
                       borderRadius: '14px', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                      transition: 'all 0.3s ease', position: 'relative'
-                    }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'rgba(255, 26, 117, 0.4)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.04)'; }}>
+                      transition: 'border-color 0.16s ease, background-color 0.16s ease', position: 'relative'
+                    }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255, 26, 117, 0.4)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.04)'; }}>
 
                       <div style={{ position: 'relative', aspectRatio: '16/9', overflow: 'hidden' }}>
                         <img src={getPosterUrl(item, 'card')} alt={item.media_title} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://placehold.co/300x169/1a1a2e/ff1a75.png?text=No+Image'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -878,9 +878,9 @@ export default function Profile() {
                     <div style={{
                       position: 'relative', borderRadius: '14px', overflow: 'hidden',
                       aspectRatio: '2/3', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
-                      transition: 'all 0.3s ease', boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
-                    }} onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.04)'; e.currentTarget.style.borderColor = 'var(--brand-color)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}>
+                      transition: 'border-color 0.16s ease, background-color 0.16s ease', boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
+                    }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand-color)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}>
 
                       <img src={getPosterUrl(item, 'poster')} alt={item.media_title} onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://placehold.co/140x210/1a1a2e/ff1a75.png?text=No+Image'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 
@@ -972,9 +972,9 @@ export default function Profile() {
                     <div style={{
                       position: 'relative', borderRadius: '14px', overflow: 'hidden',
                       aspectRatio: '2/3', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
-                      transition: 'all 0.3s ease'
-                    }} onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'var(--brand-color)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}>
+                      transition: 'border-color 0.16s ease, background-color 0.16s ease'
+                    }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--brand-color)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}>
 
                       <img src={getPosterUrl(item, 'card')} alt={item.media_title || item.title?.romaji} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       <div style={{

@@ -442,14 +442,12 @@ const DashboardView = ({ user, onGoToMyCollections, onGoToCollection, onGoToComm
         <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.5rem', fontWeight: '700' }}>Trending Collections</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
           {trending.map(c => (
-            <div key={c.id} style={{
+            <div key={c.id} className="collection-card" style={{
               borderRadius: '14px',
               overflow: 'hidden',
               cursor: 'pointer',
-              transition: 'transform 0.3s ease'
+              transition: 'border-color 0.16s ease'
             }}
-                 onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-6px)'}
-                 onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                  onClick={() => onGoToCollection(c)}
             >
               {c.cover && <img src={c.cover} alt={c.title} style={{ width: '100%', height: '180px', objectFit: 'cover' }} />}
@@ -556,24 +554,22 @@ const CommunityView = ({ user, onBack, onGoToCollection }) => {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
         {collections.map(c => (
-          <div key={c.id} style={{
+          <div key={c.id} className="collection-card" style={{
             borderRadius: '16px',
             overflow: 'hidden',
             cursor: 'pointer',
             border: '1px solid rgba(255,255,255,0.1)',
-            transition: 'transform 0.3s ease, border-color 0.3s ease'
+            transition: 'border-color 0.16s ease'
           }}
                onMouseEnter={(e) => {
-                 e.currentTarget.style.transform = 'translateY(-6px)';
                  e.currentTarget.style.borderColor = 'rgba(255,26,117,0.4)';
                }}
                onMouseLeave={(e) => {
-                 e.currentTarget.style.transform = 'translateY(0)';
                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
                }}
                onClick={() => onGoToCollection(c)}
           >
-            <div style={{ position: 'relative', minHeight: '200px', background: 'linear-gradient(135deg, rgba(255,26,117,.14), rgba(3,15,22,.95))' }}>
+            <div style={{ position: 'relative', minHeight: '200px', background: 'var(--av-surface, #10151b)' }}>
               {c.cover && <img src={c.cover} alt={c.title} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />}
               <div style={{
                 position: 'absolute',
@@ -1095,19 +1091,17 @@ const MyCollectionsView = ({ user, onBack, onGoToCollection, onEditCollection })
             overflow: 'hidden',
             cursor: 'pointer',
             border: '1px solid rgba(255,255,255,0.1)',
-            transition: 'transform 0.3s ease, border-color 0.3s ease'
+            transition: 'border-color 0.16s ease'
           }}
                onMouseEnter={(e) => {
-                 e.currentTarget.style.transform = 'translateY(-6px)';
                  e.currentTarget.style.borderColor = 'rgba(255,26,117,0.4)';
                }}
                onMouseLeave={(e) => {
-                 e.currentTarget.style.transform = 'translateY(0)';
                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
                }}
                onClick={() => onGoToCollection(c)}
           >
-            <div style={{ position: 'relative', minHeight: '200px', background: 'linear-gradient(135deg, rgba(255,26,117,.14), rgba(3,15,22,.95))' }}>
+            <div style={{ position: 'relative', minHeight: '200px', background: 'var(--av-surface, #10151b)' }}>
               {c.cover && <img src={c.cover} alt={c.title} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />}
               <div style={{
                 position: 'absolute',
@@ -1219,7 +1213,7 @@ const CollectionDetailsView = ({ collection, user, onBack, onEdit, onDuplicate }
         <h1 style={{ margin: 0, fontSize: '1.8rem' }}>Collection Details & Analytics</h1>
       </div>
 
-      <div style={{ position: 'relative', minHeight: '320px', borderRadius: '20px', overflow: 'hidden', marginBottom: '2.5rem', background: 'linear-gradient(135deg, rgba(255,26,117,.14), rgba(3,15,22,.95))' }}>
+      <div style={{ position: 'relative', minHeight: '320px', borderRadius: '20px', overflow: 'hidden', marginBottom: '2.5rem', background: 'var(--av-surface, #10151b)' }}>
         {collection.cover && <img
           src={collection.cover}
           alt={collection.title}
@@ -1345,16 +1339,14 @@ const CollectionDetailsView = ({ collection, user, onBack, onEdit, onDuplicate }
         <div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
             {items.length > 0 ? items.map(item => (
-              <div key={item.id} style={{
+              <div key={item.id} className="collection-card" style={{
                 borderRadius: '14px',
                 overflow: 'hidden',
                 border: '1px solid rgba(255,255,255,0.1)',
                 background: 'rgba(255,255,255,0.03)',
                 cursor: 'pointer',
-                transition: 'transform 0.3s ease'
+                transition: 'border-color 0.16s ease'
               }}
-                   onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
-                   onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
                 <div style={{ position: 'relative' }}>
                   <img src={item.poster || item.cover} alt={item.title} style={{ width: '100%', height: '220px', objectFit: 'cover' }} />

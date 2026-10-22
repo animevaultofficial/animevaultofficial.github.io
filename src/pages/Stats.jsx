@@ -257,11 +257,11 @@ export default function Stats() {
         <div className="top-section" style={{ display: 'grid', gap: '1.5rem', marginBottom: '2rem' }}>
           {/* Level Card */}
           <div className="level-card" style={{ 
-            background: 'linear-gradient(135deg, rgba(255,26,117,0.15) 0%, rgba(15,23,42,0.8) 100%)', 
-            border: '1px solid rgba(255,26,117,0.4)', 
+            background: 'var(--av-surface, #10151b)', 
+            border: '1px solid var(--av-border, #252c35)', 
             borderRadius: '16px', 
             padding: '1.5rem',
-            boxShadow: '0 0 30px rgba(255,26,117,0.2)'
+            boxShadow: 'none'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
               <div style={{ 
@@ -495,17 +495,13 @@ export default function Stats() {
               {mockAchievements.map((achievement, index) => (
                 <div key={achievement.id} className="achievement-card" style={{ 
                   display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem',
-                  background: `linear-gradient(135deg, ${
-                    achievement.rarity === 'Ultra Rare' ? 'rgba(255,26,117,0.2)' :
-                    achievement.rarity === 'Legendary' ? 'rgba(255,170,0,0.2)' : 'rgba(139,92,246,0.2)'
-                  }, rgba(15,23,42,0.5) 100%)`,
+                  background: 'var(--av-surface, #10151b)',
                   border: `1px solid ${
-                    achievement.rarity === 'Ultra Rare' ? 'rgba(255,26,117,0.5)' :
-                    achievement.rarity === 'Legendary' ? 'rgba(255,170,0,0.5)' : 'rgba(139,92,246,0.5)'
+                    achievement.rarity === 'Ultra Rare' ? 'rgba(255,26,117,0.4)' :
+                    achievement.rarity === 'Legendary' ? 'rgba(255,170,0,0.4)' : 'var(--av-border, #252c35)'
                   }`,
-                  borderRadius: '12px', cursor: 'pointer', transition: 'transform 0.2s'
-                }} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                   onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  borderRadius: '12px', cursor: 'pointer', transition: 'border-color 0.16s ease'
+                }}
                 >
                   <div className="achievement-icon" aria-hidden="true"><Trophy size={26} /></div>
                   <p style={{ color: 'white', fontSize: '0.75rem', margin: '0 0 0.25rem 0', textAlign: 'center', overflowWrap: 'anywhere' }}>{achievement.title}</p>
@@ -652,7 +648,7 @@ export default function Stats() {
                         const getTitle = (anime) => anime?.title?.english || anime?.title?.romaji || anime?.title?.native || 'Unknown';
                         const getImage = (anime) => anime?.coverImage?.large || anime?.coverImage?.medium;
                         content = (
-                          <div onClick={onClick} style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+                          <div onClick={onClick} style={{ cursor: 'pointer', transition: 'border-color 0.16s ease' }}>
                             <img src={getImage(item)} alt={getTitle(item)} style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '8px' }} />
                             <p style={{ color: 'white', margin: '0.5rem 0 0', fontSize: '0.85rem', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getTitle(item)}</p>
                           </div>
@@ -661,7 +657,7 @@ export default function Stats() {
                         const getName = (char) => char?.name?.full || char?.name?.userPreferred || 'Unknown';
                         const getImage = (char) => char?.image?.large || char?.image?.medium;
                         content = (
-                          <div onClick={onClick} style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+                          <div onClick={onClick} style={{ cursor: 'pointer', transition: 'border-color 0.16s ease' }}>
                             <img src={getImage(item)} alt={getName(item)} style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '8px' }} />
                             <p style={{ color: 'white', margin: '0.5rem 0 0', fontSize: '0.85rem', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getName(item)}</p>
                           </div>

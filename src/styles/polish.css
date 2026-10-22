@@ -67,3 +67,29 @@ input, select, textarea { border-radius: var(--av-radius-md); }
     animation-iteration-count: 1 !important; transition-duration: .01ms !important;
   }
 }
+
+/* Shared card treatment for dense account, collection, and stats screens. */
+.collection-card {
+  background: var(--av-surface) !important;
+  border: 1px solid var(--av-border) !important;
+  border-radius: var(--av-radius-lg) !important;
+  box-shadow: none !important;
+  transition: border-color .16s ease !important;
+}
+.collection-card:hover { transform: none !important; box-shadow: none !important; border-color: #3a424e !important; }
+.level-card {
+  background: var(--av-surface) !important;
+  border-color: var(--av-border) !important;
+  border-radius: var(--av-radius-lg) !important;
+  box-shadow: none !important;
+}
+.achievement-card {
+  background: var(--av-surface) !important;
+  background-image: none !important;
+  border-color: var(--av-border) !important;
+  border-radius: var(--av-radius-md) !important;
+  box-shadow: none !important;
+  transition: border-color .16s ease !important;
+}
+.achievement-card:hover { transform: none !important; box-shadow: none !important; }
+.achievement-icon { display: grid; min-height: 36px; margin-bottom: 8px; place-items: center; color: var(--brand-primary, #ff1a75); }
