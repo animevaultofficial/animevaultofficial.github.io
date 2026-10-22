@@ -22,7 +22,7 @@ import {
   updateUserProfile as dbUpdateUserProfile,
   restoreSession
 } from './db';
-import { userLogin as dbUserLogin, userSignup as dbUserSignup } from './authDb';
+import { userLogin as dbUserLogin, userSignup as dbUserSignup, userLookupByEmail } from './authDb';
 import { authClient } from '../auth';
 
 const UserContext = createContext(null);
@@ -120,21 +120,18 @@ export function UserProvider({ children }) {
     try {
       const result = await authClient.signIn.emailOtp({ email: normalizedEmail, otp: code });
       if (result?.error) return { success: false, message: result.error.message || 'That code could not be verified.' };
-      const authUser = result?.data?.user || result?.user;
+      const authUser = result?.data?.user || result?.data?.session?.user || result?.user;
       if (!authUser?.id) return { success: false, message: 'The code was accepted, but no user session was returned. Please try again.' };
-      const signedInUser = {
-        id: authUser.id,
-        username: authUser.name || normalizedEmail.split('@')[0],
-        email: authUser.email || normalizedEmail,
-        avatar: authUser.image || null,
-        banner: null,
-        is_admin: false,
-        is_verified: Boolean(authUser.emailVerified ?? authUser.email_verified),
-        is_guest: false,
-      };
-      setUser(signedInUser);
-      setShowAuthModal(false);
-      return { success: true, user: signedInUser };
+
+      // Link the verified Neon email to the existing AnimeVault account so
+      // watch history, collections, and other records keep using the local ID.
+      const localAccount = await userLookupByEmail(normalizedEmail);
+      if (!localAccount.success) return localAccount;
+      return await establishDatabaseSession({
+        ...localAccount.user,
+        email: normalizedEmail,
+        is_verified: true,
+      });
     } catch (error) {
       warn('[AnimeVault Auth] Email OTP verification failed:', error?.message || error);
       return { success: false, message: error?.message || 'That code could not be verified. Please try again.' };
@@ -148,28 +145,6 @@ export function UserProvider({ children }) {
       if (databaseUser) {
         setUser(databaseUser);
         return;
-      }
-
-      // Email-code sign-in is backed by Neon Auth, so restore that session too.
-      try {
-        const authResult = await authClient.getSession();
-        const authUser = authResult?.data?.user || authResult?.data?.session?.user;
-        if (authUser?.id) {
-          const email = String(authUser.email || '').trim().toLowerCase();
-          setUser({
-            id: authUser.id,
-            username: authUser.name || email.split('@')[0] || 'AnimeVault User',
-            email,
-            avatar: authUser.image || null,
-            banner: null,
-            is_admin: false,
-            is_verified: Boolean(authUser.emailVerified ?? authUser.email_verified),
-            is_guest: false,
-          });
-          return;
-        }
-      } catch (authError) {
-        warn('[AnimeVault Auth] Neon session restore failed:', authError?.message || authError);
       }
 
       try {
