@@ -23,11 +23,12 @@ import {
   restoreSession
 } from './db';
 import { userLogin as dbUserLogin, userSignup as dbUserSignup } from './authDb';
+import { authClient } from '../auth';
 
 const UserContext = createContext(null);
 const CACHED_USER_KEY = 'animevault_cached_user';
 const GUEST_USER = { id: null, username: 'Guest', avatar: null, banner: null, is_guest: true, is_admin: false, is_verified: false };
-const AUTH_PROVIDER_UNAVAILABLE = 'Google and email-code sign-in are temporarily unavailable while the authentication endpoint is being repaired. Use email and password for now.';
+const AUTH_PROVIDER_UNAVAILABLE = 'Google sign-in is temporarily unavailable. Use email and password or email verification code.';
 
 export function UserProvider({ children }) {
   const [user, setUserState] = useState(null);
@@ -98,6 +99,47 @@ export function UserProvider({ children }) {
   };
 
   const unavailableProvider = async () => ({ success: false, message: AUTH_PROVIDER_UNAVAILABLE });
+
+  const sendEmailOtp = async email => {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) return { success: false, message: 'Enter your email address first.' };
+    try {
+      const result = await authClient.emailOtp.sendVerificationOtp({ email: normalizedEmail, type: 'sign-in' });
+      if (result?.error) return { success: false, message: result.error.message || 'Could not send a verification code.' };
+      return { success: true, message: 'If this email can sign in, a verification code has been sent.' };
+    } catch (error) {
+      warn('[AnimeVault Auth] Email OTP request failed:', error?.message || error);
+      return { success: false, message: error?.message || 'Could not send a verification code. Please try again.' };
+    }
+  };
+
+  const loginWithEmailOtp = async (email, otp) => {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const code = String(otp || '').trim();
+    if (!normalizedEmail || !/^\\d{6}$/.test(code)) return { success: false, message: 'Enter the email address and 6-digit code.' };
+    try {
+      const result = await authClient.signIn.emailOtp({ email: normalizedEmail, otp: code });
+      if (result?.error) return { success: false, message: result.error.message || 'That code could not be verified.' };
+      const authUser = result?.data?.user || result?.user;
+      if (!authUser?.id) return { success: false, message: 'The code was accepted, but no user session was returned. Please try again.' };
+      const signedInUser = {
+        id: authUser.id,
+        username: authUser.name || normalizedEmail.split('@')[0],
+        email: authUser.email || normalizedEmail,
+        avatar: authUser.image || null,
+        banner: null,
+        is_admin: false,
+        is_verified: Boolean(authUser.emailVerified ?? authUser.email_verified),
+        is_guest: false,
+      };
+      setUser(signedInUser);
+      setShowAuthModal(false);
+      return { success: true, user: signedInUser };
+    } catch (error) {
+      warn('[AnimeVault Auth] Email OTP verification failed:', error?.message || error);
+      return { success: false, message: error?.message || 'That code could not be verified. Please try again.' };
+    }
+  };
 
   const initSession = async () => {
     setAuthLoading(true);
@@ -213,8 +255,8 @@ export function UserProvider({ children }) {
       subAccounts, activeSubAccount, showAuthModal, authTab, setShowAuthModal,
       setAuthTab, setActiveSubAccountState, fetchSubAccounts, ensureMainSubAccount,
       createSubAccount, updateSubAccount, deleteSubAccount, login, signup, loginAsGuest,
-      loginWithGoogle: unavailableProvider, sendEmailOtp: unavailableProvider,
-      loginWithEmailOtp: unavailableProvider, logout, syncUserData, addToHistory,
+      loginWithGoogle: unavailableProvider, sendEmailOtp,
+      loginWithEmailOtp, logout, syncUserData, addToHistory,
       clearHistory, updateContinueWatching, toggleLike, isLiked, updateProfile,
       addReminder, removeReminder, isReminded
     }}>
