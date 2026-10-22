@@ -50,7 +50,7 @@ export default function AuthModal() {
     if (!normalizedEmail) { setError('Enter your email address to continue.'); return; }
 
     if (otpMode && authTab === 'login') {
-      if (otpSent && !/^\\d{6}$/.test(otp.trim())) { setError('Enter the 6-digit code from your email.'); return; }
+      if (otpSent && !/^\d{6}$/.test(otp.trim())) { setError('Enter the 6-digit code from your email.'); return; }
       setLoading(true);
       try {
         const result = otpSent
@@ -152,7 +152,7 @@ export default function AuthModal() {
               <div className="auth-input-wrap">
                 <Mail className="auth-input-icon" aria-hidden="true" />
                 <input className="auth-input" id="animevault-auth-otp" name="otp" type="text" inputMode="numeric" autoComplete="one-time-code"
-                  pattern="[0-9]{6}" maxLength={6} value={otp} onChange={event => setOtp(event.target.value.replace(/\\D/g, '').slice(0, 6))}
+                  pattern="[0-9]{6}" maxLength={6} value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
                   placeholder="Enter code" required disabled={loading} />
               </div>
             </div>}
