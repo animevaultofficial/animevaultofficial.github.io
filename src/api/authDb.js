@@ -133,29 +133,6 @@ export async function userLogin(email, password) {
   }
 }
 
-export async function userLookupByEmail(email) {
-  const normalizedEmail = normalizeEmail(email);
-  const username = usernameFromEmail(normalizedEmail);
-  if (!normalizedEmail || !username) return { success: false, message: 'Enter a valid email address.' };
-
-  const db = await getSql();
-  if (!db) return { success: false, message: 'Database connection unavailable. Please try again later.' };
-
-  try {
-    const result = await db`
-      SELECT id, username, avatar, banner, is_admin, is_verified
-      FROM users
-      WHERE LOWER(username) = LOWER(${username})
-      LIMIT 1
-    `;
-    if (!result.length) return { success: false, message: 'No AnimeVault account matches this email yet. Create an account first.' };
-    return { success: true, user: result[0] };
-  } catch (err) {
-    error('[AnimeVault Auth DB] email lookup error:', err);
-    return { success: false, message: 'Unable to look up this account. Please try again.' };
-  }
-}
-
 export async function updateUserPassword(email, newPassword) {
   const normalizedEmail = normalizeEmail(email);
   const username = usernameFromEmail(normalizedEmail);
