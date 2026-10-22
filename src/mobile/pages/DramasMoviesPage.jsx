@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Film, Tv, TrendingUp, Search, X, Play, Info, Hash } from 'lucide-react';
 import { fetchLatestMovies, fetchLatestTVShows, searchMoviesAndSeries } from '../api/movies';
-import { searchAniPM } from '../api/anipm';
+import { searchAniPM } from '../../api/anipm';
 import { useUser } from '../../api/UserContext';
 import { isBlockedForProfile, isKidsProfile } from '../../utils/ageRating';
 import { KIDS_FAMILY_MEDIA, isKidsCatalogApproved } from '../../utils/kidsCatalog';
