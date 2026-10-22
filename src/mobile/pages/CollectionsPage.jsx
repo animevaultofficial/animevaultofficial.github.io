@@ -3,7 +3,7 @@ import { Heart, Clock, Bookmark } from 'lucide-react';
 import { useUser } from '../../api/UserContext';
 import { getFavorites, getContinueWatching } from '../api/storage';
 
-function AnilistImage({ src, alt, className, fallback = '🎬' }) {
+function AnilistImage({ src, alt, className, fallback = 'AV' }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   if (!src || failed) {

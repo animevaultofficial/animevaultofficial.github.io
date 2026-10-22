@@ -14,7 +14,7 @@ import {
 } from '@vidstack/react';
 import { 
   Settings, Play, Pause, Volume2, VolumeX, Maximize, Minimize, 
-  SkipForward, SkipBack, ChevronLeft, ChevronRight, AlertTriangle, RefreshCw, ExternalLink
+  SkipForward, SkipBack, ChevronLeft, ChevronRight, AlertTriangle, RefreshCw, ExternalLink, ShieldCheck
 } from 'lucide-react';
 
 import '@vidstack/react/player/styles/default/theme.css';
@@ -296,7 +296,7 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
             />
           )}
           {isZen && (
-            <div className="zen-mode-badge">🛡️</div>
+            <div className="zen-mode-badge"><ShieldCheck size={14} aria-hidden="true" /><span>Zen mode</span></div>
           )}
         </div>
 

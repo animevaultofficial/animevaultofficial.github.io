@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Calendar, Clock, Flame, Sparkles } from 'lucide-react';
+import { Calendar, Clock, Flame, TrendingUp, WifiOff } from 'lucide-react';
 import { useUser } from '../../api/UserContext';
 import { fetchAnimeBySeason, fetchHomeData } from '../api/anilist';
 import { getContinueWatching } from '../api/storage';
@@ -45,8 +45,8 @@ export default function HomePage({ navigate }) {
   const openAnime = id => navigate('anime-detail', { id });
   const openSearch = () => navigate('/search');
 
-  if (loading) return <div className="av-mobile-page"><LoadingCard variant="hero" /><SectionRail title="Trending Now" icon={Flame} loading /><SectionRail title="Most Popular" icon={Sparkles} loading /></div>;
-  if (!data) return <EmptyState icon="📡" title="Unable to load AnimeVault" message="Check your connection and try again." action={() => window.location.reload()} actionText="Retry" />;
+  if (loading) return <div className="av-mobile-page"><LoadingCard variant="hero" /><SectionRail title="Trending Now" icon={Flame} loading /><SectionRail title="Most Popular" icon={TrendingUp} loading /></div>;
+  if (!data) return <EmptyState icon={WifiOff} title="Unable to load AnimeVault" message="Check your connection and try again." action={() => window.location.reload()} actionText="Retry" />;
 
   return <div className="av-mobile-page">
     <MobileHero slides={trending.slice(0, 5)} onWatchClick={openAnime} onDetailsClick={openAnime} />

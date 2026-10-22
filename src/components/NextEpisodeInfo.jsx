@@ -17,7 +17,7 @@ function NextEpisodeInfo({ anime }) {
       const diffMs = airingTime - now;
 
       if (diffMs <= 0) {
-        setCountdown('🔴 Airing now or recently aired');
+        setCountdown('Airing now or recently aired');
         return;
       }
 

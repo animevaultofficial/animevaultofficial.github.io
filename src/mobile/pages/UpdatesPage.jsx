@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, RefreshCw, Download, CheckCircle, AlertTriangle, Package, ExternalLink, Loader } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Download, CheckCircle, AlertTriangle, Package, ExternalLink, Loader, Github, FileText } from 'lucide-react';
 import { APP_VERSION } from '../../version.js';
 import { UPDATE_CHECK_KEY, checkMobileUpdate, downloadApkInBackground } from '../api/updates';
 
@@ -114,7 +114,7 @@ export default function UpdatesPage({ goBack }) {
       {updateInfo && !updateInfo.error && (
         <div style={{ marginBottom: 16 }}>
           <div className="section-header" style={{ marginBottom: 10 }}>
-            <span className="section-title">🐙 Release Info</span>
+            <span className="section-title"><Github size={15} aria-hidden="true" /> Release Info</span>
           </div>
           <div className="info-card" style={{ marginBottom: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -137,7 +137,7 @@ export default function UpdatesPage({ goBack }) {
       {updateInfo?.releaseNotes && (
         <div style={{ marginBottom: 16 }}>
           <div className="section-header" style={{ marginBottom: 10 }}>
-            <span className="section-title">📋 Release Notes</span>
+            <span className="section-title"><FileText size={15} aria-hidden="true" /> Release Notes</span>
           </div>
           <div className="info-card" style={{ maxHeight: 300, overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: '0.78rem', lineHeight: 1.6, color: 'var(--text2)' }}>
             {updateInfo.releaseNotes}
