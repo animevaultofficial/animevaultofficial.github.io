@@ -84,25 +84,12 @@ export default function AuthModal() {
     <div className="auth-overlay" onMouseDown={event => {
       if (event.target === event.currentTarget && !loading) setShowAuthModal(false);
     }}>
-      <section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-heading" aria-describedby="auth-subheading">
-        <aside className="auth-showcase">
-          <div className="auth-brand">
-            <span className="auth-brand-mark"><LockKeyhole size={18} strokeWidth={2} /></span>
-            <span>AnimeVault</span>
-          </div>
-          <div className="auth-showcase-copy">
-            <p className="auth-kicker">Your next obsession awaits</p>
-            <h2>Every story.<br />Your <span>vault.</span></h2>
-            <p>Pick up where you left off. Keep your watchlist close. Make every anime night yours.</p>
-          </div>
-          <div className="auth-showcase-footer"><span className="auth-live-dot" /><span>Your anime world, all in one place</span></div>
-        </aside>
-
+      <section className="auth-dialog auth-dialog-compact" role="dialog" aria-modal="true" aria-labelledby="auth-heading" aria-describedby="auth-subheading">
         <div className="auth-form-panel">
           <button className="auth-close" type="button" aria-label="Close sign in" onClick={() => setShowAuthModal(false)} disabled={loading}><X size={18} /></button>
           <h1 className="auth-heading" id="auth-heading">{authTab === 'login' ? 'Welcome back' : 'Create your account'}</h1>
           <p className="auth-subheading" id="auth-subheading">
-            {authTab === 'login' ? 'Sign in to get back to your personal vault.' : 'Join AnimeVault and keep your anime life in sync.'}
+            {authTab === 'login' ? 'Sign in to continue watching and manage your list.' : 'Create an account to save your anime and keep your progress.'}
           </p>
 
           <div className="auth-tabs" role="tablist" aria-label="Account access">
