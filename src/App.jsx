@@ -55,12 +55,12 @@ const primaryNav = [
 const referenceNav = [
   ['/', 'Home'],
   ['/anime', 'Browse'],
-  ['/schedule', 'Latest'],
-  ['/anime', 'Genres'],
+  ['/schedule', 'Schedule'],
+  ['/anime', 'Anime'],
   ['/manga', 'Manga'],
   ['/collections', 'Library'],
   ['/community', 'Community'],
-  ['/community', 'Watch Together'],
+  ['/community', 'Community'],
 ];
 
 function App() {

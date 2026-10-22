@@ -19,7 +19,7 @@
 
 ---
 
-## ✨ Features
+## Features
 
 * **⚡ Fast Streaming:** Ultra-low latency video player with modern controls and smooth playback.
 * **📦 Massive Library:** Dive into a sprawling catalog of [Animes](https://animevaultofficial.fun/#/search?type=ANIME), live-action [Dramas & Movies](https://animevaultofficial.fun/#/dramas-movies), and [Mangas](https://animevaultofficial.fun/#/search?type=MANGA) all in one place.

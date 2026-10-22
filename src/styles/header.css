@@ -11,12 +11,10 @@
   padding: 5px clamp(16px, 3vw, 40px);
   overflow: visible;
   max-width: none;
-  background:
-    radial-gradient(ellipse at 70% 0%, rgba(13, 64, 87, 0.55), transparent 48%),
-    rgba(4, 6, 8, 0.97);
+  background: #080b0e;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   box-sizing: border-box;
-  backdrop-filter: blur(18px);
+  backdrop-filter: none;
 }
 
 .app-shell.movie-player-route > .topbar-player {
@@ -29,8 +27,8 @@
   flex: 0 0 auto;
   height: 34px;
   padding: 0 8px;
-  background: rgba(0, 0, 0, 0.38);
-  border-radius: 999px 0 0 999px;
+  background: transparent;
+  border-radius: 0;
 }
 
 .topbar-reference .brand {
@@ -59,7 +57,7 @@
   padding: 0 5px 0 0;
   overflow-x: auto;
   background: rgba(0, 0, 0, 0.38);
-  border-radius: 0 999px 999px 0;
+  border-radius: 0;
   scrollbar-width: none;
 }
 
@@ -72,9 +70,9 @@
   display: inline-flex;
   align-items: center;
   height: 30px;
-  padding: 0 9px;
-  color: #c9cdd1;
-  font-size: 11px;
+  padding: 0 10px;
+  color: #b7bec7;
+  font-size: 12px;
   font-weight: 550;
   text-decoration: none;
   transition: color 0.18s ease, background 0.18s ease;
@@ -88,7 +86,7 @@
 .topbar-reference .topnav-reference .nav-link.active {
   color: #fff;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
+  border-radius: 0;
 }
 
 .topbar-reference .topbar-actions {
@@ -98,8 +96,8 @@
   gap: 4px;
   margin-left: auto;
   padding: 3px 4px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 999px;
+  background: transparent;
+  border-radius: 8px;
 }
 
 .topbar-reference .topbar-icon-action,
@@ -221,4 +219,26 @@
     max-width: 120px;
     padding: 0 9px;
   }
+}
+
+
+/* Calm, consistent header surfaces: no glass, glow, or pill-shaped nav. */
+.app-shell > .topbar.topbar-reference {
+  background: #080b0e;
+  border-bottom-color: #20262d;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.topbar-reference .topbar-brand-wrap,
+.topbar-reference .topnav-reference,
+.topbar-reference .topbar-actions { background: transparent; }
+.topbar-reference .topnav-reference .nav-link { border-radius: 8px; transition: color .16s ease, background-color .16s ease; }
+.topbar-reference .topnav-reference .nav-link:hover,
+.topbar-reference .topnav-reference .nav-link.active { background: #191d23; color: #fff; }
+.topbar-reference .topbar-icon-action:hover,
+.topbar-reference .topbar-search-form:hover,
+.topbar-reference .topbar-menu-button:hover { background: #1b2027; }
+@media (prefers-reduced-motion: reduce) {
+  .topbar-reference *, .topbar-reference *::before, .topbar-reference *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

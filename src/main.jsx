@@ -8,6 +8,7 @@ import { installChunkRecovery } from './utils/chunkRecovery.js';
 import { init } from '@noriginmedia/norigin-spatial-navigation';
 import './styles.css';
 import './styles/mobile-fixes.css';
+import './styles/polish.css';
 import { UserProvider } from './api/UserContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 

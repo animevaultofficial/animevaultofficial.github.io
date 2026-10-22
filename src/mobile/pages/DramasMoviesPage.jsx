@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Film, Tv, TrendingUp, Search, X, Play, Info, Sparkles, Hash } from 'lucide-react';
+import { Film, Tv, TrendingUp, Search, X, Play, Info, Hash } from 'lucide-react';
 import { fetchLatestMovies, fetchLatestTVShows, searchMoviesAndSeries } from '../api/movies';
 import { searchAniPM } from '../api/anipm';
 import { useUser } from '../../api/UserContext';
@@ -28,7 +28,7 @@ function MediaCard({ item, onClick }) {
   const date = item?.release_date || item?.first_air_date || '';
   const year = date ? String(date).split('-')[0] : '';
   const isAnime = item?.mediaType === 'anime';
-  const type = isAnime ? '✨' : item?.media_type === 'movie' ? '🎬' : '📺';
+  const type = isAnime ? 'Anime' : item?.media_type === 'movie' ? 'Movie' : 'Series';
   const numericRating = Number(item?.vote_average);
   const rating = Number.isFinite(numericRating) && numericRating > 0 ? numericRating.toFixed(1) : '';
 
@@ -54,7 +54,7 @@ function HeroCard({ item, onClick }) {
   return (
     <div className="hero" onClick={() => onClick?.(item)} style={{ height: 280, background: bgUrl ? `linear-gradient(180deg, rgba(3,15,22,.18), rgba(3,15,22,.96)), url(${bgUrl}) center/cover` : 'var(--surface2)' }}>
       <div className="hc">
-        <div className="hbadge"><Sparkles size={10} /> Featured</div>
+        <div className="hbadge">Featured</div>
         <div className="htitle">{title}</div>
         <div className="hsub">{ratingText}{year ? ` · ${year}` : ''}{item?.genre ? ` · ${item.genre}` : item?.media_type === 'movie' ? ' · Movie' : ' · Drama/Show'}</div>
         {item?.description && <p style={{ fontSize: '.75rem', color: 'var(--text2)', lineHeight: 1.4, maxHeight: 42, overflow: 'hidden', margin: '.45rem 0 .75rem' }}>{item.description}</p>}

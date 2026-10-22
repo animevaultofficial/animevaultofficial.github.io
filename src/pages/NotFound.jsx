@@ -1,33 +1,13 @@
-import React from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const NotFound = () => {
+export default function NotFound() {
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '80vh',
-      textAlign: 'center',
-      padding: '2rem'
-    }}>
-      <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>404 - Page Not Found</h1>
-      <p style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>
-        Oops! The page you are looking for does not exist.
-      </p>
-      <Link to="/" style={{
-        padding: '0.75rem 1.5rem',
-        background: 'linear-gradient(90deg, #8a2be2, #00d2ff)',
-        color: '#fff',
-        borderRadius: '0.5rem',
-        textDecoration: 'none',
-        fontWeight: '600'
-      }}>
-        Return Home
-      </Link>
-    </div>
+    <main className="not-found-page" aria-labelledby="not-found-title">
+      <p className="not-found-code">404</p>
+      <h1 id="not-found-title">This page isn’t here.</h1>
+      <p className="not-found-copy">The link may be outdated, or the page may have moved. Let’s get you back to AnimeVault.</p>
+      <Link to="/" className="btn-play-v2 not-found-home"><ArrowLeft size={17} aria-hidden="true" /> Back to home</Link>
+    </main>
   );
-};
-
-export default NotFound;
+}

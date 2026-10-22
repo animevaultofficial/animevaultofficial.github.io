@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
-import { ArrowRight, AlertCircle, CheckCircle2, Eye, EyeOff, LockKeyhole, Mail, Sparkles, UserRound, X } from 'lucide-react';
+import { ArrowRight, AlertCircle, CheckCircle2, Eye, EyeOff, LockKeyhole, Mail, UserRound, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../api/UserContext';
 import './AuthModal.css';
@@ -87,7 +87,7 @@ export default function AuthModal() {
       <section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-heading" aria-describedby="auth-subheading">
         <aside className="auth-showcase">
           <div className="auth-brand">
-            <span className="auth-brand-mark"><Sparkles size={18} strokeWidth={2.3} /></span>
+            <span className="auth-brand-mark"><LockKeyhole size={18} strokeWidth={2} /></span>
             <span>AnimeVault</span>
           </div>
           <div className="auth-showcase-copy">

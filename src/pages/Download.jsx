@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bookmark, CheckCircle2, DownloadCloud, Laptop, ShieldCheck, Sparkles, Tv } from 'lucide-react';
+import { Bookmark, CheckCircle2, DownloadCloud, Laptop, PlayCircle, ShieldCheck, Tv } from 'lucide-react';
 import androidIcon from '../../android.png';
 import windowsIcon from '../../windows icon.png';
 import '../styles/download.css';
@@ -80,7 +80,7 @@ const platforms = [
 ];
 
 const features = [
-  { icon: Sparkles, title: 'Fast Streaming', text: 'Watch anime instantly with ultra-low latency and a modern playback layout.' },
+  { icon: PlayCircle, title: 'Playback options', text: 'Playback availability depends on the selected title, provider, and your device.' },
   { icon: Tv, title: 'Huge Library', text: 'Explore anime, dramas, movies, and TV shows from one responsive experience.' },
   { icon: Bookmark, title: 'Track Progress', text: 'Save watch history and continue from where you left off across sessions.' },
   { icon: Laptop, title: 'Always Up To Date', text: 'Every download button targets the latest GitHub Release asset.' },
@@ -92,7 +92,7 @@ const Download = () => (
       <div className="download-hero__backdrop" />
       <div className="download-hero__content">
         <span className="download-eyebrow"><DownloadCloud size={18} /> Official downloads</span>
-        <h1 className="download-title gradient-text" id="download-title">Anime Vault</h1>
+        <h1 className="download-title" id="download-title">Anime Vault</h1>
         <p className="download-subtitle">
           Download the latest AnimeVault release for Windows, macOS, Linux, and Android from GitHub Releases.
         </p>

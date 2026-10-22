@@ -1,0 +1,69 @@
+/* AnimeVault shared UI polish. Keep the product restrained and predictable. */
+:root {
+  --av-space-1: 4px; --av-space-2: 8px; --av-space-3: 12px;
+  --av-space-4: 16px; --av-space-5: 24px; --av-space-6: 32px;
+  --av-radius-sm: 6px; --av-radius-md: 10px; --av-radius-lg: 14px; --av-radius-xl: 18px;
+  --av-border: #252c35; --av-surface: #10151b; --av-surface-raised: #151b22;
+  --av-text: #f2f4f7; --av-muted: #a3acb8;
+}
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body, button, input, select, textarea {
+  font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+body { color: var(--av-text); overflow-x: hidden; }
+button, input, select, textarea { font-size: inherit; }
+button, a, input, select, textarea, summary { -webkit-tap-highlight-color: transparent; }
+:where(button, a, input, select, textarea, summary, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid var(--brand-primary, #ff1a75); outline-offset: 3px;
+}
+input, select, textarea { border-radius: var(--av-radius-md); }
+.glass-card, .about-feature-card, .contact-card, .faq-item, .platform-card, .feature-card {
+  background-color: var(--av-surface); border-color: var(--av-border);
+  border-radius: var(--av-radius-lg); box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.glass-card:hover, .about-feature-card:hover, .contact-card:hover, .faq-item:hover, .platform-card:hover, .feature-card:hover {
+  transform: none; box-shadow: none; border-color: #3a424e;
+}
+.btn-primary, .btn-play-v2, .button-primary, .download-btn-gradient {
+  border-radius: var(--av-radius-md); box-shadow: none;
+  background-color: var(--brand-primary, #ff1a75); background-image: none; color: #fff;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+.btn-primary:hover, .btn-play-v2:hover, .button-primary:hover, .download-btn-gradient:hover {
+  transform: none; box-shadow: none; background-color: var(--brand-primary-dark, #df0e5d);
+  background-image: none; color: #fff;
+}
+.gradient-text {
+  background: none !important; background-image: none !important;
+  color: var(--av-text) !important; -webkit-text-fill-color: currentColor !important;
+}
+.download-hero__backdrop, .platform-card__shine { display: none !important; }
+.not-found-page {
+  min-height: min(72vh, 760px); display: flex; flex-direction: column;
+  align-items: flex-start; justify-content: center;
+  width: min(100% - 40px, 680px); margin-inline: auto;
+  padding-block: clamp(56px, 10vh, 112px); box-sizing: border-box;
+}
+.not-found-code {
+  margin: 0 0 12px; color: var(--brand-primary, #ff1a75);
+  font-size: .8rem; font-weight: 750; letter-spacing: .16em;
+}
+.not-found-page h1 {
+  max-width: 12ch; margin: 0; color: var(--av-text);
+  font-size: clamp(2.3rem, 7vw, 4.4rem); line-height: 1.02; letter-spacing: -.055em;
+}
+.not-found-copy {
+  max-width: 48ch; margin: 20px 0 26px; color: var(--av-muted);
+  font-size: 1rem; line-height: 1.7;
+}
+.not-found-home { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+@media (max-width: 640px) {
+  .not-found-page { width: min(100% - 32px, 680px); min-height: 64vh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important; animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important; transition-duration: .01ms !important;
+  }
+}

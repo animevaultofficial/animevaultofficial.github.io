@@ -2,10 +2,10 @@
 /* Premium design tokens – use throughout the app */
 :root {
   /* Brand */
-  --brand-primary: hsl(340, 85%, 55%);
-  --brand-primary-light: hsl(340, 85%, 65%);
-  --brand-primary-dark: hsl(340, 85%, 45%);
-  --brand-color: var(--red);
+  --brand-primary: #ff1a75;
+  --brand-primary-light: #ff5b9a;
+  --brand-primary-dark: #df0e5d;
+  --brand-color: var(--brand-primary);
 
   /* Accent Colors */
   --red: #e50914;
@@ -35,11 +35,18 @@
   --text-muted: var(--text3);
 
   /* Spacing */
-  --spacing-xs: 0.4rem;
-  --spacing-sm: 0.8rem;
-  --spacing-md: 1.6rem;
-  --spacing-lg: 2.4rem;
-  --spacing-xl: 3.2rem;
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+
+  /* Shared geometry */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
 
   /* Shadows */
   --shadow-sm: 0 2px 6px rgba(0,0,0,0.3);
@@ -55,7 +62,7 @@
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   margin: 0;
   padding: 0;
 }
@@ -86,7 +93,7 @@ a:hover {
 
 .glass {
   background: var(--bg-glass);
-  backdrop-filter: blur(12px);
+  backdrop-filter: none;
   border: 1px solid var(--glass-border);
   border-radius: 12px;
   padding: var(--spacing-md);

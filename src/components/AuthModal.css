@@ -37,8 +37,7 @@
   isolation: isolate;
   background:
     radial-gradient(ellipse at 18% 12%, rgba(255,26,117,.25), transparent 40%),
-    radial-gradient(ellipse at 90% 80%, rgba(105,75,255,.18), transparent 38%),
-    linear-gradient(150deg, #191321 0%, #10131d 50%, #09151b 100%);
+    linear-gradient(150deg, #171119 0%, #10131a 55%, #0a1116 100%);
 }
 .auth-showcase::before,
 .auth-showcase::after {
@@ -56,15 +55,7 @@
   border-radius: 50%;
   box-shadow: 0 0 0 34px rgba(255,255,255,.018), 0 0 0 68px rgba(255,255,255,.014), 0 0 0 102px rgba(255,255,255,.01);
 }
-.auth-showcase::after {
-  width: 260px;
-  height: 360px;
-  right: -110px;
-  bottom: -100px;
-  transform: rotate(32deg);
-  background: linear-gradient(135deg, transparent, rgba(255,26,117,.16), transparent);
-  filter: blur(8px);
-}
+.auth-showcase::after { display: none; }
 .auth-brand {
   display: inline-flex;
   align-items: center;
