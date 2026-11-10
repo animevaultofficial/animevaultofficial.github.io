@@ -1,12 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ArrowDownUp, ArrowLeft, Bookmark, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Film, Home, Info, ListVideo, Play, Search, Sparkles, Tv, UserRound, X } from 'lucide-react';
 import { proxyLogin, proxyLogout, proxyRestoreSession, proxySignup } from '../../src/api/authProxy.js';
 import { getDetails, getEpisodeList, getHomeCatalog, getPlaybackSource, PROVIDERS, searchCatalog } from './catalog.js';
 import './tv.css';
 
 const NAV = [
-  ['home', 'Home', '⌂'], ['search', 'Search', '⌕'], ['movies', 'Movies', '▣'],
-  ['shows', 'Series', '▤'], ['anime', 'Anime', '✦'], ['list', 'My List', '＋'],
+  ['home', 'Home', Home], ['search', 'Search', Search], ['movies', 'Movies', Film],
+  ['shows', 'Series', Tv], ['anime', 'Anime', Sparkles], ['list', 'My List', Bookmark],
 ];
 const FAVORITES_KEY = 'animevault_tv_list';
 const CONTINUE_KEY = 'animevault_tv_continue';
@@ -30,7 +31,7 @@ function installRemoteKeys() {
     }
     if (active?.matches('input,textarea,[contenteditable="true"]')) {
       if (event.key === 'Escape') active.blur();
-      else return;
+      else if (!['ArrowUp', 'ArrowDown', 'Up', 'Down'].includes(event.key)) return;
     }
     if (event.key === 'Escape') { event.preventDefault(); window.dispatchEvent(new Event('tv-os-back')); return; }
     if (active?.tagName === 'SELECT') return;
@@ -76,10 +77,10 @@ function Poster({ item, onOpen, saved = false, size = '' }) {
   </button>;
 }
 
-function Rail({ title, items = [], onOpen, saved = [] }) {
+function Rail({ title, items = [], onOpen, saved = [], icon: Icon = Film, onViewAll }) {
   if (!items.length) return null;
   return <section className="shelf">
-    <div className="shelf-heading"><h2>{title}</h2><span>{items.length} titles</span></div>
+    <div className="shelf-heading"><div className="shelf-title"><Icon size={21}/><div><h2>{title}</h2><small>{title === 'Continue Watching' ? 'Pick up where you left off' : `Discover ${title.toLowerCase()} on AnimeVault`}</small></div></div><div className="shelf-actions"><span>{items.length} titles</span>{onViewAll && <button onClick={onViewAll}>View all <ChevronRight size={16}/></button>}</div></div>
     <div className="poster-rail" data-tv-row>{items.map(item => <Poster key={item.key || `${item.type}-${item.id}`} item={item} onOpen={onOpen} saved={saved.some(entry => entry.key === item.key)} />)}</div>
   </section>;
 }
@@ -116,17 +117,64 @@ function AuthDialog({ onClose, onSuccess }) {
   </div>;
 }
 
+function EpisodeDrawer({ item, season, seasons, seasonCount, episodes, episode, loading, error, onSeason, onSelect, onClose }) {
+  const [query, setQuery] = useState('');
+  const [order, setOrder] = useState('asc');
+  const filteredEpisodes = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return episodes.filter(entry => [entry.episode_number, entry.name, entry.overview, entry.air_date].filter(Boolean).join(' ').toLowerCase().includes(term))
+      .slice().sort((left, right) => (order === 'asc' ? 1 : -1) * (left.episode_number - right.episode_number));
+  }, [episodes, query, order]);
+
+  return <div className="episode-drawer-layer">
+    <button className="episode-drawer-scrim" aria-label="Close episode list" onClick={onClose} />
+    <aside className="episode-drawer" role="dialog" aria-modal="true" aria-label={`${item.title || item.name || 'Series'} episode list`}>
+      <header className="episode-drawer-heading">
+        <div className="episode-drawer-title"><span className="episode-drawer-icon"><ListVideo size={20}/></span><div><h2>Episode list</h2><p>{episodes.length ? `${episodes.length} episodes · Season ${season}` : `Season ${season}`}</p></div></div>
+        <button className="round-button" onClick={onClose} aria-label="Close episode list"><X size={21}/></button>
+      </header>
+      <div className="episode-drawer-controls">
+        <label className="episode-drawer-season"><CalendarDays size={17}/><span>Season</span><select value={season} onChange={event => onSeason(Number(event.target.value))} aria-label="Select season">
+          {seasons.length ? seasons.map(entry => <option key={entry.season_number} value={entry.season_number}>{entry.name || `Season ${entry.season_number}`}</option>) : Array.from({ length: Math.max(1, seasonCount) }, (_, index) => <option key={index + 1} value={index + 1}>Season {index + 1}</option>)}
+        </select><ChevronDown size={16}/></label>
+        <label className="episode-drawer-search"><Search size={18}/><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search episodes" aria-label="Search episodes"/>{query && <button onClick={() => setQuery('')} aria-label="Clear search"><X size={16}/></button>}</label>
+        <div className="episode-drawer-filter-row"><button onClick={() => setOrder(value => value === 'asc' ? 'desc' : 'asc')}><ArrowDownUp size={15}/>{order === 'asc' ? 'Oldest first' : 'Newest first'}</button><span>{filteredEpisodes.length} shown</span></div>
+      </div>
+      <div className="episode-drawer-list" data-tv-row>
+        {loading && <div className="episode-drawer-state"><span className="loading-mark"/><strong>Loading episodes</strong><small>Getting the season list…</small></div>}
+        {!loading && error && <div className="episode-drawer-state"><ListVideo size={24}/><strong>Episodes unavailable</strong><small>{error}</small></div>}
+        {!loading && !error && !filteredEpisodes.length && <div className="episode-drawer-state"><Search size={24}/><strong>{episodes.length ? 'No matching episodes' : 'No episodes listed'}</strong><small>{episodes.length ? 'Try another search.' : 'This season has no episode details available.'}</small></div>}
+        {!loading && !error && filteredEpisodes.map(entry => {
+          const active = Number(entry.episode_number) === Number(episode);
+          const still = entry.still_path ? `https://image.tmdb.org/t/p/w342${entry.still_path}` : '';
+          return <button type="button" key={entry.episode_number} className={`episode-drawer-card ${active ? 'active' : ''}`} aria-current={active ? 'true' : undefined} onClick={() => onSelect(entry.episode_number)}>
+            <span className="episode-drawer-thumb">{still ? <img src={still} alt="" loading="lazy" onError={event => { event.currentTarget.hidden = true; }}/> : <span className="episode-thumb-placeholder">EP {String(entry.episode_number).padStart(2, '0')}</span>}<b>EP {String(entry.episode_number).padStart(2, '0')}</b>{active && <strong><Play size={12} fill="currentColor"/> Now playing</strong>}</span>
+            <span className="episode-drawer-copy"><strong>{entry.name || `Episode ${entry.episode_number}`}</strong><span>{entry.overview || item.title || item.name || 'Episode details are not available.'}</span><small>{entry.air_date || 'Release date unavailable'}{entry.runtime ? ` · ${entry.runtime} min` : ''}</small></span>
+            <ChevronRight className="episode-drawer-card-arrow" size={19}/>
+          </button>;
+        })}
+      </div>
+      <footer className="episode-drawer-footer"><span>Season {season}</span><span>Use arrows to browse · Select to play</span></footer>
+    </aside>
+  </div>;
+}
+
 function Player({ item, onClose }) {
   const [provider, setProvider] = useState(PROVIDERS[0].id);
   const [season, setSeason] = useState(1);
   const [episode, setEpisode] = useState(1);
+  const [episodeDrawer, setEpisodeDrawer] = useState(false);
   const [source, setSource] = useState(null);
   const [message, setMessage] = useState('Choose a source to start playback.');
   const [frameError, setFrameError] = useState(false);
   const [episodes, setEpisodes] = useState([]);
+  const [episodeLoading, setEpisodeLoading] = useState(false);
+  const [episodeError, setEpisodeError] = useState('');
   const [seasonCount, setSeasonCount] = useState(item.seasons?.length || 0);
   const [busy, setBusy] = useState(false);
   const request = useRef(0);
+  const drawerTrigger = useRef(null);
+  const drawerWasOpen = useRef(false);
   const episodic = item.type === 'tv';
   const directSource = Boolean(source && (/\.(m3u8|mp4|webm|ogg)(?:$|\?)/i.test(source.url) || /m3u8|mpegurl|^(hls|video|mp4|webm)$/i.test(source.type || '')));
 
@@ -138,9 +186,25 @@ function Player({ item, onClose }) {
   }, [item.id, episodic]);
 
   useEffect(() => {
+    if (drawerWasOpen.current && !episodeDrawer) drawerTrigger.current?.focus();
+    drawerWasOpen.current = episodeDrawer;
+  }, [episodeDrawer]);
+
+  useEffect(() => {
+    const handleBack = () => {
+      if (episodeDrawer) setEpisodeDrawer(false);
+      else onClose();
+    };
+    window.addEventListener('tv-player-back', handleBack);
+    return () => window.removeEventListener('tv-player-back', handleBack);
+  }, [episodeDrawer, onClose]);
+
+  useEffect(() => {
     if (!episodic) return undefined;
     let cancelled = false;
-    getEpisodeList(item.id, season).then(data => { if (!cancelled) setEpisodes(data); }).catch(() => { if (!cancelled) setEpisodes([]); });
+    setEpisodeLoading(true);
+    setEpisodeError('');
+    getEpisodeList(item.id, season).then(data => { if (!cancelled) setEpisodes(data); }).catch(error => { if (!cancelled) { setEpisodes([]); setEpisodeError(error.message || 'Could not load this season.'); } }).finally(() => { if (!cancelled) setEpisodeLoading(false); });
     return () => { cancelled = true; };
   }, [item.id, episodic, season]);
 
@@ -160,9 +224,14 @@ function Player({ item, onClose }) {
     setSeason(bounded); setEpisode(1);
     if (source) load(provider, 1, bounded);
   };
+  const chooseEpisode = number => {
+    setEpisode(number);
+    setEpisodeDrawer(false);
+    if (source) load(provider, number, season);
+  };
 
   return <div className="watch-screen">
-    <header className="watch-header"><button className="round-button" onClick={onClose} aria-label="Back">←</button><div><strong>{titleOf(item)}</strong><small>{episodic ? `Season ${season} · Episode ${episode}` : 'Movie'}</small></div><button className="round-button" onClick={() => document.fullscreenElement ? document.exitFullscreen() : document.querySelector('.watch-screen')?.requestFullscreen?.()} aria-label="Fullscreen">⛶</button></header>
+    <header className="watch-header"><button className="round-button" onClick={onClose} aria-label="Back"><ArrowLeft size={21}/></button><div><strong>{titleOf(item)}</strong><small>{episodic ? `Season ${season} · Episode ${episode}` : 'Movie'}</small></div>{episodic && <button ref={drawerTrigger} className="episode-drawer-trigger" onClick={() => setEpisodeDrawer(true)} aria-label="Open episode list"><ListVideo size={19}/><span>Episodes</span><b>{episodes.length || '—'}</b></button>}<button className="round-button" onClick={() => document.fullscreenElement ? document.exitFullscreen() : document.querySelector('.watch-screen')?.requestFullscreen?.()} aria-label="Fullscreen"><Expand size={19}/></button></header>
     <div className="provider-row" data-tv-row aria-label="Playback providers">{PROVIDERS.map(entry => <button key={entry.id} className={`provider-button ${provider === entry.id ? 'selected' : ''}`} onClick={() => { setProvider(entry.id); load(entry.id); }}>{entry.label}</button>)}</div>
     <div className="player-stage">
       {source && directSource ? <video key={source.url} src={source.url} poster={item.backdrop || item.poster} controls autoPlay playsInline onError={() => { setFrameError(true); setMessage('This direct stream could not play. Select another provider.'); }} />
@@ -170,20 +239,20 @@ function Player({ item, onClose }) {
           : source ? <><iframe key={source.url} title={`${titleOf(item)} player`} src={source.url} allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowFullScreen tabIndex={0} onError={() => setFrameError(true)} /><div className={`embed-assist ${frameError ? 'has-error' : ''}`} role="status"><span>{frameError ? 'This provider blocked or failed to load inside the TV app.' : 'Playback not starting? Some providers do not allow embedded playback.'}</span><button className="secondary-button" onClick={() => window.open(source.url, '_blank', 'noopener,noreferrer')}>Open provider</button><button className="text-button" onClick={() => { setSource(null); setFrameError(false); setMessage('Choose another provider to continue.'); }}>Choose another source</button></div></>
             : <div className="player-message"><img src={item.backdrop || item.poster || './logo.png'} alt=""/><div><span className="eyebrow">NOW PLAYING</span><h1>{titleOf(item)}</h1><p>{busy ? 'Connecting to your selected provider…' : message}</p>{!busy && <button className="primary-button" onClick={() => load(provider)}>Try {PROVIDERS.find(entry => entry.id === provider)?.label}</button>}</div></div>}
     </div>
-    {episodic && <div className="episode-strip"><button className="round-button" onClick={() => changeSeason(season - 1)} aria-label="Previous season">‹</button><label>Season<select value={season} onChange={event => changeSeason(Number(event.target.value))}>{Array.from({ length: Math.max(1, seasonCount) }, (_, index) => <option value={index + 1} key={index + 1}>{index + 1}</option>)}</select></label><div className="episode-list" data-tv-row>{(episodes.length ? episodes : Array.from({ length: 12 }, (_, index) => ({ episode_number: index + 1, name: `Episode ${index + 1}` }))).map(entry => <button key={entry.episode_number} className={episode === entry.episode_number ? 'selected' : ''} onClick={() => { setEpisode(entry.episode_number); if (source) load(provider, entry.episode_number, season); }}>{entry.episode_number}</button>)}</div><button className="round-button" onClick={() => changeSeason(season + 1)} aria-label="Next season">›</button></div>}
+    {episodeDrawer && episodic && <EpisodeDrawer item={item} season={season} seasons={item.seasons || []} seasonCount={seasonCount} episodes={episodes} episode={episode} loading={episodeLoading} error={episodeError} onSeason={changeSeason} onSelect={chooseEpisode} onClose={() => setEpisodeDrawer(false)} />}
   </div>;
 }
 
-function HomeView({ catalog, saved, continued, onOpen, onPlay }) {
+function HomeView({ catalog, saved, continued, onOpen, onPlay, onBrowse }) {
   return <>
     {catalog.featured && <section className="hero" style={{ backgroundImage: `url("${catalog.featured.backdrop || catalog.featured.poster}")` }}>
-      <div className="hero-content"><div className="eyebrow">ANIMEVAULT ORIGINAL DISCOVERY</div><h1>{titleOf(catalog.featured)}</h1><div className="hero-meta"><span>{catalog.featured.year || 'New'}</span><span>HD</span><span>{catalog.featured.type === 'anime' ? 'Anime' : catalog.featured.type === 'tv' ? 'Series' : 'Movie'}</span>{catalog.featured.rating > 0 && <span>★ {catalog.featured.rating.toFixed(1)}</span>}</div><p>{catalog.featured.overview || 'Discover your next favorite series, movie, or anime.'}</p><div className="hero-actions" data-tv-row><button className="primary-button" onClick={() => onPlay(catalog.featured)}>▶ Play</button><button className="secondary-button" onClick={() => onOpen(catalog.featured)}>ⓘ More info</button></div></div>
+      <div className="hero-content"><div className="eyebrow"><Sparkles size={15}/> FEATURED ON ANIMEVAULT</div><h1>{titleOf(catalog.featured)}</h1><div className="hero-meta"><span>{catalog.featured.year || 'New'}</span><span>HD</span><span>{catalog.featured.type === 'anime' ? 'Anime' : catalog.featured.type === 'tv' ? 'Series' : 'Movie'}</span>{catalog.featured.rating > 0 && <span>★ {catalog.featured.rating.toFixed(1)}</span>}</div><p>{catalog.featured.overview || 'Discover your next favorite series, movie, or anime.'}</p><div className="hero-actions" data-tv-row><button className="primary-button" onClick={() => onPlay(catalog.featured)}><Play size={18} fill="currentColor"/> Play</button><button className="secondary-button" onClick={() => onOpen(catalog.featured)}><Info size={18}/> More info</button></div></div>
     </section>}
     <div className="home-rows">
-      <Rail title="Continue Watching" items={continued.slice(0, 12)} onOpen={onOpen} saved={saved} />
-      <Rail title="Trending Movies" items={catalog.movies} onOpen={onOpen} saved={saved} />
-      <Rail title="Popular Series" items={catalog.shows} onOpen={onOpen} saved={saved} />
-      <Rail title="Trending Anime" items={catalog.anime} onOpen={onOpen} saved={saved} />
+      <Rail title="Continue Watching" items={continued.slice(0, 12)} onOpen={onOpen} saved={saved} icon={Clock3} />
+      <Rail title="Trending Movies" items={catalog.movies} onOpen={onOpen} saved={saved} icon={Film} onViewAll={() => onBrowse('movies')} />
+      <Rail title="Popular Series" items={catalog.shows} onOpen={onOpen} saved={saved} icon={Tv} onViewAll={() => onBrowse('shows')} />
+      <Rail title="Trending Anime" items={catalog.anime} onOpen={onOpen} saved={saved} icon={Sparkles} onViewAll={() => onBrowse('anime')} />
     </div>
   </>;
 }
@@ -246,7 +315,7 @@ function App() {
   useEffect(() => {
     const handleBack = () => {
       if (authOpen) setAuthOpen(false);
-      else if (player) setPlayer(null);
+      else if (player) window.dispatchEvent(new Event('tv-player-back'));
       else if (detail) setDetail(null);
       else if (screen !== 'home') setScreen('home');
     };
@@ -294,10 +363,10 @@ function App() {
   const openLogin = () => { setDetail(null); setAuthOpen(true); };
 
   return <div className="tv-app-shell">
-    <aside className="tv-rail" aria-label="Main navigation"><img className="tv-logo" src="./logo.png" alt="AnimeVault"/><nav>{NAV.map(([id,label,icon]) => <button key={id} className={screen === id ? 'nav-item active' : 'nav-item'} aria-label={label} title={label} aria-current={screen === id ? 'page' : undefined} onClick={() => { setScreen(id); setDetail(null); setNotice(''); }}>{<span className="nav-icon">{icon}</span>}<span className="nav-label">{label}</span></button>)}</nav><button className="account-nav" aria-label={user ? 'Account' : 'Sign in'} onClick={() => user ? setScreen('profile') : openLogin()}><span className="avatar">{user ? String(user.username || 'A').slice(0, 1).toUpperCase() : '○'}</span></button></aside>
+    <aside className="tv-rail" aria-label="Main navigation"><img className="tv-logo" src="./logo.png" alt="AnimeVault"/><nav>{NAV.map(([id,label,Icon]) => <button key={id} className={screen === id ? 'nav-item active' : 'nav-item'} aria-label={label} title={label} aria-current={screen === id ? 'page' : undefined} onClick={() => { setScreen(id); setDetail(null); setNotice(''); }}><span className="nav-icon"><Icon size={23} strokeWidth={1.8}/></span><span className="nav-label">{label}</span></button>)}</nav><button className="account-nav" aria-label={user ? 'Account' : 'Sign in'} onClick={() => user ? setScreen('profile') : openLogin()}><span className="avatar">{user ? String(user.username || 'A').slice(0, 1).toUpperCase() : <UserRound size={20}/>}</span></button></aside>
     <main className="tv-main" key={screen}>
-      <header className="topline"><div className="brand-wordmark"><span>ANIME</span><b>VAULT</b></div><div className="top-actions" data-tv-row><button className="icon-action" onClick={doSearch} aria-label="Search">⌕</button>{user ? <button className="account-pill" onClick={() => setScreen('profile')}>{user.username || 'Account'}</button> : <button className="account-pill" onClick={openLogin}>Sign in</button>}</div></header>
-      {screen === 'home' && <HomeView catalog={catalog} saved={saved} continued={continued} onOpen={openItem} onPlay={playItem} />}
+      <header className="topline"><div className="brand-wordmark"><span>ANIME</span><b>VAULT</b></div><div className="top-actions" data-tv-row><button className="icon-action" onClick={doSearch} aria-label="Search"><Search size={24}/></button>{user ? <button className="account-pill" onClick={() => setScreen('profile')}><UserRound size={17}/>{user.username || 'Account'}</button> : <button className="account-pill" onClick={openLogin}><UserRound size={17}/>Sign in</button>}</div></header>
+      {screen === 'home' && <HomeView catalog={catalog} saved={saved} continued={continued} onOpen={openItem} onPlay={playItem} onBrowse={setScreen} />}
       {screen === 'search' && <SearchView inputRef={searchInput} searchText={searchText} setSearchText={setSearchText} searchType={searchType} setSearchType={setSearchType} doSearch={doSearch} searchResults={searchResults} searching={searching} onOpen={openItem} saved={saved} />}
       {['movies','shows','anime'].includes(screen) && <BrowseView title={currentTitle} items={browse} loading={loading} onOpen={openItem} saved={saved} />}
       {screen === 'list' && <ListView items={saved} onOpen={openItem} />}
