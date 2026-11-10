@@ -106,10 +106,59 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  webos:
+    name: LG webOS IPK
+    runs-on: ubuntu-latest
+    environment: github-pages
+    env:
+      VITE_API_URL: ${{ secrets.VITE_API_URL }}
+      VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
+      VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
+      VITE_AUTH_PROXY_URL: https://animevaultofficial-github-io.onrender.com
+      VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+      VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
+      VITE_MEDIA_SOURCE_API: ${{ secrets.VITE_MEDIA_SOURCE_API }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install app dependencies
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Validate production configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in VITE_API_URL VITE_NEON_AUTH_URL VITE_HCAPTCHA_SITEKEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error title=Missing AnimeVault production secret::$name is empty or unavailable to this job"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ]
+      - name: Install webOS packaging CLI
+        run: npm install --global @webos-tools/cli@3.2.6
+      - name: Build and package webOS app
+        run: |
+          set -euo pipefail
+          npm run webos:package
+          find dist-ipk -maxdepth 1 -type f -name '*.ipk' -print -quit | grep -q .
+      - name: Upload webOS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: animevault-LG-webOS-IPK
+          path: dist-ipk/*.ipk
+          if-no-files-found: error
+          retention-days: 30
+
   release:
-    name: Publish AnimeVault desktop release
+    name: Publish AnimeVault release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [desktop]
+    needs: [desktop, webos]
     runs-on: ubuntu-latest
     concurrency:
       group: release-${{ github.sha }}
@@ -130,14 +179,20 @@ jobs:
         with:
           name: animevault-Linux-installer
           path: release/Linux
+      - name: Download LG webOS installer
+        uses: actions/download-artifact@v4
+        with:
+          name: animevault-LG-webOS-IPK
+          path: release/webOS
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: animevault-build-${{ github.sha }}
           name: AnimeVault Build ${{ github.sha }}
-          body: Automated Windows, macOS, Linux, and signed Android builds from the same commit.
+          body: Automated Windows, macOS, Linux, Android, and LG webOS builds from the same commit.
           files: |
             release/Windows/*
             release/macOS/*
             release/Linux/*
+            release/webOS/*
           fail_on_unmatched_files: true

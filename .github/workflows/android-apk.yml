@@ -207,6 +207,6 @@ jobs:
         with:
           tag_name: animevault-build-${{ github.sha }}
           name: AnimeVault Build ${{ github.sha }}
-          body: Automated Windows, macOS, Linux, and signed Android builds from the same commit.
+          body: Automated Windows, macOS, Linux, signed Android, and LG webOS builds from the same commit.
           files: android/app/build/outputs/apk/release/Anime Vault.apk
           fail_on_unmatched_files: true

@@ -180,6 +180,7 @@ Not every feature requires every variable. Use `.env.example` and the relevant A
 
 - The web deployment workflow builds the Vite application and publishes `dist/` to GitHub Pages.
 - Desktop/Android build automation is defined in the GitHub Actions workflows and release documentation.
+- The desktop release workflow also builds an LG webOS IPK with the same mobile app entry and public build configuration as Android TV.
 - Electron Builder creates desktop installers for supported operating systems; update metadata is used by the desktop updater.
 - Android and webOS build the same TV/mobile application entry into `dist-mobile/` and `dist-webos/`, respectively.
 - The webOS target packages its matching build into an IPK through the webOS tooling.
