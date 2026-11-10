@@ -114,25 +114,28 @@ export async function getEpisodeList(id, season = 1) {
 
 export async function getPlaybackSource(item, provider, season = 1, episode = 1) {
   if (MEDIA_RESOLVER) {
-    try {
-      const url = new URL(MEDIA_RESOLVER, window.location.origin);
-      url.searchParams.set('type', item.type === 'movie' ? 'movie' : 'tv');
-      url.searchParams.set('tmdbId', String(item.id));
-      url.searchParams.set('provider', provider);
-      if (item.type !== 'movie') { url.searchParams.set('season', String(season)); url.searchParams.set('episode', String(episode)); }
-      const response = await fetchTimed(url, { headers: { Accept: 'application/json' } });
-      const data = await response.json().catch(() => ({}));
-      if (response.ok && data.url) return { url: data.url, type: data.type || 'embed' };
-    } catch {}
+    const url = new URL(MEDIA_RESOLVER, window.location.origin);
+    url.searchParams.set('type', item.type === 'movie' ? 'movie' : 'tv');
+    url.searchParams.set('tmdbId', String(item.id));
+    url.searchParams.set('provider', provider);
+    if (item.type !== 'movie') { url.searchParams.set('season', String(season)); url.searchParams.set('episode', String(episode)); }
+    const response = await fetchTimed(url, { headers: { Accept: 'application/json' } });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || `The playback resolver returned ${response.status}.`);
+    if (!data.url) throw new Error(data.message || 'The resolver did not return a stream for this provider.');
+    let resolvedUrl;
+    try { resolvedUrl = new URL(data.url, window.location.origin); }
+    catch { throw new Error('The playback resolver returned an invalid URL.'); }
+    if (!['https:', 'http:'].includes(resolvedUrl.protocol)) throw new Error('The playback resolver returned an unsupported URL.');
+    return { url: resolvedUrl.href, type: data.type || 'embed' };
   }
   const id = encodeURIComponent(item.id);
   if (provider === 'videasy') return { url: item.type === 'movie' ? `https://player.videasy.ws/embed/movie/${id}` : `https://player.videasy.ws/embed/tv/${id}/${season}/${episode}`, type: 'embed' };
   if (provider === 'vidnest') return { url: item.type === 'movie' ? `https://vidnest.fun/movie/${id}` : `https://vidnest.fun/tv/${id}/${season}/${episode}`, type: 'embed' };
-  return { url: item.type === 'movie' ? `https://vidsrc.tw/embed/movie/${id}` : `https://vidsrc.tw/embed/tv/${id}/${season}/${episode}`, type: 'embed' };
+  throw new Error('Choose a supported provider to continue.');
 }
 
 export const PROVIDERS = [
-  { id: 'vidsrc', label: 'VidSrc' },
-  { id: 'vidnest', label: 'Vidnest' },
   { id: 'videasy', label: 'Videasy' },
+  { id: 'vidnest', label: 'Vidnest' },
 ];
