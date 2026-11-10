@@ -89,38 +89,15 @@ function scrollDirectional(current, dx, dy) {
     }
     parent = parent.parentElement;
   }
-  if (dy) {
-    window.scrollBy({ top: dy * Math.round(window.innerHeight * .7), behavior: 'auto' });
-    return true;
-  }
   return false;
-}
-
-function moveWithinRow(current, row, direction) {
-  if (!row || !direction) return null;
-  const entries = [...row.querySelectorAll(CONTROL_SELECTOR)].filter(element => {
-    if (element.matches(':disabled') || element.tabIndex < 0 || element.closest('[aria-hidden="true"], [inert]')) return false;
-    let parent = element;
-    while (parent && row.contains(parent)) {
-      const style = window.getComputedStyle(parent);
-      if (style.display === 'none' || style.visibility === 'hidden') return false;
-      parent = parent.parentElement;
-    }
-    return true;
-  });
-  const index = entries.indexOf(current);
-  return index < 0 ? null : entries[index + direction] || null;
 }
 
 function findDirectionalTarget(current, candidates, dx, dy) {
   const origin = centerOf(current);
-  const row = dx ? current.closest('.auto-train-window, .av-mobile-card-rail, .hscroll, .media-all-grid, .ply-rail-scroll, .player-source-bar') : null;
-  const rowCandidates = row ? candidates.filter(candidate => candidate !== current && row.contains(candidate)) : [];
-  const pool = rowCandidates.length ? rowCandidates : candidates;
   let best = null;
   let bestScore = Number.POSITIVE_INFINITY;
 
-  for (const candidate of pool) {
+  for (const candidate of candidates) {
     if (candidate === current) continue;
     const point = centerOf(candidate);
     const x = point.x - origin.x;
@@ -146,11 +123,6 @@ export function installTvRemoteNavigation({ tvMode = true } = {}) {
     if (isTextEntry(active) || active?.tagName === 'SELECT') return;
     const direction = DIRECTION_KEYS[event.key] || LEGACY_DIRECTION_KEYS[event.keyCode];
     const activation = ACTIVATION_KEYS.includes(event.key) || event.keyCode === 13;
-    if ((event.key === 'Back' || event.key === 'GoBack' || event.keyCode === 461) && !isTextEntry(active)) {
-      event.preventDefault();
-      window.history.back();
-      return;
-    }
     if (event.repeat && activation) {
       if (activation) {
         event.preventDefault();
@@ -162,18 +134,6 @@ export function installTvRemoteNavigation({ tvMode = true } = {}) {
     if (direction) {
       const controls = getControls();
       const current = controls.includes(active) ? active : null;
-      if (current?.closest('.tv-navigation-rail') && direction[0] > 0) {
-        const firstContentControl = controls.find(element => element.closest('.av-v2-content'));
-        if (firstContentControl) { event.preventDefault(); event.stopPropagation(); focus(firstContentControl); }
-        return;
-      }
-      if (current?.closest('.av-v2-content') && direction[0] < 0) {
-        const currentRect = current.getBoundingClientRect();
-        if (currentRect.left <= 100) {
-          const activeNav = document.querySelector('.tv-navigation-item[aria-current="page"]') || document.querySelector('.tv-navigation-item');
-          if (activeNav) { event.preventDefault(); event.stopPropagation(); focus(activeNav); return; }
-        }
-      }
       const firstContentControl = controls.find(element => element.closest('main'));
       const next = current
         ? findDirectionalTarget(current, controls, direction[0], direction[1])
@@ -182,20 +142,6 @@ export function installTvRemoteNavigation({ tvMode = true } = {}) {
         event.preventDefault();
         event.stopPropagation();
         focus(next);
-      } else if (current && direction[0]) {
-        const row = current.closest('.auto-train-window, .av-mobile-card-rail, .hscroll, .media-all-grid, .ply-rail-scroll, .player-source-bar');
-        const rowTarget = moveWithinRow(current, row, direction[0]);
-        const edgeNav = direction[0] < 0 && row && rowTarget == null
-          ? document.querySelector('.tv-navigation-item[aria-current="page"]')
-          : null;
-        if (rowTarget || edgeNav) {
-          event.preventDefault();
-          event.stopPropagation();
-          focus(rowTarget || edgeNav);
-        } else if (scrollDirectional(current, direction[0], direction[1])) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
       } else if (current && scrollDirectional(current, direction[0], direction[1])) {
         event.preventDefault();
         event.stopPropagation();

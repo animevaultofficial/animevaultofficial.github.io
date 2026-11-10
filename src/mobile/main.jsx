@@ -12,7 +12,6 @@ import { installTvRemoteNavigation } from '../utils/tvRemoteNavigation.js';
 import AppMobile from './AppMobile';
 import '../styles.css';
 import '../styles/mobile-fixes.css';
-import './tv-shell.css';
 
 installChunkRecovery();
 
