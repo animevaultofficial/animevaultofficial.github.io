@@ -65,6 +65,20 @@ matches the other app build workflows. These `VITE_` values are included in
 the client build; server credentials such as `DATABASE_URL` are not passed to
 the TV apps.
 
+To build the same IPK on a Windows PC, install dependencies once with
+`npm ci --legacy-peer-deps`, put local public Vite settings in the ignored
+`.env.local` file if needed, and run `npm run webos:package`. The generated
+package is written to `dist-ipk/`. The webOS packaging CLI is pinned as a
+project dependency, so a global SDK install is not required.
+
+For local sign-in, put `VITE_NEON_AUTH_URL`, `VITE_HCAPTCHA_SITEKEY`, and
+`VITE_AUTH_PROXY_URL` in `.env.local`. `VITE_MEDIA_SOURCE_API` enables the
+direct media-source resolver; the player still falls back to its selected
+provider's embed URL when this setting is blank. GitHub Actions secrets are
+injected only into workflow builds and are not copied to the PC automatically.
+Keep server-only values such as `DATABASE_URL` and `HCAPTCHA_SECRET_KEY` out
+of the client environment.
+
 ## What gets built
 
 - **Windows** — NSIS installers for x64 and arm64.

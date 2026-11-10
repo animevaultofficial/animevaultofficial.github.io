@@ -145,6 +145,7 @@
     "@capacitor/cli": "^6.2.1",
     "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "@webos-tools/cli": "3.2.6",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^42.4.0",

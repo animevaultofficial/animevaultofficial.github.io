@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Film, Tv, TrendingUp, Search, X, Play, Info, Hash } from 'lucide-react';
 import { fetchLatestMovies, fetchLatestTVShows, searchMoviesAndSeries } from '../api/movies';
-import { searchAniPM } from '../../api/anipm';
 import { useUser } from '../../api/UserContext';
 import { isBlockedForProfile, isKidsProfile } from '../../utils/ageRating';
 import { KIDS_FAMILY_MEDIA, isKidsCatalogApproved } from '../../utils/kidsCatalog';
-import { mergeAnimeAndMediaResults } from '../../utils/searchResults';
 
 const GENRES = ['Action', 'Romance', 'Thriller', 'Horror', 'Comedy', 'Drama', 'Sci-Fi', 'Crime', 'Fantasy', 'Mystery', 'Adventure', 'Animation'];
 const FEATURED_SHOWS = [
@@ -33,34 +31,34 @@ function MediaCard({ item, onClick }) {
   const rating = Number.isFinite(numericRating) && numericRating > 0 ? numericRating.toFixed(1) : '';
 
   return (
-    <div className="gcard" onClick={() => onClick?.(item)}>
-      {image ? <img src={image} alt={title} className="gcard-img" onError={(e) => { e.currentTarget.style.display = 'none'; }} /> : <div className="gcard-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', background: 'var(--surface2)' }}>{type}</div>}
-      <div className="gcard-title">{title}</div>
-      <div style={{ padding: '0 0.5rem 0.5rem', fontSize: '0.62rem', color: 'var(--text3)', display: 'flex', gap: '.35rem', alignItems: 'center' }}>
+    <button type="button" className="gcard" aria-label={`View ${title}, ${type}${year ? `, ${year}` : ''}`} onClick={() => onClick?.(item)}>
+      {image ? <img src={image} alt="" className="gcard-img" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/logo.png'; }} /> : <span className="gcard-img gcard-placeholder">{type}</span>}
+      <span className="gcard-title">{title}</span>
+      <span className="gcard-meta">
         <span>{year || '—'}</span>
         {rating ? <span>⭐ {rating}</span> : null}
         <span>{isAnime ? 'Anime' : item?.media_type === 'movie' ? 'Movie' : 'Drama/Show'}</span>
-      </div>
-    </div>
+      </span>
+    </button>
   );
 }
 
-function HeroCard({ item, onClick }) {
+function HeroCard({ item, onWatch, onDetails }) {
   const title = safeTitle(item?.title || item?.name);
   const bgUrl = item?.banner || (item?.backdrop_path ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}` : null);
   const rating = Number(item?.rating ?? item?.vote_average);
   const ratingText = Number.isFinite(rating) && rating > 0 ? `⭐ ${item?.rating ?? rating.toFixed(1)}` : '';
   const year = item?.year || item?.release_date?.split?.('-')?.[0] || '';
   return (
-    <div className="hero" onClick={() => onClick?.(item)} style={{ height: 280, background: bgUrl ? `linear-gradient(180deg, rgba(3,15,22,.18), rgba(3,15,22,.96)), url(${bgUrl}) center/cover` : 'var(--surface2)' }}>
+    <div className="hero" style={{ height: 280, background: bgUrl ? `url(${bgUrl}) center/cover` : 'var(--surface2)' }}>
       <div className="hc">
         <div className="hbadge">Featured</div>
         <div className="htitle">{title}</div>
         <div className="hsub">{ratingText}{year ? ` · ${year}` : ''}{item?.genre ? ` · ${item.genre}` : item?.media_type === 'movie' ? ' · Movie' : ' · Drama/Show'}</div>
         {item?.description && <p style={{ fontSize: '.75rem', color: 'var(--text2)', lineHeight: 1.4, maxHeight: 42, overflow: 'hidden', margin: '.45rem 0 .75rem' }}>{item.description}</p>}
         <div style={{ display: 'flex', gap: '.6rem' }}>
-          <button style={{ background: 'var(--brand)', color: '#fff', border: 'none', padding: '.5rem .9rem', borderRadius: 8, fontWeight: 800, fontSize: '.75rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Play size={13} fill="currentColor" /> Watch</button>
-          <button style={{ background: 'rgba(255,255,255,.1)', color: '#fff', border: '1px solid rgba(255,255,255,.2)', padding: '.5rem .9rem', borderRadius: 8, fontWeight: 700, fontSize: '.75rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Info size={13} /> Details</button>
+          <button type="button" onClick={() => onWatch?.(item)} style={{ background: 'var(--brand)', color: '#fff', border: 'none', padding: '.5rem .9rem', borderRadius: 8, fontWeight: 800, fontSize: '.75rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Play size={13} fill="currentColor" /> Watch</button>
+          <button type="button" onClick={() => onDetails?.(item)} style={{ background: 'rgba(255,255,255,.1)', color: '#fff', border: '1px solid rgba(255,255,255,.2)', padding: '.5rem .9rem', borderRadius: 8, fontWeight: 700, fontSize: '.75rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Info size={13} /> Details</button>
         </div>
       </div>
     </div>
@@ -79,6 +77,8 @@ export default function DramasMoviesPage({ navigate }) {
     poster_path: item.poster?.replace('https://image.tmdb.org/t/p/w500', ''),
     vote_average: Number(item.rating),
   }));
+  const slides = kidsMode ? kidsMedia : FEATURED_SHOWS;
+  const slideCount = slides.length;
   const [tab, setTab] = useState('movies');
   const [movies, setMovies] = useState([]);
   const [tvShows, setTvShows] = useState([]);
@@ -87,6 +87,7 @@ export default function DramasMoviesPage({ navigate }) {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [slide, setSlide] = useState(0);
+  const [heroPaused, setHeroPaused] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,10 +116,12 @@ export default function DramasMoviesPage({ navigate }) {
   }, [kidsMode, activeSubAccount]);
 
   useEffect(() => {
-    if (!FEATURED_SHOWS.length) return undefined;
-    const i = setInterval(() => setSlide(p => (p + 1) % FEATURED_SHOWS.length), 6000);
+    if (heroPaused || slideCount < 2) return undefined;
+    const i = setInterval(() => setSlide(p => (p + 1) % slideCount), 8000);
     return () => clearInterval(i);
-  }, []);
+  }, [heroPaused, slideCount]);
+
+  useEffect(() => setSlide(0), [kidsMode]);
 
   useEffect(() => {
     const trimmed = searchQuery.trim();
@@ -127,23 +130,11 @@ export default function DramasMoviesPage({ navigate }) {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const [mediaResult, animeResult] = await Promise.allSettled([
-          kidsMode
-            ? Promise.resolve(kidsMedia.filter(item => `${item.name} ${item.description}`.toLowerCase().includes(trimmed.toLowerCase())))
-            : searchMoviesAndSeries(trimmed),
-          kidsMode ? Promise.resolve([]) : searchAniPM(trimmed, 1, 20),
-        ]);
+        const mediaResults = kidsMode
+          ? kidsMedia.filter(item => `${item.name} ${item.description}`.toLowerCase().includes(trimmed.toLowerCase()))
+          : await searchMoviesAndSeries(trimmed);
         if (cancelled) return;
-        if (mediaResult.status === 'rejected') {
-          console.warn('[AnimeVault Mobile] media search failed:', mediaResult.reason?.message || mediaResult.reason);
-        }
-        if (animeResult.status === 'rejected') {
-          console.warn('[AnimeVault Mobile] anime search failed:', animeResult.reason?.message || animeResult.reason);
-        }
-        setSearchResults(mergeAnimeAndMediaResults(
-          animeResult.status === 'fulfilled' ? animeResult.value : [],
-          mediaResult.status === 'fulfilled' ? mediaResult.value : [],
-        ).filter(isAllowed));
+        setSearchResults((Array.isArray(mediaResults) ? mediaResults : []).filter(isAllowed));
       } catch (error) {
         console.warn('[AnimeVault Mobile] media search failed:', error?.message || error);
         if (!cancelled) setSearchResults([]);
@@ -163,18 +154,22 @@ export default function DramasMoviesPage({ navigate }) {
     const mediaType = item.media_type === 'movie' ? 'movie' : 'tv';
     navigate('drama-detail', { id: item.id, mediaType, title: item.title || item.name || 'Unknown', poster: item.poster_path || null });
   };
+  const handleHeroWatch = item => {
+    if (item?.id == null) return;
+    const mediaType = item.media_type === 'movie' ? 'movie' : 'tv';
+    navigate(`/watch/${mediaType}/${item.id}`);
+  };
 
   const displayItems = (tab === 'movies' ? movies : tvShows).filter(isAllowed);
-  const slides = kidsMode ? kidsMedia : FEATURED_SHOWS;
   const visibleSearchResults = searchResults.filter(isAllowed);
 
   return (
-    <div className="page">
+    <div className="page dramas-movies-page">
       {slides.length > 0 && (
-        <div style={{ marginBottom: '1.25rem' }}>
-          <HeroCard item={slides[slide] || slides[0]} onClick={handleMediaClick} />
-          <div className="hdots" style={{ marginTop: '-1.5rem', position: 'relative', zIndex: 3, display: 'flex', gap: 4, justifyContent: 'flex-end', padding: '0 1rem' }}>
-            {slides.map((_, i) => <div key={i} className={`hdot ${i === slide ? 'active' : 'inactive'}`} style={{ cursor: 'pointer' }} onClick={() => setSlide(i)} />)}
+        <div className="featured-showcase" onMouseEnter={() => setHeroPaused(true)} onMouseLeave={() => setHeroPaused(false)} onFocusCapture={() => setHeroPaused(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setHeroPaused(false); }}>
+          <HeroCard item={slides[slide] || slides[0]} onWatch={handleHeroWatch} onDetails={handleMediaClick} />
+          <div className="hdots" aria-label="Featured titles">
+            {slides.map((item, i) => <button key={`${item.media_type}-${item.id}`} type="button" className={`hdot ${i === slide ? 'active' : 'inactive'}`} aria-label={`Show ${safeTitle(item.title || item.name)}`} aria-pressed={i === slide} onClick={() => setSlide(i)} />)}
           </div>
         </div>
       )}
@@ -183,12 +178,12 @@ export default function DramasMoviesPage({ navigate }) {
         <div className="search-bar" style={{ marginBottom: 0 }}>
           <Search size={16} color="var(--text3)" />
           <input type="text" placeholder="Search movies, dramas & shows..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-          {searchQuery && <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer' }}><X size={16} /></button>}
+          {searchQuery && <button type="button" aria-label="Clear search" onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer' }}><X size={16} /></button>}
         </div>
       </div>
 
-      <div className="tbar" style={{ margin: '0 .75rem .75rem' }}>
-        {[{ id: 'movies', label: 'Movies', Icon: Film }, { id: 'tv', label: 'Dramas & Shows', Icon: Tv }].map(t => <button key={t.id} className={`titem ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}><t.Icon size={14} aria-hidden="true" /> {t.label}</button>)}
+      <div className="tbar" role="group" aria-label="Choose a category" style={{ margin: '0 .75rem .75rem' }}>
+        {[{ id: 'movies', label: 'Movies', Icon: Film }, { id: 'tv', label: 'Dramas & Shows', Icon: Tv }].map(t => <button key={t.id} type="button" className={`titem ${tab === t.id ? 'active' : ''}`} aria-pressed={tab === t.id} onClick={() => setTab(t.id)}><t.Icon size={14} aria-hidden="true" /> {t.label}</button>)}
       </div>
 
       {searchQuery ? (
@@ -200,12 +195,12 @@ export default function DramasMoviesPage({ navigate }) {
         <>
           <div className="sec" style={{ padding: '0 .75rem' }}>
             <div className="shdr"><span className="sttl"><TrendingUp size={14} /> Trending {tab === 'movies' ? 'Movies' : 'Dramas & Shows'}</span></div>
-            {loading ? <div className="hscroll">{[1,2,3,4,5,6].map(i => <div key={i} className="skel shimmer" />)}</div> : <div className="hscroll">{displayItems.map((item, idx) => <div key={item.id ?? idx} className="card" onClick={() => handleMediaClick(item)}><img src={item.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : '/logo.png'} alt={safeTitle(item.title || item.name)} className="card-img" /><div className="card-body"><div className="card-title">{safeTitle(item.title || item.name)}</div><div className="card-sub">{Number(item.vote_average) > 0 ? `⭐ ${Number(item.vote_average).toFixed(1)}` : ''}</div></div></div>)}</div>}
+            {loading ? <div className="hscroll">{[1,2,3,4,5,6].map(i => <div key={i} className="skel shimmer" />)}</div> : <div className="hscroll">{displayItems.map((item, idx) => <button key={item.id ?? idx} type="button" className="card" aria-label={`View details for ${safeTitle(item.title || item.name)}`} onClick={() => handleMediaClick(item)}><img src={item.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : '/logo.png'} alt="" className="card-img" onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/logo.png'; }} /><span className="card-body"><span className="card-title">{safeTitle(item.title || item.name)}</span><span className="card-sub">{Number(item.vote_average) > 0 ? `⭐ ${Number(item.vote_average).toFixed(1)}` : ''}</span></span></button>)}</div>}
           </div>
 
           <div className="sec" style={{ padding: '0 .75rem' }}>
             <div className="shdr"><span className="sttl"><Film size={14} /> All {tab === 'movies' ? 'Movies' : 'Dramas & Shows'}</span></div>
-            {loading ? <div className="g3">{[1,2,3,4,5,6].map(i => <div key={i} className="shimmer" style={{ aspectRatio: '2/3', borderRadius: 'var(--radius)' }} />)}</div> : <div className="g3">{displayItems.slice(0, 30).map((item, idx) => <MediaCard key={item.id ?? idx} item={{ ...item, media_type: tab === 'movies' ? 'movie' : 'tv' }} onClick={handleMediaClick} />)}</div>}
+            {loading ? <div className="g3 media-all-grid">{[1,2,3,4,5,6].map(i => <div key={i} className="shimmer" style={{ aspectRatio: '2/3', borderRadius: 'var(--radius)' }} />)}</div> : <div className="g3 media-all-grid">{displayItems.slice(0, 30).map((item, idx) => <MediaCard key={item.id ?? idx} item={{ ...item, media_type: tab === 'movies' ? 'movie' : 'tv' }} onClick={handleMediaClick} />)}</div>}
           </div>
 
           <div className="sec" style={{ padding: '0 .75rem' }}>

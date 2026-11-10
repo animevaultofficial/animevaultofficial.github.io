@@ -144,8 +144,6 @@ jobs:
             fi
           done
           [ "$missing" -eq 0 ]
-      - name: Install webOS packaging CLI
-        run: npm install --global @webos-tools/cli@3.2.6
       - name: Build and package webOS app
         run: |
           set -euo pipefail

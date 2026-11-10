@@ -70,6 +70,7 @@ export default function MixedHome({ mobile = false }) {
     : rawSlides.filter(isAllowed);
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(!cached);
+  const [heroPaused, setHeroPaused] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,10 +143,10 @@ export default function MixedHome({ mobile = false }) {
   }, [activeSubAccount]);
 
   useEffect(() => {
-    if (slides.length < 2) return;
-    const timer = setInterval(() => setActive(i => (i + 1) % slides.length), 6500);
+    if (heroPaused || slides.length < 2) return undefined;
+    const timer = setInterval(() => setActive(i => (i + 1) % slides.length), 8000);
     return () => clearInterval(timer);
-  }, [slides.length]);
+  }, [heroPaused, slides.length]);
 
   const slide = slides[active];
   const kind = slide?._kind || 'movie';
@@ -194,7 +195,7 @@ export default function MixedHome({ mobile = false }) {
   const infoPath = !slide ? '/' : isAnime ? `/anime/${id}` : detailsPath(slide, mediaKind);
 
   return <section className="home-v2 home-v2-reference">
-    <div className="hero-v2 hero-carousel-v2" style={{ position: 'relative' }}>
+    <div className="hero-v2 hero-carousel-v2" role="region" aria-label="Featured titles" aria-roledescription="carousel" style={{ position: 'relative' }} onMouseEnter={() => setHeroPaused(true)} onMouseLeave={() => setHeroPaused(false)} onFocusCapture={() => setHeroPaused(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setHeroPaused(false); }}>
       {slide && <div className="carousel-slide active" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
         <div className="hero-img-wrapper"><img src={image} alt={title} loading="eager" decoding="async" /><div className="hero-overlay-v2" /></div>
         <div className="hero-content-v2"><div className="hero-info-v2">
@@ -208,16 +209,23 @@ export default function MixedHome({ mobile = false }) {
           </div>
           <p className="hero-desc-v2">{slide.overview || slide.description || (isAnime ? 'Discover trending anime on AnimeVault.' : 'Watch movies and TV shows on AnimeVault.')}</p>
           <div className="hero-btns-v2">
-            <button className="btn-play-v2" onClick={() => navigate(watchPath)}><Play size={18} fill="currentColor" /> Play</button>
-            <button className="btn-info-v2" onClick={() => navigate(infoPath)}><Info size={18} /> More info</button>
+            <button type="button" className="btn-play-v2" onClick={() => navigate(watchPath)}><Play size={18} fill="currentColor" /> Play</button>
+            <button type="button" className="btn-info-v2" onClick={() => navigate(infoPath)}><Info size={18} /> More info</button>
           </div>
         </div></div>
       </div>}
-      {slides.length > 1 && <div className="carousel-dots">{slides.map((x, i) => <button key={`${x.id || x.anilistId}-${i}`} aria-label={`Slide ${i + 1}`} onClick={() => setActive(i)} className={i === active ? 'active' : ''} />)}</div>}
+      {!slide && <div className="home-hero-empty" role="status">
+        <div>
+          <h1>Welcome to AnimeVault</h1>
+          <p>{loading ? 'Loading featured titles…' : 'Explore anime, movies, and shows.'}</p>
+          {!loading && <button type="button" onClick={() => navigate('/search')}><Play size={18} fill="currentColor" /> Explore</button>}
+        </div>
+      </div>}
+      {slides.length > 1 && <div className="carousel-dots" role="group" aria-label="Featured title slides">{slides.map((x, i) => <button key={`${x.id || x.anilistId}-${i}`} type="button" aria-label={`Show slide ${i + 1}`} aria-pressed={i === active} onClick={() => setActive(i)} className={i === active ? 'active' : ''} />)}</div>}
     </div>
     {anime.length > 0 && <section className="home-featured-rail" aria-label="Top weekly anime">
       <div className="home-featured-heading">
-        <h2>Top Weekly <span>·</span> Animes</h2>
+        <h2>Top Weekly <span>·</span> Anime</h2>
         <Link to="/anime">View all <ChevronRight size={14} /></Link>
       </div>
       <AutoTrain

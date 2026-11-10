@@ -8,9 +8,9 @@ const {
   rmSync,
   writeFileSync,
 } = require("node:fs");
-const { join } = require("node:path");
+const { join, resolve } = require("node:path");
 
-const root = process.cwd();
+const root = resolve(__dirname, "..");
 const outDir = join(root, "dist-webos");
 const ipkDir = join(root, "dist-ipk");
 
@@ -23,10 +23,15 @@ if (existsSync(ipkDir)) {
   rmSync(ipkDir, { recursive: true, force: true });
 }
 
-// Build the Vite application using the webOS mode
-execFileSync("npx", ["vite", "build", "--config", "vite.mobile.config.js", "--mode", "webos"], {
+// Build the Vite application using the webOS mode. Invoke the local JS entry
+// directly so Windows does not need to resolve npx.cmd through a shell.
+const viteCli = join(root, "node_modules", "vite", "bin", "vite.js");
+if (!existsSync(viteCli)) {
+  throw new Error("Vite is missing. Run npm install in this project, then npm run webos:package again.");
+}
+execFileSync(process.execPath, [viteCli, "build", "--config", "vite.mobile.config.js", "--mode", "webos"], {
   stdio: "inherit",
-  shell: process.platform === "win32",
+  cwd: root,
 });
 
 // Read package version
@@ -84,11 +89,14 @@ copyFileSync(
 // Create IPK output directory
 mkdirSync(ipkDir, { recursive: true });
 
-// Determine platform-specific executable
-const packager =
-  process.platform === "win32"
-    ? "ares-package.cmd"
-    : "ares-package";
+// Call the pinned webOS packager's JS entry directly on every platform.
+const packager = join(root, "node_modules", "@webos-tools", "cli", "bin", "ares-package.js");
+
+if (!existsSync(packager)) {
+  throw new Error(
+    "webOS CLI is missing. Run npm install in this project, then npm run webos:package again."
+  );
+}
 
 console.log("");
 console.log("========================================");
@@ -97,13 +105,14 @@ console.log("========================================");
 console.log(`Version: ${version}`);
 console.log(`Input:   ${outDir}`);
 console.log(`Output:  ${ipkDir}`);
+console.log(`CLI:     ${packager}`);
 console.log("========================================");
 console.log("");
 
 // Package the application
-execFileSync(packager, ["--no-minify", "-o", ipkDir, outDir], {
+execFileSync(process.execPath, [packager, "--no-minify", "-o", ipkDir, outDir], {
   stdio: "inherit",
-  shell: process.platform === "win32",
+  cwd: root,
 });
 
 // Find generated IPK

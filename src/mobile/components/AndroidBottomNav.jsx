@@ -9,10 +9,10 @@ const ITEMS = [
   ['Profile', UserCircle, '/profile'],
 ];
 
-export default function AndroidBottomNav({ pathname, navigate }) {
+export default function AndroidBottomNav({ pathname, navigate, navRef }) {
   const active = (path) => path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(`${path}/`);
   return (
-    <nav className="av-android-bottom-nav" aria-label="Primary navigation">
+    <nav ref={navRef} className="av-android-bottom-nav" aria-label="Primary navigation">
       {ITEMS.map(([label, Icon, path]) => (
         <button key={path} type="button" className={`av-android-bottom-item ${active(path) ? 'is-active' : ''}`} aria-current={active(path) ? 'page' : undefined} onClick={() => navigate(path)}>
           <span className="av-android-bottom-icon"><Icon size={20} strokeWidth={active(path) ? 2.4 : 2} /></span>

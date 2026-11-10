@@ -41,9 +41,9 @@ input, select, textarea { border-radius: var(--av-radius-md); }
 .download-hero__backdrop, .platform-card__shine { display: none !important; }
 html.tv-mode, html.tv-mode *, body.tv-mode, body.tv-mode * { cursor: none !important; }
 html.tv-mode :focus, body.tv-mode :focus {
-  outline: 3px solid #fff !important;
+  outline: 2px solid #fff !important;
   outline-offset: 3px;
-  box-shadow: 0 0 0 6px rgba(229, 9, 20, 0.85);
+  box-shadow: none !important;
   position: relative;
   z-index: 20;
 }

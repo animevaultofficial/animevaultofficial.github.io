@@ -3,6 +3,11 @@
 .av-v2-content button,.av-v2-content input,.av-v2-content select,.av-v2-content textarea{font:inherit;box-sizing:border-box;}
 .av-v2-content button{touch-action:manipulation;}
 .av-v2-content button:focus-visible,.av-v2-content a:focus-visible,.av-v2-content input:focus-visible,.av-v2-content select:focus-visible,.av-v2-content textarea:focus-visible{outline:2px solid var(--av-pink);outline-offset:2px;}
+.av-v2-content .gcard,.av-v2-content .card{appearance:none;padding:0;text-align:left;font:inherit;color:var(--av-text);}
+.av-v2-content .featured-showcase{position:relative;}
+.av-v2-content .featured-showcase .hdots{position:absolute;right:18px;bottom:18px;z-index:5;display:flex;align-items:center;gap:7px;}
+.av-v2-content .featured-showcase .hdot{width:7px;height:7px;padding:0;border:0;border-radius:50%;background:#777;cursor:pointer;}
+.av-v2-content .featured-showcase .hdot.active{width:22px;border-radius:5px;background:#e50914;}
 .av-v2-content .av-profile-page,.av-v2-content .av-settings-page,.av-v2-content .av-notifications-v2,.av-v2-content .av-downloads-v2,.av-v2-content .av-community-page{width:100%;max-width:100%;min-width:0;padding:16px 13px calc(96px + env(safe-area-inset-bottom));overflow-x:hidden;box-sizing:border-box;}
 .av-v2-content .av-profile-hero,.av-v2-content .av-profile-stats,.av-v2-content .av-profile-quick,.av-v2-content .av-profile-library,.av-v2-content .av-profile-account{min-width:0;max-width:100%;}
 .av-v2-content .av-profile-banner{width:100%;min-height:150px;border-radius:18px;overflow:hidden;background:var(--av-surface2);background-size:cover;background-position:center;}

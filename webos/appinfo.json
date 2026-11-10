@@ -10,5 +10,6 @@
   "appDescription": "Anime streaming application for LG webOS TVs",
   "resolution": "1920x1080",
   "requiredMemory": 128,
+  "requiredACG": [],
   "disableBackHistoryAPI": true
 }
