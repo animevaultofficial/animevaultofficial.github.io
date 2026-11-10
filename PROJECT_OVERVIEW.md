@@ -51,9 +51,9 @@ The app stores some state locally and can synchronize supported account data thr
 
 - **Web:** responsive React application deployed through GitHub Pages.
 - **Desktop:** Electron wrapper for Windows, macOS, and Linux, with native downloads, update handling, notifications, optional Discord Rich Presence, and desktop storage/backup bridges.
-- **Android:** a separately composed mobile interface under `src/mobile`, packaged through Capacitor rather than simply shrinking the desktop layout.
-- **LG webOS:** a dedicated Vite build mode and packaging script for webOS application packages.
-- **TV navigation:** spatial-navigation support and a TV mode for remote-friendly interaction.
+- **Android:** the `src/mobile` app packaged through Capacitor, with Android TV launcher support and remote navigation.
+- **LG webOS:** packages the same `src/mobile` app entry and screens as Android, with webOS remote and Back-button support.
+- **TV navigation:** detects TV runtimes, moves focus with the directional pad, activates controls with OK/Enter, and keeps focus visible.
 
 ## Technology
 
@@ -101,7 +101,7 @@ The app stores some state locally and can synchronize supported account data thr
 
 ### Data flow
 
-The React pages call focused API modules in `src/api`. Those modules obtain catalog metadata and playback information from external services. Account and activity functions in `src/api/db.js` use Neon PostgreSQL when configured and include local-storage-backed behavior for supported data. Email/password signup and sign-in currently use the existing AnimeVault `users` table through `src/api/authDb.js`; successful sessions use the existing database session table, preserving account IDs and associated app data. The app does not call Neon Auth discovery/session endpoints during normal startup or password login. Google and email-OTP sign-in are temporarily disabled while the configured Neon Auth endpoint returns errors; restore them only after the endpoint, allowed origins, and provider configuration are verified. Password reset still depends on the Neon Auth reset endpoints. The installed Neon Auth client does not expose native MFA methods, so the legacy 2FA switch is disabled until Neon MFA is configured and supported by the client. Browser warnings about unsupported `Permissions-Policy` features are separate from auth endpoint failures and are not configured in this repository.
+The React pages call focused API modules in `src/api`. Catalog and playback metadata come from external services. Password sign-in and signup go through the configured auth proxy; its server owns password verification, database access, and session creation. The browser no longer receives the Neon connection string. Email-code login remains a separate Neon Auth flow, while Google sign-in and database-backed MFA are unavailable until the provider is configured for them. Legacy account-data helpers in `src/api/db.js` currently use local storage; cloud sync must be implemented through authenticated server endpoints rather than direct browser database access.
 
 The mobile application shares selected data and account modules with the main app, but has its own screen implementations and styling. The Electron renderer uses the same general React application and invokes native capabilities through the preload bridge and IPC handlers.
 
@@ -158,14 +158,14 @@ npm run webos:build
 npm run webos:package
 ```
 
-Electron packaging may require platform-specific setup and signing credentials, especially on Windows. The webOS packaging command also requires the webOS SDK packaging utility. Android uses the separate `vite.mobile.config.js` entry and Capacitor configuration; APK creation depends on the Android toolchain and project workflow.
+Electron packaging may require platform-specific setup and signing credentials, especially on Windows. The webOS packaging command also requires the webOS SDK packaging utility. Android and webOS both use `vite.mobile.config.js`; APK creation depends on the Android toolchain and release workflow, which marks the APK as Leanback compatible and adds its TV launcher banner.
 
 ## Configuration
 
 The app reads optional build-time configuration through Vite environment variables. The names currently referenced in the source include:
 
 - `VITE_NEON_AUTH_URL` — Neon Auth endpoint
-- `VITE_DATABASE_URL` — Neon PostgreSQL connection configuration
+- `DATABASE_URL` — server-only Neon PostgreSQL connection configuration; do not expose it as a `VITE_` variable
 - `VITE_AUTH_PROXY_URL` or `VITE_RENDER_AUTH_PROXY_URL` — optional auth proxy
 - `VITE_HCAPTCHA_SITEKEY` — optional hCaptcha site key
 - `VITE_CLOUDINARY_CLOUD_NAME` and `VITE_CLOUDINARY_UPLOAD_PRESET` — profile/story image uploads
@@ -181,7 +181,8 @@ Not every feature requires every variable. Use `.env.example` and the relevant A
 - The web deployment workflow builds the Vite application and publishes `dist/` to GitHub Pages.
 - Desktop/Android build automation is defined in the GitHub Actions workflows and release documentation.
 - Electron Builder creates desktop installers for supported operating systems; update metadata is used by the desktop updater.
-- The webOS target builds into `dist-webos/` and packages an IPK through the webOS tooling.
+- Android and webOS build the same TV/mobile application entry into `dist-mobile/` and `dist-webos/`, respectively.
+- The webOS target packages its matching build into an IPK through the webOS tooling.
 - App version metadata is maintained in `package.json` and used by platform packaging.
 
 See [`README_RELEASES.md`](./README_RELEASES.md) for the repository's release workflow notes.
@@ -191,7 +192,7 @@ See [`README_RELEASES.md`](./README_RELEASES.md) for the repository's release wo
 - AnimeVault is an application and integration layer, not a first-party video hosting service.
 - Catalog metadata, playback sources, and availability can change independently because they are supplied by external providers.
 - Some account, upload, and playback features are conditional on environment configuration and provider availability.
-- The web, desktop, mobile, and webOS targets share product concepts but do not all use identical page implementations.
+- The web and desktop targets have their own page layouts; Android and webOS share the same mobile/TV screens and provider controls.
 - Kids-profile filters provide an application-level content gate based on known ratings and metadata; they are not a substitute for parental supervision or a provider-side guarantee.
 
 ## Useful files

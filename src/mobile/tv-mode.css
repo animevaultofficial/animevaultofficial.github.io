@@ -1,0 +1,193 @@
+html.tv-mode,
+body.tv-mode {
+  min-width: 960px;
+  background: #050507;
+  color: #fff;
+  cursor: none !important;
+}
+
+body.tv-mode * {
+  cursor: none !important;
+}
+
+html.tv-mode :focus,
+body.tv-mode :focus {
+  outline: 3px solid #fff !important;
+  outline-offset: 4px;
+  box-shadow: 0 0 0 7px rgba(229, 9, 20, .88);
+  position: relative;
+  z-index: 30;
+}
+
+html.tv-mode a:focus,
+html.tv-mode button:focus,
+body.tv-mode a:focus,
+body.tv-mode button:focus {
+  transform: scale(1.04);
+}
+
+.tv-mode .av-v2-shell {
+  min-height: 100vh;
+  overflow-x: clip;
+}
+
+.tv-mode .av-v2-topbar {
+  height: 76px;
+  grid-template-columns: 64px 1fr 64px;
+  padding: 0 42px;
+  background: #080b0e;
+  border-bottom-color: #252c35;
+  backdrop-filter: none;
+}
+
+.tv-mode .av-v2-topbar .av-v2-icon-button {
+  width: 54px;
+  height: 54px;
+}
+
+.tv-mode .av-v2-topbar .av-v2-icon-button svg {
+  width: 27px;
+  height: 27px;
+}
+
+.tv-mode .av-v2-topbar .av-v2-brand {
+  gap: 12px;
+  font-size: 21px;
+}
+
+.tv-mode .av-v2-brand-mark {
+  width: 44px;
+  height: 44px;
+}
+
+.tv-mode .av-v2-content {
+  width: min(1680px, 92vw);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 88px 0 44px;
+}
+
+.tv-mode .av-android-bottom-nav {
+  display: none !important;
+}
+
+.tv-mode .av-v2-drawer {
+  width: min(460px, 34vw);
+  background: #0d1116;
+  box-shadow: 18px 0 48px rgba(0, 0, 0, .5);
+  backdrop-filter: none;
+}
+
+.tv-mode .av-v2-drawer-item {
+  min-height: 62px;
+  font-size: 17px;
+}
+
+.tv-mode .av-v2-drawer-label {
+  font-size: 13px;
+}
+
+.tv-mode .av-v2-content .home-v2 {
+  overflow: visible;
+  padding-bottom: 56px;
+}
+
+.tv-mode .av-v2-content .hero-v2 {
+  height: min(70vh, 760px);
+  min-height: 570px;
+  margin-bottom: 12px;
+  border: 1px solid #252c35;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.tv-mode .av-v2-content .hero-content-v2 {
+  padding: 52px 5vw 54px;
+}
+
+.tv-mode .av-v2-content .hero-info-v2 {
+  width: min(780px, 60vw);
+  max-width: 780px;
+}
+
+.tv-mode .av-v2-content .hero-title-v2 {
+  font-size: clamp(42px, 4vw, 72px);
+}
+
+.tv-mode .av-v2-content .hero-meta-v2,
+.tv-mode .av-v2-content .hero-desc-v2 {
+  font-size: 17px;
+}
+
+.tv-mode .av-v2-content .hero-btns-v2 button,
+.tv-mode .av-v2-content .hero-btns-v2 a {
+  min-height: 56px;
+  padding: 0 24px;
+  font-size: 16px;
+}
+
+.tv-mode .av-v2-content .home-featured-rail,
+.tv-mode .av-v2-content .home-main-v2 {
+  width: 100%;
+  margin-inline: auto;
+}
+
+.tv-mode .av-v2-content .home-featured-rail {
+  margin-top: 24px;
+}
+
+.tv-mode .av-v2-content .home-main-v2 {
+  gap: 32px;
+  padding: 34px 0 72px;
+}
+
+.tv-mode .av-v2-content .section-header-v2 h2,
+.tv-mode .av-v2-content .home-featured-heading h2 {
+  font-size: 25px;
+}
+
+.tv-mode .av-v2-content .section-header-v2 .view-all,
+.tv-mode .av-v2-content .home-featured-heading a {
+  font-size: 15px;
+}
+
+.tv-mode .av-v2-content .auto-train-group .anime-card-v2 {
+  flex-basis: 190px;
+}
+
+.tv-mode .av-v2-content .auto-train-group--weekly .anime-card-v2 {
+  flex-basis: 170px;
+}
+
+.tv-mode .av-v2-content .auto-train-track {
+  animation-duration: 130s;
+}
+
+.tv-mode .av-v2-content .auto-train-group .card-title {
+  font-size: 14px;
+}
+
+.tv-mode .av-v2-content .av-mobile-page,
+.tv-mode .av-v2-content .av-explore,
+.tv-mode .av-v2-content .av-v2-settings,
+.tv-mode .av-v2-content .av-v2-library {
+  width: 100%;
+  max-width: 1500px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+.tv-mode .av-mobile-section-header h2,
+.tv-mode .av-explore-section h2 {
+  font-size: 23px;
+}
+
+.tv-mode .av-v2-drawer-backdrop {
+  backdrop-filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-mode .av-v2-content .auto-train-track {
+    animation: none !important;
+  }
+}

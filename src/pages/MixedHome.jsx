@@ -16,11 +16,15 @@ const readCache = () => {
   try {
     const x = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
     if (!x || Date.now() - x.ts >= TTL) return null;
+    const data = x.data && typeof x.data === 'object' ? x.data : {};
+    const items = value => Array.isArray(value) ? value.filter(item => item && typeof item === 'object') : [];
     return {
-      ...x.data,
-      anime: (x.data.anime || []).filter(item => !isHentai(item)),
-      animeRecent: (x.data.animeRecent || []).filter(item => !isHentai(item)),
-      slides: (x.data.slides || []).filter(item => item._kind !== 'anime' || !isHentai(item)),
+      ...data,
+      movies: items(data.movies),
+      tvShows: items(data.tvShows),
+      anime: items(data.anime).filter(item => !isHentai(item)),
+      animeRecent: items(data.animeRecent).filter(item => !isHentai(item)),
+      slides: items(data.slides).filter(item => item._kind !== 'anime' || !isHentai(item)),
     };
   } catch {
     return null;
@@ -28,11 +32,26 @@ const readCache = () => {
 };
 const writeCache = data => { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {} };
 
+function AutoTrain({ items, label, size = 'standard', renderItem }) {
+  if (!items.length) return null;
+  const canLoop = items.length > 1;
+  const renderGroup = decorative => <div className={`auto-train-group${size === 'weekly' ? ' auto-train-group--weekly' : ''}${decorative ? ' auto-train-group--copy' : ''}`} aria-hidden={decorative || undefined}>
+    {items.map((item, index) => renderItem(item, index, decorative))}
+  </div>;
+
+  return <div className={`auto-train-window auto-train-window--${size}`} role="region" aria-label={label}>
+    <div className={`auto-train-track${canLoop ? '' : ' auto-train-track--static'}`}>
+      {renderGroup(false)}
+      {canLoop && renderGroup(true)}
+    </div>
+  </div>;
+}
+
 export default function MixedHome({ mobile = false }) {
   const navigate = useNavigate();
   const { activeSubAccount } = useUser();
   const isKidsMode = isKidsProfile(activeSubAccount);
-  const cached = readCache();
+  const [cached] = useState(readCache);
   const [rawMovies, setMovies] = useState(cached?.movies || []);
   const [rawTvShows, setTvShows] = useState(cached?.tvShows || []);
   const [rawAnime, setAnime] = useState(cached?.anime || []);
@@ -140,13 +159,13 @@ export default function MixedHome({ mobile = false }) {
     return mediaId ? `/media/${type === 'movie' ? 'movie' : 'tv'}/${mediaId}` : '/';
   };
 
-  const Card = ({ item, type }) => {
+  const Card = ({ item, type, decorative = false }) => {
     const animeCard = type === 'anime';
     const title = item.title?.english || item.title?.romaji || item.title?.native || item.title || item.name || '';
     const destination = animeCard
       ? `/anime/${item.anilistId}`
       : detailsPath(item, type);
-    return <Link to={destination} className="anime-card-v2" style={{ textDecoration: 'none' }}>
+    return <Link to={destination} className="anime-card-v2" tabIndex={decorative ? -1 : undefined} aria-hidden={decorative || undefined} style={{ textDecoration: 'none' }}>
       <div className="card-media">
         <TMDBPoster
           alt={title}
@@ -201,26 +220,29 @@ export default function MixedHome({ mobile = false }) {
         <h2>Top Weekly <span>·</span> Animes</h2>
         <Link to="/anime">View all <ChevronRight size={14} /></Link>
       </div>
-      <div className="home-featured-grid">
-        {anime.slice(0, 8).map((item, index) => <Card key={`weekly-${item.anilistId}-${index}`} item={item} type="anime" />)}
-      </div>
+      <AutoTrain
+        items={anime.slice(0, 8)}
+        label="Top weekly anime"
+        size="weekly"
+        renderItem={(item, index, decorative) => <Card key={`${decorative ? 'weekly-copy' : 'weekly'}-${item.anilistId}-${index}`} item={item} type="anime" decorative={decorative} />}
+      />
     </section>}
 
     <div className="home-main-v2">
       {loading ? <div className="section-loading">Loading AnimeVault…</div> : <>
         <div className="section-v2">
           <div className="section-header-v2"><div><h2><Play size={19} /> Recently Added Anime</h2><p>Fresh anime now available to watch.</p></div><Link to="/anime" className="view-all">Browse Anime <ChevronRight size={18} /></Link></div>
-          <div className="trending-grid-v2">{animeRecent.slice(0, 12).map((x, i) => <Card key={`recent-anime-${x.anilistId}-${i}`} item={x} type="anime" />)}</div>
+          <AutoTrain items={animeRecent.slice(0, 12)} label="Recently added anime" renderItem={(x, i, decorative) => <Card key={`${decorative ? 'recent-copy' : 'recent'}-${x.anilistId}-${i}`} item={x} type="anime" decorative={decorative} />} />
         </div>
 
         <div className="section-v2">
           <div className="section-header-v2"><div><h2><Film size={19} /> Movies</h2><p>Latest movies and top picks.</p></div><Link to="/dramas-movies" className="view-all">Explore Movies <ChevronRight size={18} /></Link></div>
-          <div className="trending-grid-v2">{movies.slice(0, 12).map(x => <Card key={x.id} item={x} type="movie" />)}</div>
+          <AutoTrain items={movies.slice(0, 12)} label="Movies" renderItem={(x, index, decorative) => <Card key={`${decorative ? 'movie-copy' : 'movie'}-${x.id}-${index}`} item={x} type="movie" decorative={decorative} />} />
         </div>
 
         <div className="section-v2">
           <div className="section-header-v2"><div><h2><Tv size={19} /> TV Shows</h2><p>Popular series and dramas.</p></div><Link to="/dramas-movies" className="view-all">Explore Shows <ChevronRight size={18} /></Link></div>
-          <div className="trending-grid-v2">{tvShows.slice(0, 12).map(x => <Card key={x.id} item={x} type="tv" />)}</div>
+          <AutoTrain items={tvShows.slice(0, 12)} label="TV shows" renderItem={(x, index, decorative) => <Card key={`${decorative ? 'tv-copy' : 'tv'}-${x.id}-${index}`} item={x} type="tv" decorative={decorative} />} />
         </div>
       </>}
     </div>

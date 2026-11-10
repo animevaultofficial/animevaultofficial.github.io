@@ -89,7 +89,6 @@ const features = [
 const Download = () => (
   <div className="app-shell download-page">
     <section className="download-hero" aria-labelledby="download-title">
-      <div className="download-hero__backdrop" />
       <div className="download-hero__content">
         <span className="download-eyebrow"><DownloadCloud size={18} /> Official downloads</span>
         <h1 className="download-title" id="download-title">Anime Vault</h1>
@@ -113,7 +112,6 @@ const Download = () => (
       <div className="platform-cards">
         {platforms.map((platform) => (
           <article className="glass-card platform-card" key={platform.id}>
-            <div className="platform-card__shine" />
             <div className="platform-icon-container">
               <img src={platform.icon} alt={platform.iconAlt} className="platform-icon" />
             </div>
@@ -122,7 +120,7 @@ const Download = () => (
             <p className="platform-desc">{platform.description}</p>
             <a
               href={platform.url}
-              className="button-primary download-btn-gradient"
+              className="download-button"
               aria-label={`Download AnimeVault for ${platform.name}`}
               rel="noopener noreferrer"
             >

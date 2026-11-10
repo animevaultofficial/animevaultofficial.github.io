@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Expand, ListVideo, Maximize, Moon, Play, Search, Server, Share2 } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Expand, ExternalLink, ListVideo, Maximize, Moon, Play, Search, Server, Share2 } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { fetchMediaMeta, fetchTVSeasonDetails } from '../api/movies';
 import { PLAYER_SOURCES, getSourceUrl } from '../utils/playerSources';
@@ -20,7 +20,8 @@ export default function MovieWatch() {
   const [seasonEpisodes, setSeasonEpisodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [server, setServer] = useState(params.get('server') || 'vidsrc');
+  const initialServer = params.get('server');
+  const [server, setServer] = useState(PLAYER_SOURCES.some(source => source.id === initialServer) ? initialServer : 'vidsrc');
   const [season, setSeason] = useState(Number(params.get('season')) || 1);
   const [episode, setEpisode] = useState(Number(params.get('episode')) || 1);
   const [query, setQuery] = useState('');
@@ -37,7 +38,8 @@ export default function MovieWatch() {
   );
 
   useEffect(() => {
-    setServer(params.get('server') || 'vidsrc');
+    const routeServer = params.get('server');
+    setServer(PLAYER_SOURCES.some(source => source.id === routeServer) ? routeServer : 'vidsrc');
     setSeason(Number(params.get('season')) || 1);
     setEpisode(Number(params.get('episode')) || 1);
     setQuery('');
@@ -149,6 +151,14 @@ export default function MovieWatch() {
     setParams(nextParams, { replace: true });
   };
 
+  const selectServer = nextServer => {
+    if (!movieServers.some(source => source.id === nextServer)) return;
+    setServer(nextServer);
+    const nextParams = new URLSearchParams(params);
+    nextParams.set('server', nextServer);
+    setParams(nextParams, { replace: true });
+  };
+
   const selectSeason = nextSeason => {
     setSeason(nextSeason);
     setEpisode(1);
@@ -216,6 +226,7 @@ export default function MovieWatch() {
             src={sourceUrl}
             title={isMovie ? `${title} player` : `${title} season ${season} episode ${episode}`}
             className="anime-player-iframe"
+            referrerPolicy="origin"
             allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
             allowFullScreen
           />
@@ -238,6 +249,14 @@ export default function MovieWatch() {
             <button type="button" onClick={() => changeEpisode(1)} disabled={!canGoNext}>Next episode <ChevronRight size={12}/></button>
           </>}
         </div>
+
+        <section className="anime-player-provider-panel" aria-label="Playback provider">
+          <div className="anime-player-provider-heading"><Server size={15}/><div><strong>Playback provider</strong><span>Switch if a source is unavailable</span></div></div>
+          <div className="anime-player-movie-servers" role="group" aria-label="Choose playback provider">
+            {movieServers.map(source => <button key={source.id} type="button" onClick={() => selectServer(source.id)} aria-pressed={server === source.id} className={server === source.id ? 'active' : ''}>{source.label}{server === source.id && <Check size={13}/>}</button>)}
+          </div>
+          <a className="anime-player-provider-open" href={sourceUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={13}/> Open selected provider</a>
+        </section>
 
         <section className="anime-player-current">
           <h1>{isMovie ? title : `${activeEpisodeNumber}. ${currentEpisode?.name || `Episode ${activeEpisodeNumber}`}`}</h1>
@@ -302,10 +321,6 @@ export default function MovieWatch() {
             }) : <div className="anime-player-no-episodes">No episodes match your search.</div>}
           </div>
         </> : <>
-          <div className="anime-player-sidebar-head">
-            <div className="anime-player-select"><Server size={14}/><span>Playback server</span><ChevronDown size={13}/></div>
-            <div className="anime-player-movie-servers">{movieServers.map(source => <button key={source.id} type="button" onClick={() => setServer(source.id)} aria-pressed={server === source.id} className={server === source.id ? 'active' : ''}>{source.label}</button>)}</div>
-          </div>
           <section className="anime-player-series anime-player-movie-info">
             {poster && <img src={poster} alt="" loading="lazy" decoding="async" />}
             <div className="anime-player-series-copy">

@@ -1,5 +1,6 @@
 const PROXY_TOKEN_KEY = 'animevault_proxy_session_token';
-const PROXY_TIMEOUT_MS = 8000;
+// The hosted auth service may need time to wake after an idle period.
+const PROXY_TIMEOUT_MS = 45000;
 
 function getProxyBaseUrl() {
   const raw = import.meta.env.VITE_AUTH_PROXY_URL || import.meta.env.VITE_RENDER_AUTH_PROXY_URL || '';
@@ -70,6 +71,7 @@ async function requestProxy(path, body = {}, { includeToken = false } = {}) {
       return {
         configured: true,
         success: false,
+        status: res.status,
         message: data?.message || data?.error || `Auth proxy request failed (${res.status}).`,
       };
     }
@@ -91,11 +93,18 @@ async function requestProxy(path, body = {}, { includeToken = false } = {}) {
 }
 
 export async function proxyLogin(email, password, captchaToken = '') {
-  return requestProxy('/auth/login', { email, password, captchaToken });
+  clearStoredProxyToken();
+  return normalizeAuthResult(await requestProxy('/auth/login', { email, password, captchaToken }));
 }
 
 export async function proxySignup(email, password, captchaToken = '') {
-  return requestProxy('/auth/signup', { email, password, captchaToken });
+  clearStoredProxyToken();
+  return normalizeAuthResult(await requestProxy('/auth/signup', { email, password, captchaToken }));
+}
+
+function normalizeAuthResult(result) {
+  const user = result?.user || result?.session?.user || result?.data?.user || null;
+  return { ...result, user };
 }
 
 export async function proxySyncAuthUser(authUser) {
@@ -105,7 +114,12 @@ export async function proxySyncAuthUser(authUser) {
 export async function proxyRestoreSession() {
   const token = getStoredProxyToken();
   if (!token) return { configured: Boolean(getProxyBaseUrl()), success: false };
-  return requestProxy('/auth/session', {}, { includeToken: true });
+  const result = await requestProxy('/auth/session', {}, { includeToken: true });
+  if (result.status === 401 || result.status === 403) {
+    clearStoredProxyToken();
+    return { ...result, rejected: true };
+  }
+  return normalizeAuthResult(result);
 }
 
 export async function proxyLogout() {

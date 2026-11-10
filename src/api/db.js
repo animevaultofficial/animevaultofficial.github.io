@@ -1,8 +1,8 @@
 // src/api/db.js
-// Simple DB wrapper with Neon fallback
-import bcrypt from 'bcryptjs';
+// Browser-safe data helpers with local storage fallback
 import { log, warn, error } from "../utils/logger.js";
-// For self-hosting: set VITE_DATABASE_URL env var for Neon PostgreSQL
+import { proxyLogin, proxySignup } from './authProxy';
+// Database credentials belong on a server and must never use a VITE_ variable.
 
 // LocalStorage fallback keys
 const STORAGE_KEYS = {
@@ -20,120 +20,21 @@ const STORAGE_KEYS = {
   LIKED_ITEMS: 'animevault_liked_items'
 };
 
-// Simple hash for passwords (browser-safe, no node deps)
-function simpleHash(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  return 'hash_' + Math.abs(hash).toString(36);
-}
-
-// Try to connect to Neon DB if configured
-let sql = null;
-
-// Helper to initialize Neon DB connection lazily and await it
-async function getSql() {
-  if (sql) return sql;
-  const DATABASE_URL = import.meta.env.VITE_DATABASE_URL;
-  if (!DATABASE_URL) return null;
-  try {
-    const mod = await import('@neondatabase/serverless');
-
-    // Fix for Capacitor 'Missing or null Origin' error and suppress browser warning
-    if (mod.neonConfig) {
-      mod.neonConfig.disableWarningInBrowsers = true;
-      mod.neonConfig.fetchFunction = (url, options) => {
-        const newOptions = { ...options };
-        newOptions.headers = { ...newOptions.headers };
-        // If we are in Capacitor, Origin might be missing or null. Provide a fallback.
-        if (!newOptions.headers['Origin'] && !newOptions.headers['origin']) {
-          newOptions.headers['Origin'] = (window.location.origin && window.location.origin !== 'null')
-            ? window.location.origin
-            : 'https://animevaultofficial.fun';
-        }
-        return fetch(url, newOptions);
-      };
-    }
-
-    sql = mod.neon(DATABASE_URL, { disableWarningInBrowsers: true });
-    log('[AnimeVault DB] Neon DB client initialized');
-    return sql;
-  } catch (e) {
-    error('[AnimeVault DB] Failed to connect to Neon DB:', e);
-    sql = null;
-    return null;
-  }
-}
+// Cloud database work must be performed by the authenticated API service.
+// Until each feature is routed through that service, retain the local fallback.
+async function getSql() { return null; }
 
 // User Functions
-export async function userSignup(username, password) {
-  const trimmedUser = (username || '').trim().toLowerCase().split('@')[0];
-  if (!trimmedUser || !password) return { success: false, message: 'All fields are required.' };
-  if (password.length < 6) return { success: false, message: 'Password must be at least 6 characters.' };
-  if (trimmedUser.length < 3) return { success: false, message: 'Username must be at least 3 characters.' };
-
-  const db = await getSql();
-  if (!db) {
-    return { success: false, message: 'Database connection unavailable. Please try again later.' };
-  }
-
-  try {
-    const hashedPassword = simpleHash(password);
-    const result = await db`
-      INSERT INTO users (username, password, is_admin)
-      VALUES (${trimmedUser}, ${hashedPassword}, false)
-      RETURNING id, username, avatar, banner, is_admin
-    `;
-    const user = result[0];
-    const { password: _, ...safeUser } = user;
-    return { success: true, user: safeUser };
-  } catch (e) {
-    error('[AnimeVault DB] signup error:', e);
-    return { success: false, message: 'Unable to create account. Please try again later.' };
-  }
+export async function userSignup(email, password, captchaToken = '') {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedEmail || !password) return { success: false, message: 'Email and password are required.' };
+  return proxySignup(normalizedEmail, password, captchaToken);
 }
 
-export async function userLogin(username, password) {
-  const trimmedUser = (username || '').trim().toLowerCase().split('@')[0];
-  if (!trimmedUser || !password) return { success: false, message: 'All fields are required.' };
-
-  const inputHash = simpleHash(password);
-
-  const db = await getSql();
-  if (!db) {
-    return { success: false, message: 'Database connection unavailable. Please try again later.' };
-  }
-
-  try {
-    const result = await db`
-      SELECT id, username, password, avatar, banner, is_admin, is_verified, two_factor_enabled FROM users
-      WHERE LOWER(username) = LOWER(${trimmedUser})
-    `;
-    if (!result.length) {
-      return { success: false, message: 'Invalid username or password' };
-    }
-
-    const userRow = result[0];
-    const stored = userRow.password || '';
-    let valid = false;
-    if (stored.startsWith('hash_')) {
-      valid = (simpleHash(password) === stored);
-    } else {
-      valid = await bcrypt.compare(password, stored);
-    }
-    if (!valid) {
-      return { success: false, message: 'Invalid username or password' };
-    }
-
-    const { password: _, ...safeUser } = userRow;
-    return { success: true, user: safeUser };
-  } catch (e) {
-    error('[AnimeVault DB] login error:', e);
-    return { success: false, message: 'Invalid username or password' };
-  }
+export async function userLogin(email, password, captchaToken = '') {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedEmail || !password) return { success: false, message: 'Email and password are required.' };
+  return proxyLogin(normalizedEmail, password, captchaToken);
 }
 
 
@@ -162,21 +63,7 @@ export async function getProfile(userIdOrUsername) {
 // Update password for a given username (email)
 export async function updateUserPassword(username, newPassword) {
   if (!username || !newPassword) return { success: false, message: 'Username and new password required.' };
-  const hashed = simpleHash(newPassword);
-  const db = await getSql();
-  if (!db) {
-    return { success: false, message: 'Database connection unavailable. Please try again later.' };
-  }
-  try {
-    const result = await db`UPDATE users SET password = ${hashed} WHERE username = ${username.toLowerCase()} RETURNING id`;
-    if (!result.length) {
-      return { success: false, message: 'User not found.' };
-    }
-    return { success: true };
-  } catch (e) {
-    error('[AnimeVault DB] updateUserPassword error:', e);
-    return { success: false, message: 'Unable to update password. Please try again later.' };
-  }
+  return { success: false, message: 'Use the secure password reset flow to change this account password.' };
 }
 
 export async function updateUserProfile(userId, newAvatar, newBanner) {

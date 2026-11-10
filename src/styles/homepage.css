@@ -4,10 +4,11 @@
 }
 
 .app-shell.home-route > .topbar.topbar-reference {
-  position: absolute;
-  inset: 0 0 auto;
-  background: linear-gradient(180deg, rgba(6, 7, 14, 0.66), rgba(6, 7, 14, 0));
-  border-bottom-color: transparent;
+  position: sticky;
+  top: 0;
+  inset: auto;
+  background: #080b0e;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
   backdrop-filter: none;
 }
 
@@ -270,9 +271,81 @@
   flex: 0 0 154px;
 }
 
+.auto-train-window {
+  width: 100%;
+  overflow: hidden;
+}
+
+.auto-train-track,
+.auto-train-group {
+  display: flex;
+  align-items: flex-start;
+  width: max-content;
+}
+
+.auto-train-track {
+  animation: content-train 100s linear infinite;
+  will-change: transform;
+}
+
+.auto-train-track--static {
+  animation: none;
+  will-change: auto;
+}
+
+.auto-train-group {
+  gap: 9px;
+  padding-right: 9px;
+}
+
+.auto-train-group .anime-card-v2 {
+  flex: 0 0 154px;
+}
+
+.auto-train-group--weekly .anime-card-v2 {
+  flex-basis: 142px;
+}
+
+.auto-train-group .card-media {
+  overflow: hidden;
+  aspect-ratio: 2 / 2.7;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: #11161c;
+}
+
+.auto-train-group .card-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.auto-train-group .card-info {
+  padding: 6px 2px 0;
+}
+
+.auto-train-group--weekly .card-meta {
+  display: none;
+}
+
+.auto-train-group--copy {
+  pointer-events: none;
+}
+
+.auto-train-window:hover .auto-train-track,
+.auto-train-window:focus-within .auto-train-track {
+  animation-play-state: paused;
+}
+
+@keyframes content-train {
+  to { transform: translateX(-50%); }
+}
+
 @media (max-width: 1020px) {
   .app-shell.home-route > .topbar.topbar-reference {
-    position: absolute;
+    position: sticky;
+    top: 0;
   }
 
   .home-v2-reference .hero-content-v2 {
@@ -361,6 +434,30 @@
   .home-v2-reference .home-main-v2 {
     width: calc(100% - 28px);
     padding-top: 20px;
+  }
+
+  .auto-train-group .anime-card-v2 {
+    flex-basis: 132px;
+  }
+
+  .auto-train-group--weekly .anime-card-v2 {
+    flex-basis: 124px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auto-train-window {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .auto-train-track {
+    animation: none;
+    will-change: auto;
+  }
+
+  .auto-train-group--copy {
+    display: none;
   }
 }
 

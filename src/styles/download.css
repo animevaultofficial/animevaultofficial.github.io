@@ -3,11 +3,8 @@
 .download-page {
   min-height: 100vh;
   overflow-x: hidden;
-  background:
-    radial-gradient(circle at 10% 10%, rgba(138, 43, 226, 0.2), transparent 28rem),
-    radial-gradient(circle at 90% 0%, rgba(0, 210, 255, 0.16), transparent 24rem),
-    var(--background);
-  color: var(--foreground);
+  background: #080b0e;
+  color: var(--text);
   font-family: var(--font-main);
   padding: clamp(1rem, 3vw, 2rem);
 }
@@ -21,29 +18,10 @@
   max-width: 1180px;
   margin: 0 auto 2rem;
   overflow: hidden;
+  background: #10151b;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 2rem;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.38);
-}
-
-.download-hero::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background:
-    linear-gradient(135deg, rgba(5, 8, 18, 0.94), rgba(16, 20, 34, 0.62)),
-    url("https://occ-0-8407-2219.1.nflxso.net/dnm/api/v6/MgXQGyNr1xbI8tJSYiMWv5kXg5g/AAAABdWbeTi-T2LkIx0QRm1vN4Tx6ryR63A4af9LAXNaDo7ATekkicJGbdueUc8jFmSGcuNKi-lOG07qCLLyaijox6H_I0rSvOUJ2vbd-ECLw48WxW97AFHPf9wV5g.jpg?r=5af") center / cover;
-  transform: scale(1.02);
-}
-
-.download-hero__backdrop {
-  position: absolute;
-  inset: auto -10% -35% -10%;
-  z-index: -1;
-  height: 70%;
-  background: radial-gradient(circle, rgba(76, 215, 246, 0.35), transparent 58%);
-  filter: blur(18px);
+  border-radius: 14px;
+  box-shadow: none;
 }
 
 .download-hero__content {
@@ -60,9 +38,9 @@
   width: fit-content;
   margin: 0 auto 1rem;
   padding: 0.45rem 0.85rem;
-  color: #d9c2ff;
-  background: rgba(138, 43, 226, 0.18);
-  border: 1px solid rgba(196, 142, 255, 0.24);
+  color: #e8ebef;
+  background: #171d24;
+  border: 1px solid #303842;
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 800;
@@ -73,11 +51,7 @@
 .gradient-text {
   display: inline-block;
   margin: 0;
-  background: linear-gradient(90deg, #f4ecff, #8a2be2 48%, #4cd7f6);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+  color: #f2f4f7;
 }
 
 .download-title {
@@ -108,11 +82,11 @@
   align-items: center;
   gap: 0.45rem;
   padding: 0.6rem 0.9rem;
-  color: #dff8ff;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #d5dbe2;
+  background: #171d24;
+  border: 1px solid #303842;
   border-radius: 999px;
-  backdrop-filter: blur(16px);
+  backdrop-filter: none;
 }
 
 .downloads-section,
@@ -125,11 +99,9 @@
   position: relative;
   overflow: hidden;
   padding: clamp(1.25rem, 3vw, 2rem);
-  background:
-    linear-gradient(135deg, rgba(10, 13, 25, 0.9), rgba(21, 25, 35, 0.7)),
-    url("https://occ-0-8407-2219.1.nflxso.net/dnm/api/v6/MgXQGyNr1xbI8tJSYiMWv5kXg5g/AAAABbu2mrfgMEMATRppz3WvutNHbUSBM3rWWq3nIBWGk3n1DgG9GVI1yX5gkfdDK73a0_L0SVQnfKp2HEIMdC9KeAXdmZB7VjTqO8EI0Pyv3C8DvfJtXEYE1mXA9g.jpg?r=6ae") center / cover;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 2rem;
+  background: #0f141a;
+  border: 1px solid #252c35;
+  border-radius: 14px;
 }
 
 .download-section-heading {
@@ -164,22 +136,15 @@
   overflow: hidden;
   padding: 1.5rem;
   text-align: center;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  background: #121820;
+  border: 1px solid #252c35;
+  border-radius: 12px;
+  transition: border-color 0.16s ease;
 }
 
 .platform-card:hover,
 .platform-card:focus-within {
-  transform: translateY(-6px);
-  border-color: rgba(76, 215, 246, 0.34);
-  box-shadow: 0 24px 55px rgba(0, 0, 0, 0.34);
-}
-
-.platform-card__shine {
-  position: absolute;
-  inset: -40% -20% auto;
-  height: 180px;
-  background: radial-gradient(circle, rgba(76, 215, 246, 0.18), transparent 64%);
-  pointer-events: none;
+  border-color: #48525f;
 }
 
 .platform-icon-container {
@@ -188,8 +153,8 @@
   width: 112px;
   height: 112px;
   margin-bottom: 1.25rem;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1a2129;
+  border: 1px solid #303842;
   border-radius: 2rem;
 }
 
@@ -205,9 +170,9 @@
   justify-content: center;
   min-height: 32px;
   padding: 0.35rem 0.8rem;
-  color: #c48eff;
-  background: rgba(138, 43, 226, 0.15);
-  border: 1px solid rgba(196, 142, 255, 0.16);
+  color: #e5e8ed;
+  background: #1a2129;
+  border: 1px solid #303842;
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 800;
@@ -227,7 +192,7 @@
   line-height: 1.55;
 }
 
-.download-btn-gradient {
+.download-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -236,30 +201,27 @@
   min-height: 52px;
   padding: 0.9rem 1rem;
   color: #fff;
-  background: linear-gradient(90deg, #8a2be2, #00d2ff);
-  border: 0;
-  border-radius: 0.9rem;
-  box-shadow: 0 14px 34px rgba(0, 210, 255, 0.18);
+  background: #e50914;
+  border: 1px solid #e50914;
+  border-radius: 8px;
+  box-shadow: none;
   cursor: pointer;
   font-size: 0.92rem;
   font-weight: 800;
   line-height: 1.2;
   text-decoration: none;
-  transition: filter 0.2s ease, transform 0.1s ease;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
 }
 
-.download-btn-gradient:hover,
-.download-btn-gradient:focus-visible {
-  filter: brightness(1.08);
-  outline: none;
+.download-button:hover,
+.download-button:focus-visible {
+  background: #be0812;
+  border-color: #be0812;
 }
 
-.download-btn-gradient:focus-visible {
-  box-shadow: 0 0 0 4px rgba(76, 215, 246, 0.24), 0 14px 34px rgba(0, 210, 255, 0.18);
-}
-
-.download-btn-gradient:active {
-  transform: scale(0.98);
+.download-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
 }
 
 .platform-note {
@@ -286,7 +248,7 @@
 }
 
 .feature-icon {
-  color: #4cd7f6;
+  color: #ff4052;
 }
 
 .feature-title {
@@ -310,11 +272,11 @@
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 1.35rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
-  backdrop-filter: blur(18px);
+  background: #121820;
+  border: 1px solid #252c35;
+  border-radius: 12px;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 @media (max-width: 1050px) {

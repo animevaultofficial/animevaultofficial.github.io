@@ -5,7 +5,8 @@ import { neon } from '@neondatabase/serverless';
 import sgMail from '@sendgrid/mail';
 import jwt from 'jsonwebtoken';
 
-const sql = neon(process.env.VITE_DATABASE_URL);
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+const sql = databaseUrl ? neon(databaseUrl) : null;
 const GENERIC_RESET_RESPONSE = { success: true };
 
 function getRequiredEnv(name) {
@@ -39,6 +40,7 @@ export default async function handler(req, res) {
   if (!email) return res.status(400).json({ error: 'Email required' });
 
   try {
+    if (!sql) throw new Error('DATABASE_URL is not configured');
     const result = await sql`SELECT id, username FROM users WHERE username = ${email}`;
     if (!result.length) return res.json(GENERIC_RESET_RESPONSE);
 

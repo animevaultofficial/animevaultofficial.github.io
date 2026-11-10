@@ -77,7 +77,7 @@ export default function AuthModal() {
     setLoading(true);
     try {
       const result = authTab === 'login'
-        ? await login(normalizedEmail, password, null, captchaToken)
+        ? await login(normalizedEmail, password, captchaToken)
         : await signup(normalizedEmail, password, captchaToken);
       if (!result?.success) {
         setError(result?.message || 'We couldn’t complete that request. Please try again.');

@@ -6,9 +6,7 @@ import {
   addToHistory as dbAddToHistory,
   clearWatchHistory as dbClearWatchHistory,
   createSubAccount as dbCreateSubAccount,
-  createUserSession,
   deleteSubAccount as dbDeleteSubAccount,
-  deleteUserSession,
   ensureMainSubAccount as dbEnsureMainSubAccount,
   fetchContinueWatching,
   fetchLikedItems,
@@ -19,10 +17,9 @@ import {
   toggleLikeItem as dbToggleLike,
   updateContinueWatching as dbUpdateContinueWatching,
   updateSubAccount as dbUpdateSubAccount,
-  updateUserProfile as dbUpdateUserProfile,
-  restoreSession
+  updateUserProfile as dbUpdateUserProfile
 } from './db';
-import { userLogin as dbUserLogin, userSignup as dbUserSignup } from './authDb';
+import { proxyLogin, proxySignup, proxyRestoreSession, proxyLogout, clearStoredProxyToken, getStoredProxyToken } from './authProxy';
 import { authClient } from '../auth';
 
 const UserContext = createContext(null);
@@ -52,46 +49,51 @@ export function UserProvider({ children }) {
     }
   };
 
-  const establishDatabaseSession = async databaseUser => {
-    try {
-      const session = await createUserSession(databaseUser.id);
-      if (!session) warn('[AnimeVault Auth] Login succeeded, but a persistent session could not be created.');
-    } catch (error) {
-      warn('[AnimeVault Auth] Database session creation failed:', error?.message || error);
+  const establishProxySession = proxyUser => {
+    if (!proxyUser?.id) {
+      clearStoredProxyToken();
+      return { success: false, message: 'The auth service did not return a valid account.' };
     }
-    const authenticatedUser = { ...databaseUser, is_guest: false };
+    if (!getStoredProxyToken()) {
+      clearStoredProxyToken();
+      return { success: false, message: 'The auth service did not establish a session. Please try again.' };
+    }
+    const authenticatedUser = { ...proxyUser, is_guest: false };
     setUser(authenticatedUser);
     setShowAuthModal(false);
     return { success: true, user: authenticatedUser };
   };
 
-  const login = async (email, password) => {
+  const login = async (email, password, captchaToken = '') => {
     const normalizedEmail = String(email || '').trim().toLowerCase();
     if (!normalizedEmail || !password) return { success: false, message: 'Email and password are required.' };
     try {
-      const result = await dbUserLogin(normalizedEmail, password);
+      const result = await proxyLogin(normalizedEmail, password, captchaToken);
       if (!result.success) return result;
-      return await establishDatabaseSession(result.user);
+      return establishProxySession(result.user);
     } catch (error) {
-      warn('[AnimeVault Auth] Database password sign-in failed:', error?.message || error);
+      warn('[AnimeVault Auth] Password sign-in failed:', error?.message || error);
       return { success: false, message: 'Sign-in failed. Please try again.' };
     }
   };
 
-  const signup = async (email, password) => {
+  const signup = async (email, password, captchaToken = '') => {
     const normalizedEmail = String(email || '').trim().toLowerCase();
     if (!normalizedEmail || !password) return { success: false, message: 'Email and password are required.' };
     try {
-      const result = await dbUserSignup(normalizedEmail, password);
+      const result = await proxySignup(normalizedEmail, password, captchaToken);
       if (!result.success) return result;
-      return await establishDatabaseSession(result.user);
+      return establishProxySession(result.user);
     } catch (error) {
-      warn('[AnimeVault Auth] Database signup failed:', error?.message || error);
+      warn('[AnimeVault Auth] Signup failed:', error?.message || error);
       return { success: false, message: 'Sign-up failed. Please try again.' };
     }
   };
 
   const loginAsGuest = async () => {
+    void proxyLogout();
+    clearStoredProxyToken();
+    void authClient.signOut();
     const guest = { ...GUEST_USER };
     setUser(guest);
     setShowAuthModal(false);
@@ -123,6 +125,9 @@ export function UserProvider({ children }) {
       const authUser = result?.data?.user || result?.data?.session?.user || result?.user;
       if (!authUser?.id) return { success: false, message: 'The code was accepted, but no user session was returned. Please try again.' };
 
+      void proxyLogout();
+      clearStoredProxyToken();
+
       const signedInUser = {
         id: authUser.id,
         username: authUser.name || normalizedEmail.split('@')[0],
@@ -145,11 +150,14 @@ export function UserProvider({ children }) {
   const initSession = async () => {
     setAuthLoading(true);
     try {
-      const databaseUser = await restoreSession();
-      if (databaseUser) {
-        setUser(databaseUser);
+      const proxySession = await proxyRestoreSession();
+      if (proxySession.success && proxySession.user) {
+        setUser({ ...proxySession.user, is_guest: false });
         return;
       }
+
+      // Remove a cached identity if the backend rejected the stored token.
+      if (proxySession.rejected) clearStoredProxyToken();
 
       // Restore a passwordless session created by Neon Auth email-code sign-in.
       try {
@@ -180,7 +188,7 @@ export function UserProvider({ children }) {
       }
       setUserState(null);
     } catch (error) {
-      warn('[AnimeVault Auth] Database session restore failed:', error?.message || error);
+      warn('[AnimeVault Auth] Session restore failed:', error?.message || error);
       setUser(null);
     } finally {
       setAuthLoading(false);
@@ -210,11 +218,9 @@ export function UserProvider({ children }) {
   }, [user?.id]);
 
   const logout = async () => {
-    try {
-      await deleteUserSession();
-    } catch (error) {
-      warn('[AnimeVault Auth] Database sign-out failed:', error?.message || error);
-    }
+    void proxyLogout().catch(error => warn('[AnimeVault Auth] Sign-out failed:', error?.message || error));
+    clearStoredProxyToken();
+    void authClient.signOut();
     clearActiveSubAccount();
     setUser(null);
     setHistory([]);

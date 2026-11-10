@@ -7,11 +7,16 @@ import { init } from '@noriginmedia/norigin-spatial-navigation';
 import ErrorBoundary from '../components/ErrorBoundary';
 import SubAccountGate from '../components/SubAccountGate';
 import { installChunkRecovery } from '../utils/chunkRecovery.js';
+import { isTvRuntime } from '../utils/tvMode.js';
+import { installTvRemoteNavigation } from '../utils/tvRemoteNavigation.js';
 import AppMobile from './AppMobile';
 import '../styles.css';
 import '../styles/mobile-fixes.css';
 
 installChunkRecovery();
+
+const isTvDevice = isTvRuntime();
+installTvRemoteNavigation({ tvMode: isTvDevice });
 
 init({ debug: false, visualDebug: false, nativeMode: false, throttle: 70 });
 

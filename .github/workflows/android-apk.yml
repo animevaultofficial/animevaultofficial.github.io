@@ -21,9 +21,8 @@ jobs:
     env:
       VITE_API_URL: ${{ secrets.VITE_API_URL }}
       VITE_NEON_AUTH_URL: ${{ secrets.VITE_NEON_AUTH_URL }}
-      VITE_DATABASE_URL: ${{ secrets.VITE_DATABASE_URL }}
       VITE_HCAPTCHA_SITEKEY: ${{ secrets.VITE_HCAPTCHA_SITEKEY }}
-      VITE_AUTH_PROXY_URL: ${{ secrets.VITE_AUTH_PROXY_URL }}
+      VITE_AUTH_PROXY_URL: https://animevaultofficial-github-io.onrender.com
       VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
       VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
       VITE_MEDIA_SOURCE_API: ${{ secrets.VITE_MEDIA_SOURCE_API }}
@@ -48,7 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           missing=0
-          for name in VITE_API_URL VITE_NEON_AUTH_URL VITE_DATABASE_URL VITE_HCAPTCHA_SITEKEY ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+          for name in VITE_API_URL VITE_NEON_AUTH_URL VITE_HCAPTCHA_SITEKEY ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
             if [ -z "${!name:-}" ]; then
               echo "::error title=Missing AnimeVault secret::$name is empty or unavailable to this job"
               missing=1
@@ -92,6 +91,36 @@ jobs:
           updated, count = re.subn(r'<string name="app_name">.*?</string>', '<string name="app_name">Anime Vault</string>', text, count=1, flags=re.DOTALL)
           if count != 1: raise SystemExit('Android app_name resource not found')
           strings.write_text(updated)
+
+          manifest_path = Path('android/app/src/main/AndroidManifest.xml')
+          manifest = manifest_path.read_text()
+          features = []
+          if 'android.software.leanback' not in manifest:
+              features.append('<uses-feature android:name="android.software.leanback" android:required="false" />')
+          touchscreen_match = re.search(r'<uses-feature\b(?=[^>]*android:name="android.hardware.touchscreen")[^>]*/?>', manifest)
+          if not touchscreen_match:
+              features.append('<uses-feature android:name="android.hardware.touchscreen" android:required="false" />')
+          else:
+              feature = touchscreen_match.group(0)
+              if 'android:required=' in feature:
+                  optional_feature = re.sub(r'android:required="[^"]+"', 'android:required="false"', feature, count=1)
+              else:
+                  optional_feature = re.sub(r'\s*/>$', ' android:required="false" />', feature)
+              manifest = manifest.replace(feature, optional_feature, 1)
+          if features:
+              manifest = re.sub(r'(<manifest\b[^>]*>)', r'\1\n    ' + '\n    '.join(features), manifest, count=1)
+          if 'android:banner=' not in manifest:
+              manifest = re.sub(r'(<application\b)', r'\1\n        android:banner="@drawable/animevault_tv_banner"', manifest, count=1)
+          def add_leanback_launcher(match):
+              block = match.group(0)
+              if 'android.intent.action.MAIN' in block and 'android.intent.category.LAUNCHER' in block and 'android.intent.category.LEANBACK_LAUNCHER' not in block:
+                  return block.replace('</intent-filter>', '                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />\n            </intent-filter>')
+              return block
+          manifest = re.sub(r'<intent-filter\b[^>]*>[\s\S]*?</intent-filter>', add_leanback_launcher, manifest)
+          touchscreen_optional = re.search(r'<uses-feature\b(?=[^>]*android:name="android.hardware.touchscreen")(?=[^>]*android:required="false")[^>]*/?>', manifest)
+          if 'android.software.leanback' not in manifest or not touchscreen_optional or 'android.intent.category.LEANBACK_LAUNCHER' not in manifest or '@drawable/animevault_tv_banner' not in manifest:
+              raise SystemExit('Android TV manifest configuration was not applied')
+          manifest_path.write_text(manifest)
           PY
           grep -q '<string name="app_name">Anime Vault</string>' android/app/src/main/res/values/strings.xml
       - name: Generate launcher icons from AnimeVault logo
@@ -103,6 +132,8 @@ jobs:
           cp public/logo.png resources/icon.png
           npx --yes @capacitor/assets@latest generate --android
           for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do test -s "android/app/src/main/res/mipmap-${density}/ic_launcher.png"; done
+      - name: Generate Android TV banner
+        run: node scripts/generate-android-tv-banner.js
       - name: Prepare release keystore
         shell: bash
         env:
@@ -156,7 +187,9 @@ jobs:
           BADGING="$($ANDROID_HOME/build-tools/35.0.0/aapt2 dump badging "$APK")"
           printf '%s\n' "$BADGING" | grep -q "package: name='com.animevault.app'"
           printf '%s\n' "$BADGING" | grep -q "application-label:'Anime Vault'"
+          printf '%s\n' "$BADGING" | grep -q "android.software.leanback"
           unzip -l "$APK" | grep -q 'assets/public/index.html'
+          unzip -l "$APK" | grep -q 'animevault_tv_banner.png'
           echo "Verified dedicated mobile web shell is packaged"
       - name: Rename APK for distribution
         run: |

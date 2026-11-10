@@ -24,7 +24,7 @@
 * **Playback:** Use the available player and provider options for supported titles.
 * **Discover:** Browse [anime](https://animevaultofficial.fun/#/search?type=ANIME), [dramas and movies](https://animevaultofficial.fun/#/dramas-movies), and [manga](https://animevaultofficial.fun/#/search?type=MANGA).
 * **Progress tracking:** Save viewing history and return to titles you were watching.
-* **Cross-platform:** Desktop installers for Windows, macOS, and Linux, plus an Android APK when a matching release is available.
+* **Cross-platform:** Desktop installers for Windows, macOS, and Linux; the Android APK supports Android TV remotes, and LG webOS uses the same app screens and controls.
 * **🔍 Instant Search:** Quick-launch search functionality powered by keyboard shortcuts ($\text{Cmd/Ctrl + K}$).
 
 ---

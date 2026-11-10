@@ -1,0 +1,148 @@
+const CONTROL_SELECTOR = [
+  'a[href]',
+  'button:not(:disabled)',
+  'input:not(:disabled)',
+  'select:not(:disabled)',
+  'textarea:not(:disabled)',
+  '[role="button"][tabindex]:not([aria-disabled="true"])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+const DIRECTION_KEYS = {
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  Up: [0, -1],
+  Down: [0, 1],
+  Left: [-1, 0],
+  Right: [1, 0],
+};
+const LEGACY_DIRECTION_KEYS = {
+  37: [-1, 0],
+  38: [0, -1],
+  39: [1, 0],
+  40: [0, 1],
+};
+const ACTIVATION_KEYS = ['Enter', 'NumpadEnter', ' ', 'Spacebar', 'Select', 'OK', 'Accept'];
+
+function isTextEntry(element) {
+  return element?.matches('input:not([type="button"]):not([type="submit"]):not([type="reset"]), textarea, [contenteditable="true"]');
+}
+
+function isVisible(element) {
+  const rect = element.getBoundingClientRect();
+  const style = window.getComputedStyle(element);
+  if (rect.width <= 0 || rect.height <= 0 || style.visibility === 'hidden' || style.display === 'none' || style.opacity === '0' || style.pointerEvents === 'none') return false;
+
+  const visibleRect = { left: Math.max(0, rect.left), top: Math.max(0, rect.top), right: Math.min(window.innerWidth, rect.right), bottom: Math.min(window.innerHeight, rect.bottom) };
+  let parent = element.parentElement;
+  while (parent && visibleRect.right > visibleRect.left && visibleRect.bottom > visibleRect.top) {
+    const parentStyle = window.getComputedStyle(parent);
+    const parentRect = parent.getBoundingClientRect();
+    if (['hidden', 'clip', 'auto', 'scroll'].includes(parentStyle.overflowX)) {
+      visibleRect.left = Math.max(visibleRect.left, parentRect.left);
+      visibleRect.right = Math.min(visibleRect.right, parentRect.right);
+    }
+    if (['hidden', 'clip', 'auto', 'scroll'].includes(parentStyle.overflowY)) {
+      visibleRect.top = Math.max(visibleRect.top, parentRect.top);
+      visibleRect.bottom = Math.min(visibleRect.bottom, parentRect.bottom);
+    }
+    parent = parent.parentElement;
+  }
+  return visibleRect.right > visibleRect.left && visibleRect.bottom > visibleRect.top;
+}
+
+function getControls() {
+  const visibleModals = [...document.querySelectorAll('[aria-modal="true"], [role="dialog"], .av-v2-drawer.is-open, .mobile-menu')].filter(isVisible);
+  const modal = visibleModals[visibleModals.length - 1];
+  const scope = modal || document;
+  return [...scope.querySelectorAll(CONTROL_SELECTOR)].filter(element => {
+    if (element.tabIndex < 0 || element.closest('[aria-hidden="true"], [inert]')) return false;
+    return isVisible(element);
+  });
+}
+
+function centerOf(element) {
+  const rect = element.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+
+function focus(element) {
+  if (!element) return;
+  try { element.focus({ preventScroll: true }); } catch { element.focus(); }
+  if (typeof element.scrollIntoView === 'function') {
+    try { element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' }); } catch { element.scrollIntoView(); }
+  }
+}
+
+function findDirectionalTarget(current, candidates, dx, dy) {
+  const origin = centerOf(current);
+  let best = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (const candidate of candidates) {
+    if (candidate === current) continue;
+    const point = centerOf(candidate);
+    const x = point.x - origin.x;
+    const y = point.y - origin.y;
+    const forward = x * dx + y * dy;
+    if (forward <= 4) continue;
+    const lateral = Math.abs(x * dy - y * dx);
+    const score = forward + lateral * 1.8;
+    if (score < bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+
+  return best;
+}
+
+export function installTvRemoteNavigation({ tvMode = true } = {}) {
+  if (typeof window === 'undefined') return () => {};
+
+  const onKeyDown = event => {
+    const active = document.activeElement;
+    if (isTextEntry(active) || active?.tagName === 'SELECT') return;
+    const direction = DIRECTION_KEYS[event.key] || LEGACY_DIRECTION_KEYS[event.keyCode];
+    const activation = ACTIVATION_KEYS.includes(event.key) || event.keyCode === 13;
+    if (event.repeat) {
+      if (direction || activation) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return;
+    }
+
+    if (direction) {
+      const controls = getControls();
+      const current = controls.includes(active) ? active : null;
+      const firstContentControl = controls.find(element => element.closest('main'));
+      const next = current
+        ? findDirectionalTarget(current, controls, direction[0], direction[1])
+        : firstContentControl || controls[0];
+      if (next) {
+        event.preventDefault();
+        event.stopPropagation();
+        focus(next);
+      }
+      return;
+    }
+
+    if (activation && active && active !== document.body) {
+      if (active.matches('button, a[href], [role="button"]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        active.click();
+      }
+    }
+  };
+
+  if (tvMode) {
+    document.documentElement.classList.add('tv-mode');
+    document.body.classList.add('tv-mode');
+  }
+  window.addEventListener('keydown', onKeyDown, true);
+  return () => window.removeEventListener('keydown', onKeyDown, true);
+}

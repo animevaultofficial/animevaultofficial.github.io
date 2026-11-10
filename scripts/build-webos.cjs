@@ -24,7 +24,7 @@ if (existsSync(ipkDir)) {
 }
 
 // Build the Vite application using the webOS mode
-execFileSync("npx", ["vite", "build", "--mode", "webos"], {
+execFileSync("npx", ["vite", "build", "--config", "vite.mobile.config.js", "--mode", "webos"], {
   stdio: "inherit",
   shell: process.platform === "win32",
 });

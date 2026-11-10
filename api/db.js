@@ -14,6 +14,7 @@ if (!dbUrl) {
 }
 
 const sql = dbUrl ? neon(dbUrl) : null;
+let sessionSchemaPromise = null;
 
 async function getSql() {
   if (!sql) throw new Error('Database connection string (DATABASE_URL) is missing!');
@@ -22,6 +23,78 @@ async function getSql() {
 
 function json(res, status, obj) {
   res.statusCode = status; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(obj));
+}
+
+function readCookie(req, name) {
+  const cookies = String(req.headers?.cookie || '').split(';');
+  const match = cookies.map(value => value.trim()).find(value => value.startsWith(`${name}=`));
+  if (!match) return '';
+  try { return decodeURIComponent(match.slice(name.length + 1)); } catch { return ''; }
+}
+
+async function getSessionUser(req, db) {
+  const token = readCookie(req, 'animevault_session_token');
+  if (!token) return null;
+  const rows = await db`
+    SELECT u.id, u.username, u.is_admin, u.is_verified
+    FROM user_sessions s JOIN users u ON u.id = s.user_id
+    WHERE s.session_token = ${token} AND s.expires_at > NOW()
+    LIMIT 1
+  `;
+  return rows[0] || null;
+}
+
+async function issueSession(req, res, db, userId) {
+  if (!sessionSchemaPromise) {
+    sessionSchemaPromise = (async () => {
+      await db`CREATE TABLE IF NOT EXISTS user_sessions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        session_token TEXT NOT NULL UNIQUE,
+        device_id TEXT NOT NULL DEFAULT 'server',
+        device_name TEXT DEFAULT 'Unknown Device',
+        created_at TIMESTAMP DEFAULT NOW(),
+        expires_at TIMESTAMP DEFAULT (NOW() + INTERVAL '30 days'),
+        last_active TIMESTAMP DEFAULT NOW()
+      )`;
+      await db`ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS device_id TEXT DEFAULT 'server'`;
+      await db`ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS device_name TEXT DEFAULT 'Unknown Device'`;
+      await db`ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`;
+      await db`ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP DEFAULT (NOW() + INTERVAL '30 days')`;
+      await db`ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS last_active TIMESTAMP DEFAULT NOW()`;
+    })();
+  }
+  try {
+    await sessionSchemaPromise;
+  } catch (error) {
+    sessionSchemaPromise = null;
+    throw error;
+  }
+  const token = crypto.randomBytes(32).toString('hex');
+  const deviceId = crypto.randomBytes(12).toString('hex');
+  const deviceName = String(req.headers?.['user-agent'] || 'Unknown Device').slice(0, 100);
+  await db`
+    INSERT INTO user_sessions (user_id, session_token, device_id, device_name)
+    VALUES (${userId}, ${token}, ${deviceId}, ${deviceName})
+  `;
+  const forwardedProto = String(req.headers?.['x-forwarded-proto'] || '');
+  const secure = forwardedProto === 'https' || process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `animevault_session_token=${token}; Max-Age=2592000; Path=/; HttpOnly; SameSite=Lax${secure}`);
+}
+
+function clearSessionCookie(req, res) {
+  const secure = String(req.headers?.['x-forwarded-proto'] || '') === 'https' || process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `animevault_session_token=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${secure}`);
+}
+
+function simpleHash(value) {
+  let hash = 0;
+  const text = String(value || '');
+  for (let index = 0; index < text.length; index += 1) {
+    hash = ((hash << 5) - hash) + text.charCodeAt(index);
+    hash |= 0;
+  }
+  return `hash_${Math.abs(hash).toString(36)}`;
 }
 
 export default async function handler(req, res) {
@@ -47,6 +120,7 @@ export default async function handler(req, res) {
           RETURNING id, username, avatar, banner, is_admin
         `;
         const user = result[0];
+        await issueSession(req, res, db, user.id);
         return json(res, 200, { success: true, user });
       } catch (e) {
         console.error('signup error', e);
@@ -75,12 +149,37 @@ export default async function handler(req, res) {
           valid = await bcrypt.compare(password, stored);
         }
         if (!valid) return json(res, 401, { success: false, message: 'Invalid username or password' });
+        if (stored.startsWith('hash_')) {
+          try {
+            const upgradedHash = await bcrypt.hash(password, 12);
+            await db`UPDATE users SET password = ${upgradedHash} WHERE id = ${userRow.id}`;
+          } catch (upgradeError) {
+            console.warn('Could not upgrade legacy password hash:', upgradeError?.message || upgradeError);
+          }
+        }
         const { password: _p, ...safeUser } = userRow;
+        await issueSession(req, res, db, safeUser.id);
         return json(res, 200, { success: true, user: safeUser });
       } catch (e) {
         console.error('login error', e);
         return json(res, 500, { success: false, message: 'Internal error' });
       }
+    }
+
+    if (req.method === 'GET' && url.split('?')[0] === '/api/db/session') {
+      const db = await getSql();
+      const user = await getSessionUser(req, db);
+      if (!user) return json(res, 401, { success: false, message: 'Session expired. Please sign in again.' });
+      await db`UPDATE user_sessions SET last_active = NOW() WHERE session_token = ${readCookie(req, 'animevault_session_token')}`;
+      return json(res, 200, { success: true, user });
+    }
+
+    if (req.method === 'POST' && url.split('?')[0] === '/api/db/logout') {
+      const db = await getSql();
+      const token = readCookie(req, 'animevault_session_token');
+      if (token) await db`DELETE FROM user_sessions WHERE session_token = ${token}`;
+      clearSessionCookie(req, res);
+      return json(res, 200, { success: true });
     }
 
     if (req.method === 'GET' && url.startsWith('/api/db/user/')) {
@@ -89,7 +188,7 @@ export default async function handler(req, res) {
       const db = await getSql();
       try {
         const result = await db`
-          SELECT id, username, avatar, banner, is_admin, is_verified, two_factor_enabled, created_at FROM users WHERE id = ${Number(id)}
+          SELECT id, username, avatar, banner, is_admin, is_verified, created_at FROM users WHERE id = ${Number(id)}
         `;
         if (!result.length) return json(res, 404, { success: false, message: 'Not found' });
         return json(res, 200, { success: true, user: result[0] });
@@ -120,6 +219,9 @@ export default async function handler(req, res) {
       const { followerId, targetId } = body || {};
       if (!followerId || !targetId) return json(res, 400, { success: false });
       const db = await getSql();
+      const actor = await getSessionUser(req, db);
+      if (!actor) return json(res, 401, { success: false, message: 'Sign in required.' });
+      if (Number(followerId) !== Number(actor.id)) return json(res, 403, { success: false, message: 'You can only follow as your own account.' });
       try {
         await db`INSERT INTO user_follows (follower_id, following_id) VALUES (${followerId}, ${targetId}) ON CONFLICT DO NOTHING`;
         return json(res, 200, { success: true });
@@ -131,6 +233,9 @@ export default async function handler(req, res) {
       const { followerId, targetId } = body || {};
       if (!followerId || !targetId) return json(res, 400, { success: false });
       const db = await getSql();
+      const actor = await getSessionUser(req, db);
+      if (!actor) return json(res, 401, { success: false, message: 'Sign in required.' });
+      if (Number(followerId) !== Number(actor.id)) return json(res, 403, { success: false, message: 'You can only manage your own follows.' });
       try {
         await db`DELETE FROM user_follows WHERE follower_id = ${followerId} AND following_id = ${targetId}`;
         return json(res, 200, { success: true });
@@ -142,6 +247,9 @@ export default async function handler(req, res) {
       const { blockerId, targetId } = body || {};
       if (!blockerId || !targetId) return json(res, 400, { success: false });
       const db = await getSql();
+      const actor = await getSessionUser(req, db);
+      if (!actor) return json(res, 401, { success: false, message: 'Sign in required.' });
+      if (Number(blockerId) !== Number(actor.id)) return json(res, 403, { success: false, message: 'You can only block as your own account.' });
       try {
         await db`DELETE FROM user_follows WHERE (follower_id = ${blockerId} AND following_id = ${targetId}) OR (follower_id = ${targetId} AND following_id = ${blockerId})`;
         await db`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${blockerId}, ${targetId}) ON CONFLICT DO NOTHING`;
@@ -154,6 +262,9 @@ export default async function handler(req, res) {
       const { blockerId, targetId } = body || {};
       if (!blockerId || !targetId) return json(res, 400, { success: false });
       const db = await getSql();
+      const actor = await getSessionUser(req, db);
+      if (!actor) return json(res, 401, { success: false, message: 'Sign in required.' });
+      if (Number(blockerId) !== Number(actor.id)) return json(res, 403, { success: false, message: 'You can only manage your own blocks.' });
       try {
         await db`DELETE FROM user_blocks WHERE blocker_id = ${blockerId} AND blocked_id = ${targetId}`;
         return json(res, 200, { success: true });
@@ -165,6 +276,9 @@ export default async function handler(req, res) {
       const { userId, mediaUrl, mediaType, hoursToExpire = 24, caption = '' } = body || {};
       if (!userId || !mediaUrl) return json(res, 400, { success: false });
       const db = await getSql();
+      const actor = await getSessionUser(req, db);
+      if (!actor) return json(res, 401, { success: false, message: 'Sign in required.' });
+      if (Number(userId) !== Number(actor.id)) return json(res, 403, { success: false, message: 'You can only post as your own account.' });
       try {
         const expiresAt = new Date(Date.now() + hoursToExpire * 60 * 60 * 1000).toISOString();
         await db`INSERT INTO stories (user_id, media_url, media_type, expires_at, caption) VALUES (${userId}, ${mediaUrl}, ${mediaType}, ${expiresAt}, ${caption})`;
@@ -175,17 +289,16 @@ export default async function handler(req, res) {
     if (req.method === 'GET' && url.startsWith('/api/db/stories/')) {
       const parts = url.split('/');
       const userId = parts[parts.length - 1].split('?')[0];
-      const viewerParam = (req.url || '').split('viewerId=')[1];
-      const viewerId = viewerParam ? Number(viewerParam) : null;
       const db = await getSql();
+      const actor = await getSessionUser(req, db);
       try {
         const now = new Date().toISOString();
         const stories = await db`SELECT id, user_id, media_url, media_type, expires_at, caption FROM stories WHERE user_id = ${Number(userId)} AND expires_at > ${now}`;
         // Determine allViewed by checking views table (if exists) - best effort
         let allViewed = true;
-        if (viewerId) {
+        if (actor?.id) {
           try {
-            const viewed = await db`SELECT story_id FROM story_views WHERE viewer_id = ${viewerId} AND story_id = ANY(${stories.map(s => s.id)})`;
+            const viewed = await db`SELECT story_id FROM story_views WHERE viewer_id = ${actor.id} AND story_id = ANY(${stories.map(s => s.id)})`;
             const viewedIds = new Set(viewed.map(v => v.story_id));
             allViewed = stories.every(s => viewedIds.has(s.id));
           } catch {}
@@ -199,6 +312,9 @@ export default async function handler(req, res) {
       const { userId, content, hoursToExpire = 24, songData = null } = body || {};
       if (!userId || (!content && !songData)) return json(res, 400, { success: false });
       const db = await getSql();
+      const actor = await getSessionUser(req, db);
+      if (!actor) return json(res, 401, { success: false, message: 'Sign in required.' });
+      if (Number(userId) !== Number(actor.id)) return json(res, 403, { success: false, message: 'You can only post as your own account.' });
       try {
         const expiresAt = new Date(Date.now() + hoursToExpire * 60 * 60 * 1000).toISOString();
         const songDataStr = songData ? JSON.stringify(songData) : null;
@@ -219,11 +335,14 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST' && url === '/api/db/addComment') {
       const body = await getBody(req);
-      const { userId, username, mediaId, content } = body || {};
-      if (!userId || !username || !mediaId || !content) return json(res, 400, { success: false });
+      const { userId, mediaId, content } = body || {};
+      if (!mediaId || !content) return json(res, 400, { success: false });
       const db = await getSql();
+      const actor = await getSessionUser(req, db);
+      if (!actor) return json(res, 401, { success: false, message: 'Sign in required.' });
+      if (userId && Number(userId) !== Number(actor.id)) return json(res, 403, { success: false, message: 'You can only comment as your own account.' });
       try {
-        const result = await db`INSERT INTO media_comments (user_id, username, media_id, content) VALUES (${userId}, ${username}, ${mediaId}, ${content}) RETURNING id, user_id, username, media_id, content, created_at`;
+        const result = await db`INSERT INTO media_comments (user_id, username, media_id, content) VALUES (${actor.id}, ${actor.username}, ${mediaId}, ${content}) RETURNING id, user_id, username, media_id, content, created_at`;
         return json(res, 200, { success: true, comment: result[0] });
       } catch (e) { console.error('addMediaComment', e); return json(res, 500, { success: false }); }
     }
@@ -231,10 +350,13 @@ export default async function handler(req, res) {
     if (req.method === 'POST' && url === '/api/db/deleteComment') {
       const body = await getBody(req);
       const { commentId, userId } = body || {};
-      if (!commentId || !userId) return json(res, 400, { success: false });
+      if (!commentId) return json(res, 400, { success: false });
       const db = await getSql();
+      const actor = await getSessionUser(req, db);
+      if (!actor) return json(res, 401, { success: false, message: 'Sign in required.' });
+      if (userId && Number(userId) !== Number(actor.id)) return json(res, 403, { success: false, message: 'You can only delete your own comments.' });
       try {
-        await db`DELETE FROM media_comments WHERE id = ${commentId} AND user_id = ${userId}`;
+        await db`DELETE FROM media_comments WHERE id = ${commentId} AND user_id = ${actor.id}`;
         return json(res, 200, { success: true });
       } catch (e) { console.error('deleteMediaComment', e); return json(res, 500, { success: false }); }
     }

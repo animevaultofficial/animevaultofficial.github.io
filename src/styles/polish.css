@@ -25,12 +25,12 @@ input, select, textarea { border-radius: var(--av-radius-md); }
 .glass-card:hover, .about-feature-card:hover, .contact-card:hover, .faq-item:hover, .platform-card:hover, .feature-card:hover {
   transform: none; box-shadow: none; border-color: #3a424e;
 }
-.btn-primary, .btn-play-v2, .button-primary, .download-btn-gradient {
+.btn-primary, .btn-play-v2, .button-primary, .download-button {
   border-radius: var(--av-radius-md); box-shadow: none;
   background-color: var(--brand-primary, #ff1a75); background-image: none; color: #fff;
   transition: background-color .16s ease, border-color .16s ease, color .16s ease;
 }
-.btn-primary:hover, .btn-play-v2:hover, .button-primary:hover, .download-btn-gradient:hover {
+.btn-primary:hover, .btn-play-v2:hover, .button-primary:hover, .download-button:hover {
   transform: none; box-shadow: none; background-color: var(--brand-primary-dark, #df0e5d);
   background-image: none; color: #fff;
 }
@@ -39,6 +39,17 @@ input, select, textarea { border-radius: var(--av-radius-md); }
   color: var(--av-text) !important; -webkit-text-fill-color: currentColor !important;
 }
 .download-hero__backdrop, .platform-card__shine { display: none !important; }
+html.tv-mode, html.tv-mode *, body.tv-mode, body.tv-mode * { cursor: none !important; }
+html.tv-mode :focus, body.tv-mode :focus {
+  outline: 3px solid #fff !important;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(229, 9, 20, 0.85);
+  position: relative;
+  z-index: 20;
+}
+html.tv-mode a:focus, html.tv-mode button:focus, body.tv-mode a:focus, body.tv-mode button:focus {
+  transform: scale(1.035);
+}
 .not-found-page {
   min-height: min(72vh, 760px); display: flex; flex-direction: column;
   align-items: flex-start; justify-content: center;

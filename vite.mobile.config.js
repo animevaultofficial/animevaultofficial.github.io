@@ -8,8 +8,9 @@ const __dirname = path.dirname(__filename);
 
 // Dedicated Android/mobile shell. This is intentionally separate from the
 // desktop/web Vite entry so the APK cannot accidentally package the web UI.
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: path.resolve(__dirname, 'src/mobile'),
+  envDir: __dirname,
   publicDir: path.resolve(__dirname, 'public'),
   plugins: [react()],
   base: './',
@@ -19,7 +20,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: path.resolve(__dirname, 'dist-mobile'),
+    outDir: path.resolve(__dirname, mode === 'webos' ? 'dist-webos' : 'dist-mobile'),
     emptyOutDir: true,
   },
-});
+}));

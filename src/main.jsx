@@ -4,6 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { isTvRuntime } from './utils/tvMode.js';
+import { installTvRemoteNavigation } from './utils/tvRemoteNavigation.js';
 import { installChunkRecovery } from './utils/chunkRecovery.js';
 import { init } from '@noriginmedia/norigin-spatial-navigation';
 import './styles.css';
@@ -38,11 +39,14 @@ try {
 const isTouchDevice =
   typeof window !== 'undefined' &&
   (navigator.maxTouchPoints > 0 || 'ontouchstart' in window);
+const isTvDevice = isTvRuntime();
+
+if (isTvDevice) installTvRemoteNavigation();
 
 init({
   debug: false,
   visualDebug: false,
-  nativeMode: !isTouchDevice && isTvRuntime(),
+  nativeMode: !isTouchDevice && isTvDevice,
   throttle: 70,
 });
 
