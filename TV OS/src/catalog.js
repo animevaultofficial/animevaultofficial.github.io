@@ -127,15 +127,18 @@ export async function getPlaybackSource(item, provider, season = 1, episode = 1)
     try { resolvedUrl = new URL(data.url, window.location.origin); }
     catch { throw new Error('The playback resolver returned an invalid URL.'); }
     if (!['https:', 'http:'].includes(resolvedUrl.protocol)) throw new Error('The playback resolver returned an unsupported URL.');
-    return { url: resolvedUrl.href, type: data.type || 'embed' };
+    const isDirectMedia = /\.(m3u8|mp4|webm|ogg)(?:$|\?)/i.test(resolvedUrl.href) || /m3u8|mpegurl|^(hls|video|mp4|webm)$/i.test(data.type || '');
+    return { url: resolvedUrl.href, type: provider === 'vidsrc' && !isDirectMedia ? 'external' : data.type || 'embed' };
   }
   const id = encodeURIComponent(item.id);
   if (provider === 'videasy') return { url: item.type === 'movie' ? `https://player.videasy.ws/embed/movie/${id}` : `https://player.videasy.ws/embed/tv/${id}/${season}/${episode}`, type: 'embed' };
   if (provider === 'vidnest') return { url: item.type === 'movie' ? `https://vidnest.fun/movie/${id}` : `https://vidnest.fun/tv/${id}/${season}/${episode}`, type: 'embed' };
+  if (provider === 'vidsrc') return { url: item.type === 'movie' ? `https://vidsrc.tw/embed/movie/${id}` : `https://vidsrc.tw/embed/tv/${id}/${season}/${episode}`, type: 'external' };
   throw new Error('Choose a supported provider to continue.');
 }
 
 export const PROVIDERS = [
   { id: 'videasy', label: 'Videasy' },
   { id: 'vidnest', label: 'Vidnest' },
+  { id: 'vidsrc', label: 'VidSrc', mode: 'external' },
 ];
