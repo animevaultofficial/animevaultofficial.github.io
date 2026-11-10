@@ -10,6 +10,8 @@ import { withTimeout } from '../utils/withTimeout';
 import '../styles/moviePlayer.css';
 import '../styles/playerPage.css';
 
+const isElectron = typeof window !== 'undefined' && Boolean(window.electronAPI);
+
 export default function MovieWatch() {
   const { type, id } = useParams();
   const [params, setParams] = useSearchParams();
@@ -220,16 +222,29 @@ export default function MovieWatch() {
     <main className="anime-player-layout">
       <section className="anime-player-primary">
         <div className="anime-player-video-wrap">
-          <iframe
-            ref={frameRef}
-            key={sourceUrl}
-            src={sourceUrl}
-            title={isMovie ? `${title} player` : `${title} season ${season} episode ${episode}`}
-            className="anime-player-iframe"
-            referrerPolicy="origin"
-            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-            allowFullScreen
-          />
+          {isElectron ? (
+            <webview
+              ref={frameRef}
+              key={sourceUrl}
+              src={sourceUrl}
+              title={isMovie ? `${title} player` : `${title} season ${season} episode ${episode}`}
+              className="anime-player-iframe"
+              partition="persist:player"
+              allowpopups="false"
+              allowfullscreen
+            />
+          ) : (
+            <iframe
+              ref={frameRef}
+              key={sourceUrl}
+              src={sourceUrl}
+              title={isMovie ? `${title} player` : `${title} season ${season} episode ${episode}`}
+              className="anime-player-iframe"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+              allowFullScreen
+            />
+          )}
         </div>
         <div className="anime-player-progress-track"><span /></div>
         <div className="anime-player-toolbar">

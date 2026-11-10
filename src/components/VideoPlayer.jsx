@@ -264,6 +264,11 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
             <button className="av-embed-btn" onClick={toggleFullscreen} title="Fullscreen">
               {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
             </button>
+            {!isElectron && (
+              <a className="av-embed-btn av-embed-open-link" href={cleanUrl} target="_blank" rel="noopener noreferrer" title="Open source in a new tab">
+                <ExternalLink size={18} /> <span>Open source</span>
+              </a>
+            )}
           </div>
         </div>
 
@@ -290,7 +295,7 @@ function VideoPlayer({ sources = [], poster, title, embedUrl, isZen, onNextEpiso
               className="embed-iframe"
               allow={isZen ? "autoplay; fullscreen; picture-in-picture; encrypted-media" : "autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write"}
               title={title}
-              referrerPolicy="no-referrer"
+              referrerPolicy="strict-origin-when-cross-origin"
               loading="lazy"
               onError={handleIframeError}
             />

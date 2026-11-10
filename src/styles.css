@@ -8045,6 +8045,18 @@ select {
   transform: scale(1.05);
 }
 
+.av-embed-open-link {
+  gap: 6px;
+  color: #fff;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.av-embed-open-link span {
+  font-size: 12px;
+  font-weight: 650;
+}
+
 /* ── Embed Bottom Bar ── */
 .av-embed-bottombar {
   display: none;
