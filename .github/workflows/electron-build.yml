@@ -89,7 +89,11 @@ jobs:
           found=0
           for pattern in '*.exe' '*.dmg' '*.zip' '*.AppImage' '*.deb' '*.yml' '*.blockmap'; do
             for file in release/$pattern; do
-              if [ -f "$file" ]; then cp "$file" checked-release/; found=1; fi
+              if [ -f "$file" ]; then
+                if [ "$(basename "$file")" = 'builder-debug.yml' ]; then continue; fi
+                cp "$file" checked-release/
+                found=1
+              fi
             done
           done
           if [ "$found" -ne 1 ]; then
@@ -184,6 +188,16 @@ jobs:
         with:
           name: animevault-LG-webOS-IPK
           path: release/webOS
+      - name: Check release asset names
+        shell: bash
+        run: |
+          set -euo pipefail
+          duplicates="$(find release -type f -printf '%f\n' | sort | uniq -d)"
+          if [ -n "$duplicates" ]; then
+            echo "::error::Release assets contain duplicate filenames:"
+            printf '%s\n' "$duplicates"
+            exit 1
+          fi
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:

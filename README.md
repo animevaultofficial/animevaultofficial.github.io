@@ -38,7 +38,7 @@ Get the latest release assets directly from [GitHub Releases](https://github.com
 | **Windows** (`10 / 11`) | [AnimeVault Windows x64 installer](https://github.com/animevaultofficial/animevaultofficial.github.io/releases/latest/download/AnimeVault-Windows-x64.exe) | Fast native desktop installer with auto-updates. |
 | **macOS** (`12+`) | [AnimeVault macOS Apple Silicon installer](https://github.com/animevaultofficial/animevaultofficial.github.io/releases/latest/download/AnimeVault-macOS-arm64.dmg) | Apple Silicon DMG installer. |
 | **Linux** (`Ubuntu/Debian`) | [AnimeVault Linux x64 AppImage](https://github.com/animevaultofficial/animevaultofficial.github.io/releases/latest/download/AnimeVault-Linux-x64.AppImage) | Portable AppImage build (make executable and run). |
-| **Android** (`6+`) | [AnimeVault Android APK](https://github.com/animevaultofficial/animevaultofficial.github.io/releases/latest/download/Anime%20Vault.apk) | Sideloadable mobile app release. |
+| **Android** (`6+`) | [AnimeVault Android APK](https://github.com/animevaultofficial/animevaultofficial.github.io/releases/latest/download/AnimeVault-Android.apk) | Sideloadable mobile app release. |
 
 ---
 

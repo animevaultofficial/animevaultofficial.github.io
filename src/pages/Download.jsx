@@ -74,7 +74,7 @@ const platforms = [
     icon: androidIcon,
     iconAlt: 'Android logo',
     fileName: `AnimeVault Android v${VERSION}.apk`,
-    url: releaseAssetUrl('Anime Vault.apk'),
+    url: releaseAssetUrl('AnimeVault-Android.apk'),
     note: 'Side-load APK release',
   },
 ];

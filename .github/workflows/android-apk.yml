@@ -201,20 +201,35 @@ jobs:
           echo "Verified dedicated mobile web shell is packaged"
       - name: Rename APK for distribution
         run: |
-          cp android/app/build/outputs/apk/release/app-release.apk "android/app/build/outputs/apk/release/Anime Vault.apk"
-          test -s "android/app/build/outputs/apk/release/Anime Vault.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/AnimeVault-Android.apk
+          test -s android/app/build/outputs/apk/release/AnimeVault-Android.apk
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: animevault-Android-APK
-          path: android/app/build/outputs/apk/release/Anime Vault.apk
+          path: android/app/build/outputs/apk/release/AnimeVault-Android.apk
           if-no-files-found: error
           retention-days: 30
+
+  release:
+    name: Publish Android APK to shared release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [android]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-${{ github.sha }}
+      cancel-in-progress: false
+    steps:
+      - name: Download Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: animevault-Android-APK
+          path: release
       - name: Publish Android APK to shared release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: animevault-build-${{ github.sha }}
           name: AnimeVault Build ${{ github.sha }}
           body: Automated Windows, macOS, Linux, signed Android, and LG webOS builds from the same commit.
-          files: android/app/build/outputs/apk/release/Anime Vault.apk
+          files: release/AnimeVault-Android.apk
           fail_on_unmatched_files: true
