@@ -7,6 +7,7 @@ import TMDBPoster from '../components/TMDBPoster';
 import { isHentai } from '../utils/animeContent';
 import { useUser } from '../api/UserContext';
 import { isBlockedForProfile, isKidsProfile } from '../utils/ageRating';
+import { isTvRuntime } from '../utils/tvMode';
 import { KIDS_ANIME_FEATURES, KIDS_FAMILY_MEDIA } from '../utils/kidsCatalog';
 import '../styles/homepage.css';
 
@@ -49,6 +50,7 @@ function AutoTrain({ items, label, size = 'standard', renderItem }) {
 
 export default function MixedHome({ mobile = false }) {
   const navigate = useNavigate();
+  const tvRuntime = isTvRuntime();
   const { activeSubAccount } = useUser();
   const isKidsMode = isKidsProfile(activeSubAccount);
   const [cached] = useState(readCache);
@@ -143,10 +145,10 @@ export default function MixedHome({ mobile = false }) {
   }, [activeSubAccount]);
 
   useEffect(() => {
-    if (heroPaused || slides.length < 2) return undefined;
+    if (tvRuntime || heroPaused || slides.length < 2) return undefined;
     const timer = setInterval(() => setActive(i => (i + 1) % slides.length), 8000);
     return () => clearInterval(timer);
-  }, [heroPaused, slides.length]);
+  }, [heroPaused, slides.length, tvRuntime]);
 
   const slide = slides[active];
   const kind = slide?._kind || 'movie';

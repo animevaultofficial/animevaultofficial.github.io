@@ -9,7 +9,12 @@ export default defineConfig({
   root,
   envDir: path.resolve(root, '..'),
   base: './',
-  publicDir: path.join(root, 'public'),
+  publicDir: path.resolve(root, '../public'),
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(root, '../src'),
+    },
+  },
   build: { outDir: path.join(root, 'dist'), emptyOutDir: true, target: 'chrome79' },
 });

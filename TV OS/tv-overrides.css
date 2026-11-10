@@ -1,0 +1,39 @@
+/* Keep the shared mobile app's full catalog and pages while making TV rails still. */
+html.tv-mode body.tv-mode a:focus,
+html.tv-mode body.tv-mode button:focus,
+html.tv-mode body.tv-mode [role="button"]:focus {
+  transform: none !important;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .auto-train-window {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  scrollbar-width: thin;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .auto-train-track {
+  width: max-content !important;
+  animation: none !important;
+  transform: none !important;
+  will-change: auto !important;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .auto-train-group--copy {
+  display: none !important;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .auto-train-group .anime-card-v2:focus,
+html.tv-mode body.tv-mode .av-v2-content .anime-card-v2:focus,
+html.tv-mode body.tv-mode .av-v2-content .dramas-movies-page .card:focus,
+html.tv-mode body.tv-mode .av-v2-content .dramas-movies-page .gcard:focus {
+  transform: none !important;
+  outline: 3px solid #fff !important;
+  outline-offset: 3px !important;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .anime-card-v2:hover,
+html.tv-mode body.tv-mode .av-v2-content .anime-card-v2:hover img,
+html.tv-mode body.tv-mode .av-v2-content .dramas-movies-page .card:hover,
+html.tv-mode body.tv-mode .av-v2-content .dramas-movies-page .card:hover img {
+  transform: none !important;
+}
