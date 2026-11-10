@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Calendar, Clock, Flame, Sparkles, TrendingUp, WifiOff } from 'lucide-react';
+import { Calendar, Clock, Flame, TrendingUp, WifiOff } from 'lucide-react';
 import { useUser } from '../../api/UserContext';
 import { fetchAnimeBySeason, fetchHomeData } from '../api/anilist';
 import { getContinueWatching } from '../api/storage';

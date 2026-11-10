@@ -8,7 +8,6 @@ import { isHentai } from '../utils/animeContent';
 import { useUser } from '../api/UserContext';
 import { isBlockedForProfile, isKidsProfile } from '../utils/ageRating';
 import { KIDS_ANIME_FEATURES, KIDS_FAMILY_MEDIA } from '../utils/kidsCatalog';
-import { assetPath } from '../utils/assetPath';
 import '../styles/homepage.css';
 
 const CACHE_KEY = 'animevault_home_v7';
@@ -145,7 +144,6 @@ export default function MixedHome({ mobile = false }) {
 
   useEffect(() => {
     if (heroPaused || slides.length < 2) return undefined;
-    if (document.body.classList.contains('tv-mode')) return undefined;
     const timer = setInterval(() => setActive(i => (i + 1) % slides.length), 8000);
     return () => clearInterval(timer);
   }, [heroPaused, slides.length]);
@@ -156,7 +154,7 @@ export default function MixedHome({ mobile = false }) {
   const mediaKind = kind === 'tv' ? 'tv' : 'movie';
   const id = isAnime ? slide?.anilistId : (slide?.tmdbId || slide?.id);
   const title = slide?.title?.english || slide?.title?.romaji || slide?.title?.native || slide?.title || slide?.name || 'AnimeVault';
-  const image = slide?.backdrop || slide?.banner || slide?.poster || slide?.coverImage?.extraLarge || assetPath('logo.png');
+  const image = slide?.backdrop || slide?.banner || slide?.poster || slide?.coverImage?.extraLarge || '/logo.png';
   const detailsPath = (item, type) => {
     const mediaId = item?.tmdbId || item?.id;
     return mediaId ? `/media/${type === 'movie' ? 'movie' : 'tv'}/${mediaId}` : '/';
@@ -199,7 +197,7 @@ export default function MixedHome({ mobile = false }) {
   return <section className="home-v2 home-v2-reference">
     <div className="hero-v2 hero-carousel-v2" role="region" aria-label="Featured titles" aria-roledescription="carousel" style={{ position: 'relative' }} onMouseEnter={() => setHeroPaused(true)} onMouseLeave={() => setHeroPaused(false)} onFocusCapture={() => setHeroPaused(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setHeroPaused(false); }}>
       {slide && <div className="carousel-slide active" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-        <div className="hero-img-wrapper"><img src={image} alt={title} loading="eager" decoding="async" onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = assetPath('logo.png'); }} /><div className="hero-overlay-v2" /></div>
+        <div className="hero-img-wrapper"><img src={image} alt={title} loading="eager" decoding="async" /><div className="hero-overlay-v2" /></div>
         <div className="hero-content-v2"><div className="hero-info-v2">
           <span className="hero-rank">{isAnime ? <Sparkles size={14} /> : <Clapperboard size={14} />} {isAnime ? 'Trending Anime' : 'Featured on AnimeVault'}</span>
           <h1 className="hero-title-v2">{title}</h1>

@@ -11,7 +11,7 @@ const normalizeType = value => String(value || '').toLowerCase() === 'movie' ? '
 const chipStyle = { background:'rgba(255,255,255,.07)', color:'#cbd5e1', border:'1px solid rgba(255,255,255,.08)', borderRadius:999, padding:'6px 10px', fontSize:'.72rem', whiteSpace:'nowrap' };
 
 export default function DramaDetailPage({ params = {}, initialWatch = false, goBack, navigate }) {
-  const { user, activeSubAccount, setAuthTab, setShowAuthModal } = useUser();
+  const { user, activeSubAccount, setAuthTab } = useUser();
   const rawRouteId = params?.id ?? params?.tmdbId ?? params?.mediaId;
   const id = normalizeId(rawRouteId);
   const mediaType = normalizeType(params?.mediaType || params?.type);
@@ -24,15 +24,11 @@ export default function DramaDetailPage({ params = {}, initialWatch = false, goB
   const [selectedProvider,setSelectedProvider] = useState(DEFAULT_MEDIA_SOURCE_PROVIDER), [isFs,setIsFs] = useState(false), [expanded,setExpanded] = useState(false), [inList,setInList] = useState(false);
   const playerWrapperRef = useRef(null);
   const initialWatchStarted = useRef(false);
-  const sourceRequestId = useRef(0);
 
   useEffect(() => { const h=()=>setIsFs(!!document.fullscreenElement); document.addEventListener('fullscreenchange',h); return()=>document.removeEventListener('fullscreenchange',h); }, []);
 
   useEffect(() => {
     let cancelled=false;
-    sourceRequestId.current += 1;
-    setShowPlayer(false); setMediaSource(''); setSourceLoading(false); setSourceError('');
-    setSelectedSeason(initialSeason); setSelectedEpisode(initialEpisode); setSelectedProvider(DEFAULT_MEDIA_SOURCE_PROVIDER); setInList(false); setExpanded(false);
     (async()=>{
       setLoading(true); setError(''); setDetails(null); setEpisodes([]); setResolvedId('');
       try {
@@ -66,19 +62,17 @@ export default function DramaDetailPage({ params = {}, initialWatch = false, goB
 
   const loadSource = async (season=selectedSeason, episode=selectedEpisode, provider=selectedProvider) => {
     if(!resolvedId){setSourceError('This title has no valid TMDB ID, so playback cannot be prepared.');return;}
-    const requestId = ++sourceRequestId.current;
     setSourceLoading(true); setSourceError(''); setMediaSource('');
     try {
       const resolved=await resolveMediaSource(mediaType,resolvedId,season,episode,provider);
-      if(requestId!==sourceRequestId.current)return;
-      if(resolved?.url)setMediaSource(resolved); else setSourceError(`No playback source is available from ${provider}.`);
-    } catch(err){if(requestId===sourceRequestId.current)setSourceError(err?.message||`Unable to load ${provider}.`);} finally {if(requestId===sourceRequestId.current)setSourceLoading(false);}
+      if(resolved)setMediaSource(resolved); else setSourceError(`No playback source is available from ${provider}.`);
+    } catch(err){setSourceError(err?.message||`Unable to load ${provider}.`);} finally {setSourceLoading(false);}
   };
 
   const selectProvider = async p => { setSelectedProvider(p); if(showPlayer) await loadSource(selectedSeason,selectedEpisode,p); };
   const toggleFs = () => { if(!playerWrapperRef.current)return; if(document.fullscreenElement)document.exitFullscreen(); else playerWrapperRef.current.requestFullscreen?.(); };
   const requireWatch = async (season=selectedSeason, episode=selectedEpisode) => {
-    if(!user){setAuthTab('login');setShowAuthModal(true);return;}
+    if(!user){setAuthTab('login');navigate?.('profile');return;}
     setSelectedSeason(season); setSelectedEpisode(episode); setShowPlayer(true); await loadSource(season,episode,selectedProvider);
   };
   useEffect(() => { initialWatchStarted.current = false; }, [id, mediaType]);
@@ -109,7 +103,7 @@ export default function DramaDetailPage({ params = {}, initialWatch = false, goB
   if(showPlayer) return <div ref={playerWrapperRef} className="player-screen player-screen-v2" style={isFs?{padding:0}:{}}>
     <div className="player-topbar player-topbar-v2"><button className="player-icon-btn" onClick={()=>setShowPlayer(false)} aria-label="Back"><ArrowLeft size={20}/></button><div className="player-title"><strong>{title}</strong><span>{mediaType==='movie'?'Movie':`S${selectedSeason} E${selectedEpisode}`}</span></div><button className="player-icon-btn" onClick={toggleFs} aria-label="Fullscreen">{isFs?<Minimize size={20}/>:<Maximize size={20}/>}</button></div>
     <div className="player-source-bar" style={{display:'flex',gap:8,padding:'8px 12px',overflowX:'auto',borderBottom:'1px solid rgba(255,255,255,.08)'}}>{MEDIA_SOURCE_PROVIDERS.map(p=><button key={p.id} onClick={()=>selectProvider(p.id)} style={{flexShrink:0,border:'1px solid rgba(255,255,255,.1)',borderRadius:8,padding:'7px 12px',cursor:'pointer',background:p.id===selectedProvider?'var(--brand-color)':'rgba(255,255,255,.05)',color:'#fff',fontWeight:p.id===selectedProvider?700:500}}>{p.name}{p.id===DEFAULT_MEDIA_SOURCE_PROVIDER?' · Default':''}</button>)}</div>
-    <div className="player-frame-wrap player-frame-wrap-v2">{sourceLoading&&<div style={{padding:24,textAlign:'center',color:'#94a3b8'}}>Preparing {selectedProvider}…</div>}{sourceError&&!sourceLoading&&<div style={{padding:24,textAlign:'center',color:'#fca5a5'}}>{sourceError}<button onClick={()=>loadSource()} style={{display:'block',margin:'12px auto',padding:'8px 14px',borderRadius:8}}>Retry</button></div>}{!sourceLoading&&!sourceError&&mediaSource&&<AndroidVideoPlayer sourceUrl={mediaSource.url} sourceType={mediaSource.type} poster={poster} title={title} onPrevEpisode={mediaType!=='movie'?goPrevEp:undefined} onNextEpisode={mediaType!=='movie'?goNextEp:undefined}/>}</div>
+    <div className="player-frame-wrap player-frame-wrap-v2">{sourceLoading&&<div style={{padding:24,textAlign:'center',color:'#94a3b8'}}>Preparing {selectedProvider}…</div>}{sourceError&&!sourceLoading&&<div style={{padding:24,textAlign:'center',color:'#fca5a5'}}>{sourceError}<button onClick={()=>loadSource()} style={{display:'block',margin:'12px auto',padding:'8px 14px',borderRadius:8}}>Retry</button></div>}{!sourceLoading&&!sourceError&&mediaSource&&<AndroidVideoPlayer sourceUrl={mediaSource} poster={poster} title={title} onPrevEpisode={mediaType!=='movie'?goPrevEp:undefined} onNextEpisode={mediaType!=='movie'?goNextEp:undefined}/>}</div>
     {mediaType!=='movie'&&<div className="player-episode-rail"><button className="ply-rail-nav" onClick={goPrevEp} disabled={selectedEpisode<=1}><SkipBack size={16}/></button><div className="ply-rail-scroll">{episodes.slice(0,100).map(ep=><button key={ep.episode_number} className={ep.episode_number===selectedEpisode?'active':''} onClick={()=>changeEpisode(ep.episode_number)}>{ep.episode_number}</button>)}</div><button className="ply-rail-nav" onClick={goNextEp} disabled={selectedEpisode>=episodes.length}><SkipForward size={16}/></button></div>}
   </div>;
 

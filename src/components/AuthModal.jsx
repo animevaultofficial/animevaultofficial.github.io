@@ -4,11 +4,10 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { ArrowRight, AlertCircle, CheckCircle2, Eye, EyeOff, LockKeyhole, Mail, UserRound, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../api/UserContext';
-import { isTvRuntime } from '../utils/tvMode';
 import './AuthModal.css';
 
 const hcaptchaSiteKey = import.meta.env.VITE_HCAPTCHA_SITEKEY || '';
-const hcaptchaEnabled = Boolean(hcaptchaSiteKey) && !Capacitor.isNativePlatform() && !isTvRuntime();
+const hcaptchaEnabled = Boolean(hcaptchaSiteKey) && !Capacitor.isNativePlatform();
 
 export default function AuthModal() {
   const { showAuthModal, setShowAuthModal, authTab, setAuthTab, login, signup, loginAsGuest, sendEmailOtp, loginWithEmailOtp } = useUser();

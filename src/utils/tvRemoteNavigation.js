@@ -4,7 +4,6 @@ const CONTROL_SELECTOR = [
   'input:not(:disabled)',
   'select:not(:disabled)',
   'textarea:not(:disabled)',
-  'iframe[title]',
   '[role="button"][tabindex]:not([aria-disabled="true"])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(',');
@@ -28,7 +27,7 @@ const LEGACY_DIRECTION_KEYS = {
 const ACTIVATION_KEYS = ['Enter', 'NumpadEnter', ' ', 'Spacebar', 'Select', 'OK', 'Accept'];
 
 function isTextEntry(element) {
-  return element?.matches('input[type="text"], input[type="email"], input[type="password"], input[type="search"], input[type="url"], input[type="tel"], textarea, [contenteditable="true"]');
+  return element?.matches('input:not([type="button"]):not([type="submit"]):not([type="reset"]), textarea, [contenteditable="true"]');
 }
 
 function isVisible(element) {
@@ -77,21 +76,6 @@ function focus(element) {
   }
 }
 
-function scrollDirectional(current, dx, dy) {
-  let parent = current?.parentElement;
-  while (parent) {
-    const style = window.getComputedStyle(parent);
-    const canScrollX = ['auto', 'scroll'].includes(style.overflowX) && parent.scrollWidth > parent.clientWidth;
-    const canScrollY = ['auto', 'scroll'].includes(style.overflowY) && parent.scrollHeight > parent.clientHeight;
-    if ((dx && canScrollX) || (dy && canScrollY)) {
-      parent.scrollBy({ left: dx * Math.round(parent.clientWidth * .7), top: dy * Math.round(parent.clientHeight * .7), behavior: 'smooth' });
-      return true;
-    }
-    parent = parent.parentElement;
-  }
-  return false;
-}
-
 function findDirectionalTarget(current, candidates, dx, dy) {
   const origin = centerOf(current);
   let best = null;
@@ -123,8 +107,8 @@ export function installTvRemoteNavigation({ tvMode = true } = {}) {
     if (isTextEntry(active) || active?.tagName === 'SELECT') return;
     const direction = DIRECTION_KEYS[event.key] || LEGACY_DIRECTION_KEYS[event.keyCode];
     const activation = ACTIVATION_KEYS.includes(event.key) || event.keyCode === 13;
-    if (event.repeat && activation) {
-      if (activation) {
+    if (event.repeat) {
+      if (direction || activation) {
         event.preventDefault();
         event.stopPropagation();
       }
@@ -142,9 +126,6 @@ export function installTvRemoteNavigation({ tvMode = true } = {}) {
         event.preventDefault();
         event.stopPropagation();
         focus(next);
-      } else if (current && scrollDirectional(current, direction[0], direction[1])) {
-        event.preventDefault();
-        event.stopPropagation();
       }
       return;
     }
