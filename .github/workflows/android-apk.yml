@@ -192,12 +192,15 @@ jobs:
             fi
           done
           unzip -l "$APK" > apk-contents.txt
-          for expected in 'assets/public/index.html' 'animevault_tv_banner.png'; do
-            if ! grep -Fq "$expected" apk-contents.txt; then
-              echo "::error::Android package is missing: $expected"
-              exit 1
-            fi
-          done
+          if ! grep -Fq 'assets/public/index.html' apk-contents.txt; then
+            echo "::error::Android package is missing its mobile web payload"
+            exit 1
+          fi
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump resources "$APK" > apk-resources.txt
+          if ! grep -Fq 'animevault_tv_banner' apk-resources.txt; then
+            echo "::error::Android package is missing the compiled TV launcher banner resource"
+            exit 1
+          fi
           echo "Verified dedicated mobile web shell is packaged"
       - name: Rename APK for distribution
         run: |
