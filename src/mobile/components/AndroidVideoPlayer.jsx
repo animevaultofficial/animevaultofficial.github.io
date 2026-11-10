@@ -2,16 +2,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { AlertTriangle, Maximize, Pause, Play, RefreshCw, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 
-export function isDirectMediaUrl(sourceUrl) {
+export function isDirectMediaUrl(sourceUrl, sourceType = '') {
   if (!sourceUrl || typeof sourceUrl !== 'string') return false;
   if (sourceUrl.startsWith('blob:')) return true;
   try {
     const u = new URL(sourceUrl, window.location.origin);
-    return ['https:', 'http:'].includes(u.protocol) && /\.(m3u8|mp4|webm|ogv|ogg)$/i.test(u.pathname);
+    const explicitMediaType = /^(hls|m3u8|mp4|webm|ogv|ogg)$/i.test(sourceType) || /^video\//i.test(sourceType);
+    return ['https:', 'http:'].includes(u.protocol) && (/\.(m3u8|mp4|webm|ogv|ogg)$/i.test(u.pathname) || explicitMediaType);
   } catch { return false; }
 }
 
-function isHlsUrl(sourceUrl) {
+function isHlsUrl(sourceUrl, sourceType = '') {
+  if (/hls|mpegurl|m3u8/i.test(sourceType)) return true;
   try { return new URL(sourceUrl, window.location.origin).pathname.toLowerCase().endsWith('.m3u8'); }
   catch { return false; }
 }
@@ -30,21 +32,21 @@ function createHlsConfig() {
     lowLatencyMode: true,
     backBufferLength: 30,
     maxBufferLength: 30,
-    xhrSetup: (xhr) => xhr.setRequestHeader('X-AnimeVault-Client', 'mobile'),
   };
 }
 
-export default function AndroidVideoPlayer({ sourceUrl, poster, title, onNextEpisode, onPrevEpisode }) {
+export default function AndroidVideoPlayer({ sourceUrl, sourceType = '', poster, title, onNextEpisode, onPrevEpisode }) {
   const videoRef = useRef(null);
   const wrapRef = useRef(null);
   const hlsRef = useRef(null);
+  const frameLoadedRef = useRef(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [paused, setPaused] = useState(true);
   const [muted, setMuted] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
-  const direct = isDirectMediaUrl(sourceUrl);
+  const direct = isDirectMediaUrl(sourceUrl, sourceType);
   const embed = isEmbeddableUrl(sourceUrl);
 
   useEffect(() => {
@@ -63,7 +65,7 @@ export default function AndroidVideoPlayer({ sourceUrl, poster, title, onNextEpi
       }
     };
 
-    if (isHlsUrl(sourceUrl) && Hls.isSupported()) {
+    if (isHlsUrl(sourceUrl, sourceType) && Hls.isSupported()) {
       const hls = new Hls(createHlsConfig());
       hlsRef.current = hls;
       hls.loadSource(sourceUrl);
@@ -71,7 +73,7 @@ export default function AndroidVideoPlayer({ sourceUrl, poster, title, onNextEpi
       hls.on(Hls.Events.MANIFEST_PARSED, () => !disposed && setLoading(false));
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (disposed || !data?.fatal) return;
-        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR && !hls.__avRecovered) { hls.__avRecovered = true; hls.recoverMediaError(); }
         else fail();
       });
     } else {
@@ -97,7 +99,21 @@ export default function AndroidVideoPlayer({ sourceUrl, poster, title, onNextEpi
       video.removeEventListener('pause', onPause);
       video.removeEventListener('error', onError);
     };
-  }, [sourceUrl, retryKey, direct]);
+  }, [sourceUrl, sourceType, retryKey, direct]);
+
+  useEffect(() => {
+    if (!embed) return undefined;
+    frameLoadedRef.current = false;
+    setLoading(true);
+    setError('');
+    const timeout = window.setTimeout(() => {
+      if (!frameLoadedRef.current) {
+        setLoading(false);
+        setError('This provider is taking too long to load. Reload it or choose another provider.');
+      }
+    }, 15000);
+    return () => window.clearTimeout(timeout);
+  }, [embed, sourceUrl, retryKey]);
 
   useEffect(() => {
     const fn = () => setFullscreen(!!document.fullscreenElement);
@@ -108,7 +124,7 @@ export default function AndroidVideoPlayer({ sourceUrl, poster, title, onNextEpi
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
-    v.paused ? v.play().catch(() => {}) : v.pause();
+    if (v.paused) v.play().catch(() => { setError('Playback was blocked. Select Play again or try another source.'); }); else v.pause();
   };
   const seek = (d) => {
     const v = videoRef.current;
@@ -127,13 +143,15 @@ export default function AndroidVideoPlayer({ sourceUrl, poster, title, onNextEpi
       <iframe
         key={retryKey}
         title={title || 'AnimeVault player'}
+        tabIndex={0}
         src={sourceUrl}
         style={{position:'absolute',inset:0,width:'100%',height:'100%',border:0,display:'block',background:'#000'}}
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture; web-share"
         allowFullScreen
         referrerPolicy="strict-origin-when-cross-origin"
-        onLoad={()=>setLoading(false)}
+        onLoad={()=>{frameLoadedRef.current=true;setLoading(false);setError('');}}
       />
+      <div aria-live="polite" style={{position:'absolute',left:12,bottom:12,zIndex:2,maxWidth:'75%',padding:'7px 10px',borderRadius:6,background:'rgba(0,0,0,.72)',color:'#fff',fontSize:12,pointerEvents:'none'}}>{loading?'Opening provider…':error||'Provider loaded · use its Play control'}</div>
       <button onClick={retry} aria-label="Reload player" style={{position:'absolute',right:10,top:10,zIndex:2,width:38,height:38,border:0,borderRadius:10,background:'rgba(20,20,27,.8)',color:'#fff',display:'grid',placeItems:'center'}}><RefreshCw size={18}/></button>
       <button onClick={toggleFullscreen} aria-label="Fullscreen" style={{position:'absolute',right:10,bottom:10,zIndex:2,width:38,height:38,border:0,borderRadius:10,background:'rgba(20,20,27,.8)',color:'#fff',display:'grid',placeItems:'center'}}><Maximize size={18}/></button>
     </div>;

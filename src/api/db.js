@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'animevault_notifications',
   USER_STATS: 'animevault_user_stats',
   FAVORITES: 'animevault_favorites',
+  FAVORITE_ROWS: 'animevault_favorite_rows',
   WATCH_HISTORY: 'animevault_watch_history',
   LEVEL: 'animevault_level',
   ACTIVITY: 'animevault_activity',
@@ -17,7 +18,8 @@ const STORAGE_KEYS = {
   FRIENDS: 'animevault_friends',
   FRIEND_REQUESTS: 'animevault_friend_requests',
   CONTINUE_WATCHING: 'animevault_continue_watching',
-  LIKED_ITEMS: 'animevault_liked_items'
+  LIKED_ITEMS: 'animevault_liked_items',
+  COLLECTIONS: 'animevault_collections'
 };
 
 // Cloud database work must be performed by the authenticated API service.
@@ -179,7 +181,7 @@ async function ensureFavoritesTable(db) {
       item_id TEXT,
       item_metadata JSONB DEFAULT '{}'::jsonb,
       favorited_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE (user_id, item_type)
+      UNIQUE (user_id, item_type, item_id)
     )
   `;
   try { await db`ALTER TABLE user_favorites ADD COLUMN IF NOT EXISTS item_type TEXT DEFAULT 'anime'`; } catch (e) { }
@@ -188,7 +190,9 @@ async function ensureFavoritesTable(db) {
   try { await db`ALTER TABLE user_favorites ADD COLUMN IF NOT EXISTS favorited_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP`; } catch (e) { }
   try { await db`UPDATE user_favorites SET item_type = 'anime' WHERE item_type IS NULL`; } catch (e) { }
   try { await db`UPDATE user_favorites SET item_id = anime_id WHERE item_id IS NULL AND anime_id IS NOT NULL`; } catch (e) { }
-  try { await db`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_favorites_user_type ON user_favorites(user_id, item_type)`; } catch (e) { }
+  try { await db`ALTER TABLE user_favorites DROP CONSTRAINT IF EXISTS user_favorites_user_id_item_type_key`; } catch (e) { }
+  try { await db`DROP INDEX IF EXISTS idx_user_favorites_user_type`; } catch (e) { }
+  try { await db`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_favorites_user_type_item ON user_favorites(user_id, item_type, item_id)`; } catch (e) { }
 }
 
 export async function getFavorites(userId) {
@@ -196,7 +200,10 @@ export async function getFavorites(userId) {
   const db = await getSql();
   if (!db) {
     warn('[AnimeVault DB] Database not connected');
-    return { ...EMPTY_FAVORITES };
+    try {
+      const rows = JSON.parse(localStorage.getItem(STORAGE_KEYS.FAVORITE_ROWS) || '[]');
+      return normalizeFavorites(Array.isArray(rows) ? rows.filter(row => String(row.user_id) === String(userId)) : []);
+    } catch { return { ...EMPTY_FAVORITES }; }
   }
   try {
     await ensureFavoritesTable(db);
@@ -217,14 +224,23 @@ export async function setFavorite(userId, type, item) {
   const itemType = FAVORITE_TYPES[type] || type;
   if (!userId || !FAVORITE_KEYS[itemType] || !item?.id) return { success: false, error: 'Invalid favorite payload' };
   const db = await getSql();
-  if (!db) return { success: false, error: 'Database connection unavailable' };
+  if (!db) {
+    try {
+      const rows = JSON.parse(localStorage.getItem(STORAGE_KEYS.FAVORITE_ROWS) || '[]');
+      const current = Array.isArray(rows) ? rows : [];
+      const next = current.filter(row => !(String(row.user_id) === String(userId) && row.item_type === itemType && String(row.item_id || row.anime_id) === String(item.id)));
+      next.push({ user_id: userId, item_type: itemType, item_id: String(item.id), anime_id: itemType === 'anime' ? String(item.id) : null, item_metadata: item, favorited_at: new Date().toISOString() });
+      localStorage.setItem(STORAGE_KEYS.FAVORITE_ROWS, JSON.stringify(next));
+      return { success: true, favorites: await getFavorites(userId) };
+    } catch (e) { return { success: false, error: e?.message || 'Could not save this favorite on this device.' }; }
+  }
   try {
     await ensureFavoritesTable(db);
     const metadata = JSON.stringify(item);
     await db`
       INSERT INTO user_favorites (user_id, anime_id, item_type, item_id, item_metadata, favorited_at)
       VALUES (${userId}, ${itemType === 'anime' ? String(item.id) : null}, ${itemType}, ${String(item.id)}, ${metadata}::jsonb, NOW())
-      ON CONFLICT (user_id, item_type) DO UPDATE
+      ON CONFLICT (user_id, item_type, item_id) DO UPDATE
       SET anime_id = EXCLUDED.anime_id,
           item_id = EXCLUDED.item_id,
           item_metadata = EXCLUDED.item_metadata,
@@ -242,7 +258,16 @@ export async function toggleFavorite(userId, animeId, animeTitle = null, animePo
   const db = await getSql();
   if (!db) {
     warn('[AnimeVault DB] Database not connected');
-    return { error: 'Database connection unavailable' };
+    try {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEYS.FAVORITE_ROWS) || '[]');
+      const rows = Array.isArray(stored) ? stored : [];
+      const exists = rows.some(row => String(row.user_id) === String(userId) && row.item_type === 'anime' && String(row.item_id || row.anime_id) === String(animeId));
+      const next = exists
+        ? rows.filter(row => !(String(row.user_id) === String(userId) && row.item_type === 'anime' && String(row.item_id || row.anime_id) === String(animeId)))
+        : [...rows, { user_id: userId, item_type: 'anime', item_id: String(animeId), anime_id: String(animeId), item_metadata: { id: animeId, title: animeTitle, image: animePoster }, favorited_at: new Date().toISOString() }];
+      localStorage.setItem(STORAGE_KEYS.FAVORITE_ROWS, JSON.stringify(next));
+      return { action: exists ? 'removed' : 'added', favorites: await getFavorites(userId) };
+    } catch (e) { return { error: e?.message || 'Could not save this favorite on this device.' }; }
   }
   try {
     await ensureFavoritesTable(db);
@@ -469,6 +494,22 @@ export async function saveParentalPinCredential(userId, credential) {
 }
 
 // ── DB-backed user data functions (with localStorage fallback) ──
+function readScopedItems(key, userId, subAccountId = null) {
+  try {
+    const all = JSON.parse(localStorage.getItem(key) || '[]');
+    if (!Array.isArray(all)) return [];
+    return all.filter(item => String(item.user_id) === String(userId) && (subAccountId == null || String(item.sub_account_id || '') === String(subAccountId)));
+  } catch { return []; }
+}
+
+function writeScopedItems(key, userId, items, subAccountId = null) {
+  try {
+    const all = JSON.parse(localStorage.getItem(key) || '[]');
+    const remaining = Array.isArray(all) ? all.filter(item => !(String(item.user_id) === String(userId) && (subAccountId == null || String(item.sub_account_id || '') === String(subAccountId)))) : [];
+    localStorage.setItem(key, JSON.stringify([...remaining, ...items]));
+    return true;
+  } catch { return false; }
+}
 
 export async function fetchWatchHistory(userId, subAccountId = null) {
   const db = await getSql();
@@ -488,7 +529,7 @@ export async function fetchWatchHistory(userId, subAccountId = null) {
       warn('[AnimeVault DB] fetchWatchHistory DB failed:', e?.message);
     }
   }
-  return [];
+  return readScopedItems(STORAGE_KEYS.WATCH_HISTORY, userId, subAccountId).sort((a, b) => new Date(b.watched_at || 0) - new Date(a.watched_at || 0)).slice(0, 50);
 }
 
 export async function addToHistory(userId, mediaId, mediaType, mediaTitle, mediaPoster, subAccountId = null) {
@@ -518,7 +559,9 @@ export async function addToHistory(userId, mediaId, mediaType, mediaTitle, media
       warn('[AnimeVault DB] addToHistory DB failed:', e?.message);
     }
   }
-  return false;
+  const history = readScopedItems(STORAGE_KEYS.WATCH_HISTORY, userId, subAccountId).filter(item => !(String(item.media_id) === String(mediaId) && item.media_type === mediaType));
+  history.unshift({ user_id: userId, sub_account_id: subAccountId, media_id: String(mediaId), media_type: mediaType, title: mediaTitle, image: mediaPoster, watched_at: new Date().toISOString() });
+  return writeScopedItems(STORAGE_KEYS.WATCH_HISTORY, userId, history.slice(0, 50), subAccountId);
 }
 
 export async function clearWatchHistory(userId, subAccountId = null) {
@@ -536,7 +579,7 @@ export async function clearWatchHistory(userId, subAccountId = null) {
       warn('[AnimeVault DB] clearWatchHistory DB failed:', e?.message);
     }
   }
-  return false;
+  return writeScopedItems(STORAGE_KEYS.WATCH_HISTORY, userId, [], subAccountId);
 }
 
 export async function fetchContinueWatching(userId, subAccountId = null) {
@@ -557,7 +600,7 @@ export async function fetchContinueWatching(userId, subAccountId = null) {
       warn('[AnimeVault DB] fetchContinueWatching DB failed:', e?.message);
     }
   }
-  return [];
+  return readScopedItems(STORAGE_KEYS.CONTINUE_WATCHING, userId, subAccountId).sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)).slice(0, 50);
 }
 
 export async function updateContinueWatching(userId, mediaId, mediaType, mediaTitle, mediaPoster, season, episode, progress, duration, subAccountId = null) {
@@ -581,7 +624,9 @@ export async function updateContinueWatching(userId, mediaId, mediaType, mediaTi
       warn('[AnimeVault DB] updateContinueWatching DB failed:', e?.message);
     }
   }
-  return false;
+  const items = readScopedItems(STORAGE_KEYS.CONTINUE_WATCHING, userId, subAccountId).filter(item => !(String(item.media_id) === String(mediaId) && item.media_type === mediaType));
+  items.unshift({ user_id: userId, sub_account_id: subAccountId, media_id: String(mediaId), media_type: mediaType, title: mediaTitle, image: mediaPoster, season: season || 1, episode: episode || 1, progress: progress || 0, duration: duration || 0, updated_at: new Date().toISOString() });
+  return writeScopedItems(STORAGE_KEYS.CONTINUE_WATCHING, userId, items.slice(0, 50), subAccountId);
 }
 
 export async function fetchLikedItems(userId) {
@@ -600,7 +645,7 @@ export async function fetchLikedItems(userId) {
       warn('[AnimeVault DB] fetchLikedItems DB failed:', e?.message);
     }
   }
-  return [];
+  return readScopedItems(STORAGE_KEYS.LIKED_ITEMS, userId).sort((a, b) => new Date(b.liked_at || 0) - new Date(a.liked_at || 0)).slice(0, 100);
 }
 
 export async function toggleLikeItem(userId, mediaId, mediaType, mediaTitle, mediaPoster) {
@@ -624,12 +669,15 @@ export async function toggleLikeItem(userId, mediaId, mediaType, mediaTitle, med
       warn('[AnimeVault DB] toggleLikeItem DB failed:', e?.message);
     }
   }
-  return { error: 'Database unavailable' };
+  const likes = readScopedItems(STORAGE_KEYS.LIKED_ITEMS, userId);
+  const existing = likes.find(item => String(item.media_id) === String(mediaId) && item.media_type === mediaType);
+  const next = existing ? likes.filter(item => item !== existing) : [{ user_id: userId, media_id: String(mediaId), media_type: mediaType, title: mediaTitle, image: mediaPoster, liked_at: new Date().toISOString() }, ...likes];
+  return writeScopedItems(STORAGE_KEYS.LIKED_ITEMS, userId, next) ? { action: existing ? 'unliked' : 'liked' } : { error: 'Could not save this item on this device.' };
 }
 
 export async function fetchReminders(userId) {
   const db = await getSql();
-  if (!db) return [];
+  if (!db) return readScopedItems(STORAGE_KEYS.REMINDERS, userId).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).slice(0, 100);
   try {
     const result = await db`
       SELECT id, schedule_id, anime_id, title, episode, airing_at, image, created_at
@@ -647,7 +695,11 @@ export async function fetchReminders(userId) {
 
 export async function addReminder(userId, scheduleId, animeId, title, episode, airingAt, image) {
   const db = await getSql();
-  if (!db) return null;
+  if (!db) {
+    const reminders = readScopedItems(STORAGE_KEYS.REMINDERS, userId).filter(item => String(item.schedule_id) !== String(scheduleId));
+    const reminder = { id: `local-${Date.now()}`, user_id: userId, schedule_id: scheduleId, anime_id: animeId, title, episode, airing_at: airingAt, image, created_at: new Date().toISOString() };
+    return writeScopedItems(STORAGE_KEYS.REMINDERS, userId, [reminder, ...reminders]) ? reminder : null;
+  }
   try {
     const now = new Date().toISOString();
     const result = await db`
@@ -666,7 +718,7 @@ export async function addReminder(userId, scheduleId, animeId, title, episode, a
 
 export async function removeReminder(userId, scheduleId) {
   const db = await getSql();
-  if (!db) return false;
+  if (!db) return writeScopedItems(STORAGE_KEYS.REMINDERS, userId, readScopedItems(STORAGE_KEYS.REMINDERS, userId).filter(item => String(item.schedule_id) !== String(scheduleId)));
   try {
     await db`DELETE FROM user_reminders WHERE user_id = ${userId} AND schedule_id = ${scheduleId}`;
     return true;
@@ -1706,56 +1758,103 @@ export async function fetchPublicUserProfile(username) {
 }
 
 // Collections Functions (localStorage fallback)
+function readCollections() {
+  try {
+    const value = JSON.parse(localStorage.getItem(STORAGE_KEYS.COLLECTIONS) || '[]');
+    return Array.isArray(value) ? value.filter(item => item && typeof item === 'object') : [];
+  } catch { return []; }
+}
+
+function writeCollections(collections) {
+  try { localStorage.setItem(STORAGE_KEYS.COLLECTIONS, JSON.stringify(collections)); return true; }
+  catch (e) { warn('[AnimeVault] Could not save collections:', e?.message || e); return false; }
+}
+
 export async function fetchAllCollections() {
-  return [];
+  return readCollections();
 }
 
 export async function fetchUserCollections(userId) {
-  return [];
+  return readCollections().filter(collection => String(collection.user_id) === String(userId));
 }
 
 export async function fetchTrendingCollections() {
-  return [];
+  return readCollections().filter(collection => !collection.is_private).sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0));
 }
 
 export async function fetchCollectionById(id) {
-  return null;
+  return readCollections().find(collection => String(collection.id) === String(id)) || null;
 }
 
 export async function fetchCollectionItems(collectionId) {
-  return [];
+  return (await fetchCollectionById(collectionId))?.items || [];
 }
 
-export async function createCollection(collection) {
-  return { success: true, collection: { ...collection, id: Date.now() } };
+export async function createCollection(userId, username, title, description = '', cover = '', isPrivate = false) {
+  const collection = { id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, user_id: userId, username, title, description, cover, is_private: Boolean(isPrivate), items: [], likes: [], followers: [], created_at: new Date().toISOString() };
+  if (!writeCollections([...readCollections(), collection])) return { success: false, error: 'Could not save this collection on this device.' };
+  return { success: true, ...collection, collection };
 }
 
-export async function updateCollection(id, updates) {
-  return { success: true };
+export async function updateCollection(id, userId, title, description = '', cover = '', isPrivate = false) {
+  const collections = readCollections();
+  const index = collections.findIndex(item => String(item.id) === String(id) && String(item.user_id) === String(userId));
+  if (index < 0) return { success: false, error: 'Collection not found.' };
+  collections[index] = { ...collections[index], title, description, cover, is_private: Boolean(isPrivate), updated_at: new Date().toISOString() };
+  return { success: writeCollections(collections), collection: collections[index] };
 }
 
-export async function deleteCollection(id) {
-  return { success: true };
+export async function deleteCollection(id, userId) {
+  const collections = readCollections();
+  const next = collections.filter(item => String(item.id) !== String(id) || (userId != null && String(item.user_id) !== String(userId)));
+  return { success: writeCollections(next), deleted: next.length !== collections.length };
 }
 
-export async function addItemToCollection(collectionId, item) {
-  return { success: true };
+export async function addItemToCollection(collectionId, mediaId, mediaType = 'anime', title = '', poster = '', score = null, status = null) {
+  const item = mediaId && typeof mediaId === 'object' ? mediaId : { media_id: String(mediaId), media_type: mediaType, title, poster, score, status };
+  const collections = readCollections();
+  const collection = collections.find(entry => String(entry.id) === String(collectionId));
+  if (!collection) return { success: false, error: 'Collection not found.' };
+  const key = String(item.media_id ?? item.id ?? '');
+  if (!key) return { success: false, error: 'An item ID is required.' };
+  if (!Array.isArray(collection.items)) collection.items = [];
+  if (!collection.items.some(entry => String(entry.media_id ?? entry.id) === key)) collection.items.push({ ...item, media_id: key });
+  return { success: writeCollections(collections) };
 }
 
 export async function removeItemFromCollection(collectionId, itemId) {
-  return { success: true };
+  const collections = readCollections();
+  const collection = collections.find(entry => String(entry.id) === String(collectionId));
+  if (!collection) return { success: false, error: 'Collection not found.' };
+  collection.items = (collection.items || []).filter(item => String(item.media_id ?? item.id) !== String(itemId));
+  return { success: writeCollections(collections) };
 }
 
 export async function toggleLikeCollection(collectionId, userId) {
-  return { action: 'liked' };
+  return toggleCollectionRelation(collectionId, userId, 'likes');
 }
 
 export async function toggleFollowCollection(collectionId, userId) {
-  return { action: 'followed' };
+  return toggleCollectionRelation(collectionId, userId, 'followers');
 }
 
 export async function duplicateCollection(collectionId, userId) {
-  return { success: true };
+  const original = await fetchCollectionById(collectionId);
+  if (!original || !userId) return { success: false, error: 'Collection not found.' };
+  const copy = { ...original, id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, user_id: userId, is_private: true, likes: [], followers: [], items: [...(original.items || [])], created_at: new Date().toISOString() };
+  return writeCollections([...readCollections(), copy]) ? { success: true, collection: copy } : { success: false, error: 'Could not duplicate collection.' };
+}
+
+function toggleCollectionRelation(collectionId, userId, relation) {
+  if (userId == null) return { success: false, error: 'Sign in to continue.' };
+  const collections = readCollections();
+  const collection = collections.find(entry => String(entry.id) === String(collectionId));
+  if (!collection) return { success: false, error: 'Collection not found.' };
+  const ids = Array.isArray(collection[relation]) ? collection[relation].map(String) : [];
+  const id = String(userId);
+  const exists = ids.includes(id);
+  collection[relation] = exists ? ids.filter(value => value !== id) : [...ids, id];
+  return writeCollections(collections) ? { success: true, action: exists ? 'removed' : 'added', [relation]: collection[relation] } : { success: false, error: 'Could not save this change.' };
 }
 
 export async function getNotifications() {
