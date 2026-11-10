@@ -144,16 +144,16 @@ jobs:
             fi
           done
           [ "$missing" -eq 0 ]
-      - name: Build and package webOS app
+      - name: Build and package TV OS app
         run: |
           set -euo pipefail
-          npm run webos:package
-          find dist-ipk -maxdepth 1 -type f -name '*.ipk' -print -quit | grep -q .
-      - name: Upload webOS installer
+          npm run package --prefix "TV OS"
+          find "TV OS/dist-ipk" -maxdepth 1 -type f -name '*.ipk' -print -quit | grep -q .
+      - name: Upload TV OS installer
         uses: actions/upload-artifact@v4
         with:
-          name: animevault-LG-webOS-IPK
-          path: dist-ipk/*.ipk
+          name: animevault-TV-OS-IPK
+          path: TV OS/dist-ipk/*.ipk
           if-no-files-found: error
           retention-days: 30
 
@@ -181,10 +181,10 @@ jobs:
         with:
           name: animevault-Linux-installer
           path: release/Linux
-      - name: Download LG webOS installer
+      - name: Download TV OS installer
         uses: actions/download-artifact@v4
         with:
-          name: animevault-LG-webOS-IPK
+          name: animevault-TV-OS-IPK
           path: release/webOS
       - name: Check release asset names
         shell: bash

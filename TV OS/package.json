@@ -1,0 +1,11 @@
+{
+  "name": "animevault-tv-os",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.js",
+    "build": "vite build --config vite.config.js",
+    "package": "node package.cjs"
+  }
+}

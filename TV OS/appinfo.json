@@ -1,0 +1,15 @@
+{
+  "id": "com.animevault.tv",
+  "version": "1.0.0",
+  "type": "web",
+  "main": "index.html",
+  "title": "AnimeVault TV",
+  "icon": "logo.png",
+  "largeIcon": "logo.png",
+  "vendor": "AnimeVault",
+  "appDescription": "AnimeVault rebuilt for television and remote control",
+  "resolution": "1920x1080",
+  "requiredMemory": 192,
+  "requiredACG": [],
+  "disableBackHistoryAPI": false
+}
