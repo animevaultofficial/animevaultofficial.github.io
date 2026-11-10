@@ -5,6 +5,10 @@
 const LOCAL_API_BASE = '/api/allanime';
 const DIRECT_GRAPHQL_ENDPOINT = 'https://api.allanime.day/api';
 
+function canUseLocalApi() {
+  return typeof window !== 'undefined' && ['http:', 'https:'].includes(window.location.protocol);
+}
+
 // Cache show IDs in memory to eliminate redundant searches
 const showIdCache = new Map();
 
@@ -18,22 +22,24 @@ export async function queryAllAnime(query, variables = {}) {
   }
 
   // 1. Try local backend proxy endpoint
-  try {
-    const res = await fetch(`${LOCAL_API_BASE}/graphql`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: activeQuery, variables }),
-    });
+  if (canUseLocalApi()) {
+    try {
+      const res = await fetch(`${LOCAL_API_BASE}/graphql`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: activeQuery, variables }),
+      });
 
-    if (res.ok) {
-      const json = await res.json();
-      if (json?.errors?.length) throw new Error(json.errors[0]?.message || 'AllAnime GraphQL error');
-      if (json?.data) return json.data;
-      if (json?.error) throw new Error(json.error);
-      throw new Error('AllAnime GraphQL response returned no data.');
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.errors?.length) throw new Error(json.errors[0]?.message || 'AllAnime GraphQL error');
+        if (json?.data) return json.data;
+        if (json?.error) throw new Error(json.error);
+        throw new Error('AllAnime GraphQL response returned no data.');
+      }
+    } catch (_) {
+      // Fall back to the public endpoint if the local proxy is unavailable.
     }
-  } catch (_) {
-    // Fallback if local server middleware isn't present
   }
 
   // 2. Direct fetch with required headers
@@ -197,13 +203,17 @@ export async function resolveClockUrl(clockUrl) {
   }
 
   // 1. Try local proxy
-  try {
-    const proxyRes = await fetch(`${LOCAL_API_BASE}/clock?url=${encodeURIComponent(url)}`);
-    if (proxyRes.ok) {
-      const json = await proxyRes.json();
-      if (json && json.links) return json.links;
+  if (canUseLocalApi()) {
+    try {
+      const proxyRes = await fetch(`${LOCAL_API_BASE}/clock?url=${encodeURIComponent(url)}`);
+      if (proxyRes.ok) {
+        const json = await proxyRes.json();
+        if (json && json.links) return json.links;
+      }
+    } catch (_) {
+      // Fall back to the public endpoint if the local proxy is unavailable.
     }
-  } catch (_) {}
+  }
 
   // 2. Direct fetch
   try {

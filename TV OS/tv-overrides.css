@@ -1,39 +1,512 @@
-/* Keep the shared mobile app's full catalog and pages while making TV rails still. */
-html.tv-mode body.tv-mode a:focus,
-html.tv-mode body.tv-mode button:focus,
-html.tv-mode body.tv-mode [role="button"]:focus {
-  transform: none !important;
+html.tv-mode,
+body.tv-mode {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  background: #08090c;
+  color: #f7f7f8;
 }
 
-html.tv-mode body.tv-mode .av-v2-content .auto-train-window {
-  overflow-x: auto !important;
-  overflow-y: visible !important;
-  scrollbar-width: thin;
+html.tv-mode body.tv-mode {
+  margin: 0;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: clip;
+  overflow-y: auto;
+  cursor: none !important;
 }
 
-html.tv-mode body.tv-mode .av-v2-content .auto-train-track {
-  width: max-content !important;
-  animation: none !important;
-  transform: none !important;
-  will-change: auto !important;
+html.tv-mode body.tv-mode *,
+html.tv-mode body.tv-mode *::before,
+html.tv-mode body.tv-mode *::after {
+  box-sizing: border-box;
+  cursor: none !important;
 }
 
-html.tv-mode body.tv-mode .av-v2-content .auto-train-group--copy {
+html.tv-mode body.tv-mode .av-v2-shell {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  overflow: visible;
+  background: #08090c;
+}
+
+html.tv-mode body.tv-mode .av-v2-topbar,
+html.tv-mode body.tv-mode .av-v2-drawer,
+html.tv-mode body.tv-mode .av-v2-drawer-backdrop,
+html.tv-mode body.tv-mode .av-android-bottom-nav {
   display: none !important;
 }
 
-html.tv-mode body.tv-mode .av-v2-content .auto-train-group .anime-card-v2:focus,
-html.tv-mode body.tv-mode .av-v2-content .anime-card-v2:focus,
-html.tv-mode body.tv-mode .av-v2-content .dramas-movies-page .card:focus,
-html.tv-mode body.tv-mode .av-v2-content .dramas-movies-page .gcard:focus {
-  transform: none !important;
-  outline: 3px solid #fff !important;
-  outline-offset: 3px !important;
+html.tv-mode body.tv-mode .tv-navigation-rail {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 1200;
+  display: flex;
+  width: 84px;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 10px;
+  overflow: hidden;
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 0 22px 22px 0;
+  background: rgba(10, 11, 15, .96);
+  box-shadow: 12px 0 36px rgba(0, 0, 0, .28);
+  transition: width .18s ease, padding .18s ease, background .18s ease;
 }
 
-html.tv-mode body.tv-mode .av-v2-content .anime-card-v2:hover,
-html.tv-mode body.tv-mode .av-v2-content .anime-card-v2:hover img,
-html.tv-mode body.tv-mode .av-v2-content .dramas-movies-page .card:hover,
-html.tv-mode body.tv-mode .av-v2-content .dramas-movies-page .card:hover img {
+html.tv-mode body.tv-mode .tv-navigation-rail:focus-within {
+  width: 232px;
+  align-items: stretch;
+  padding-inline: 14px;
+  background: #101116;
+}
+
+html.tv-mode body.tv-mode .tv-navigation-brand {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 16px;
+  background: #17191f;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .3);
+}
+
+html.tv-mode body.tv-mode .tv-navigation-brand img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   transform: none !important;
+}
+
+html.tv-mode body.tv-mode .tv-navigation-items {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+html.tv-mode body.tv-mode .tv-navigation-items::-webkit-scrollbar {
+  display: none;
+}
+
+html.tv-mode body.tv-mode .tv-navigation-rail:focus-within .tv-navigation-items {
+  align-items: stretch;
+}
+
+html.tv-mode body.tv-mode .tv-navigation-item {
+  position: relative;
+  display: flex;
+  width: 56px;
+  min-width: 0;
+  min-height: 54px;
+  flex: 0 0 54px;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 0;
+  padding: 0 15px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: transparent;
+  color: #b7b9c1;
+  transition: width .18s ease, color .16s ease, background .16s ease, border-color .16s ease;
+}
+
+html.tv-mode body.tv-mode .tv-navigation-rail:focus-within .tv-navigation-item {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+html.tv-mode body.tv-mode .tv-navigation-item[aria-current="page"] {
+  border-color: rgba(229, 9, 20, .28);
+  background: rgba(229, 9, 20, .15);
+  color: #fff;
+}
+
+html.tv-mode body.tv-mode .tv-navigation-item[aria-current="page"]::before {
+  position: absolute;
+  inset: 12px auto 12px -1px;
+  width: 4px;
+  border-radius: 0 5px 5px 0;
+  background: #f11b2d;
+  content: "";
+}
+
+html.tv-mode body.tv-mode .tv-navigation-label {
+  display: none;
+  color: inherit;
+  font-size: 15px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+html.tv-mode body.tv-mode .tv-navigation-rail:focus-within .tv-navigation-label {
+  display: inline;
+}
+
+html.tv-mode body.tv-mode .av-v2-content {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0 0 56px 100px;
+  overflow-x: clip;
+  overflow-y: visible;
+  box-sizing: border-box;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2,
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference {
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0 0 42px;
+  overflow: visible;
+  background: #08090c;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-v2 {
+  position: relative;
+  width: 100%;
+  height: clamp(390px, 60vh, 680px);
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #111217;
+  box-shadow: none;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-v2::after {
+  border: 0;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-img-wrapper {
+  position: absolute;
+  inset: 0;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-img-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 35%;
+  filter: saturate(1.05) brightness(.88);
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-overlay-v2 {
+  background:
+    linear-gradient(90deg, #08090c 0%, rgba(8, 9, 12, .91) 20%, rgba(8, 9, 12, .52) 48%, rgba(8, 9, 12, .06) 82%),
+    linear-gradient(0deg, #08090c 0%, rgba(8, 9, 12, .38) 16%, transparent 52%);
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-content-v2 {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 36px clamp(28px, 4vw, 72px);
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-info-v2 {
+  width: min(540px, 48vw);
+  max-width: 540px;
+  gap: 12px;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #ff3b48;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-title-v2 {
+  max-width: 540px;
+  color: #fff;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: clamp(36px, 4.2vw, 68px);
+  line-height: 1.02;
+  letter-spacing: -.035em;
+  text-shadow: 0 3px 24px rgba(0, 0, 0, .48);
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-meta-v2 {
+  gap: 9px;
+  font-size: 15px;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-meta-v2 span {
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 999px;
+  background: rgba(16, 17, 22, .76);
+  font-size: 13px;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-desc-v2 {
+  display: -webkit-box;
+  max-width: 500px;
+  margin: 0;
+  overflow: hidden;
+  color: #e2e2e5;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-btns-v2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-btns-v2 button {
+  min-height: 50px;
+  padding: 0 22px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 750;
+  transition: background .16s ease, color .16s ease, border-color .16s ease;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-btns-v2 .btn-play-v2 {
+  background: #f7f7f8;
+  color: #111217;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-btns-v2 .btn-info-v2 {
+  border-color: rgba(255, 255, 255, .24);
+  background: rgba(55, 56, 62, .8);
+  color: #fff;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .carousel-dots {
+  display: none;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .home-featured-rail,
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .home-main-v2 {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding-right: clamp(24px, 3.5vw, 64px);
+  padding-left: clamp(24px, 3.5vw, 64px);
+  box-sizing: border-box;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .home-featured-rail {
+  position: relative;
+  z-index: 2;
+  margin-top: 0;
+  padding-top: 22px;
+  padding-bottom: 4px;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .home-main-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  padding-top: 24px;
+  padding-bottom: 44px;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .home-featured-heading,
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .section-header-v2 {
+  margin: 0 0 10px;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .home-featured-heading h2,
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .section-header-v2 h2 {
+  color: #f5f5f7;
+  font-size: clamp(19px, 1.5vw, 25px);
+  font-weight: 750;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .section-header-v2 p {
+  color: #a7a8b0;
+  font-size: 14px;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .home-featured-heading > a,
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .section-header-v2 .view-all {
+  display: none;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-window {
+  width: calc(100% + 24px);
+  margin: 0 -12px;
+  padding: 12px 14px 18px;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-x: contain;
+  scroll-behavior: auto;
+  scroll-padding-inline: 14px;
+  scrollbar-width: none;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-window::-webkit-scrollbar {
+  display: none;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-track {
+  display: flex;
+  width: max-content;
+  animation: none !important;
+  transform: none !important;
+  will-change: auto;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-group {
+  display: flex;
+  gap: 14px;
+  padding-right: 14px;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-group--copy {
+  display: none !important;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-group .anime-card-v2 {
+  flex: 0 0 clamp(126px, 11vw, 188px);
+  min-width: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: #fff;
+  text-decoration: none;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-group .card-media {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .09);
+  border-radius: 13px;
+  background: #17181e;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .32);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-group .card-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-group .card-overlay {
+  border-radius: inherit;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-group .card-info {
+  display: block;
+  padding: 9px 3px 0;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-group .card-title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #f0f0f2;
+  font-size: 14px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-group .card-meta {
+  color: #a7a8b0;
+  font-size: 12px;
+}
+
+html.tv-mode body.tv-mode .av-v2-content button,
+html.tv-mode body.tv-mode .av-v2-content [role="button"] {
+  border-radius: 12px;
+}
+
+html.tv-mode body.tv-mode .av-v2-content input,
+html.tv-mode body.tv-mode .av-v2-content select,
+html.tv-mode body.tv-mode .av-v2-content textarea {
+  min-height: 46px;
+  border-radius: 12px;
+}
+
+html.tv-mode body.tv-mode :focus {
+  position: relative;
+  z-index: 30;
+  outline: 3px solid #fff !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 6px rgba(229, 9, 20, .72) !important;
+}
+
+html.tv-mode body.tv-mode a:focus,
+html.tv-mode body.tv-mode button:focus,
+html.tv-mode body.tv-mode [role="button"]:focus,
+html.tv-mode body.tv-mode .anime-card-v2:focus {
+  transform: none !important;
+}
+
+html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-group .anime-card-v2:focus .card-media {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px #e50914, 0 12px 30px rgba(0, 0, 0, .55);
+}
+
+@media (max-width: 1100px) {
+  html.tv-mode body.tv-mode .tv-navigation-rail {
+    width: 72px;
+  }
+
+  html.tv-mode body.tv-mode .av-v2-content {
+    padding-left: 84px;
+  }
+
+  html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-info-v2 {
+    width: min(480px, 54vw);
+  }
+
+  html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .auto-train-group .anime-card-v2 {
+    flex-basis: clamp(118px, 14vw, 158px);
+  }
+}
+
+@media (max-height: 650px) {
+  html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-v2 {
+    height: 58vh;
+    min-height: 340px;
+  }
+
+  html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-info-v2 {
+    gap: 8px;
+  }
+
+  html.tv-mode body.tv-mode .av-v2-content .home-v2-reference .hero-desc-v2 {
+    -webkit-line-clamp: 2;
+  }
 }

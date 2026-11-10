@@ -8,6 +8,7 @@ import { isHentai } from '../utils/animeContent';
 import { useUser } from '../api/UserContext';
 import { isBlockedForProfile, isKidsProfile } from '../utils/ageRating';
 import { isTvRuntime } from '../utils/tvMode';
+import { assetPath } from '../utils/assetPath';
 import { KIDS_ANIME_FEATURES, KIDS_FAMILY_MEDIA } from '../utils/kidsCatalog';
 import '../styles/homepage.css';
 
@@ -33,14 +34,20 @@ const readCache = () => {
 };
 const writeCache = data => { try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {} };
 
-function AutoTrain({ items, label, size = 'standard', renderItem }) {
+function AutoTrain({ items, label, rowId, size = 'standard', renderItem, staticMode = false }) {
   if (!items.length) return null;
-  const canLoop = items.length > 1;
+  const canLoop = items.length > 1 && !staticMode;
   const renderGroup = decorative => <div className={`auto-train-group${size === 'weekly' ? ' auto-train-group--weekly' : ''}${decorative ? ' auto-train-group--copy' : ''}`} aria-hidden={decorative || undefined}>
     {items.map((item, index) => renderItem(item, index, decorative))}
   </div>;
 
-  return <div className={`auto-train-window auto-train-window--${size}`} role="region" aria-label={label}>
+  return <div
+    className={`auto-train-window auto-train-window--${size}`}
+    role="region"
+    aria-label={label}
+    data-tv-scroll-row={staticMode || undefined}
+    data-tv-row={staticMode ? rowId : undefined}
+  >
     <div className={`auto-train-track${canLoop ? '' : ' auto-train-track--static'}`}>
       {renderGroup(false)}
       {canLoop && renderGroup(true)}
@@ -76,33 +83,45 @@ export default function MixedHome({ mobile = false }) {
 
   useEffect(() => {
     let cancelled = false;
+    let pendingRequests = 4;
+    const cacheData = {
+      movies: cached?.movies || [],
+      tvShows: cached?.tvShows || [],
+      anime: cached?.anime || [],
+      animeRecent: cached?.animeRecent || [],
+      slides: cached?.slides || [],
+    };
     setLoading(true);
-    Promise.allSettled([
-      fetchLatestMovies(1),
-      fetchLatestTVShows(1),
-      getAniPMTop('week', 12),
-      getAniPMRecent(1, 12),
-    ]).then(async results => {
-      if (cancelled) return;
-      const rawMovies = results[0]?.status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
-      const rawTvShows = results[1]?.status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
-      const rawAnime = results[2]?.status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value.filter(item => !isHentai(item)) : [];
-      const rawAnimeRecent = results[3]?.status === 'fulfilled' && Array.isArray(results[3].value) ? results[3].value.filter(item => !isHentai(item)) : [];
-      const animeFeatured = rawAnime.slice(0, 2).map(x => ({ ...x, _kind: 'anime' }));
+    const updateSlides = () => {
+      const animeFeatured = cacheData.anime.slice(0, 2).map(item => ({ ...item, _kind: 'anime' }));
       const mediaFeatured = [
-        ...rawMovies.slice(0, 2).map(x => ({ ...x, _kind: 'movie' })),
-        ...rawTvShows.slice(0, 2).map(x => ({ ...x, _kind: 'tv' })),
+        ...cacheData.movies.slice(0, 2).map(item => ({ ...item, _kind: 'movie' })),
+        ...cacheData.tvShows.slice(0, 2).map(item => ({ ...item, _kind: 'tv' })),
       ];
-      const rawFeatured = [...animeFeatured, ...mediaFeatured].slice(0, 5);
-      setMovies(rawMovies);
-      setTvShows(rawTvShows);
-      setAnime(rawAnime);
-      setAnimeRecent(rawAnimeRecent);
-      setSlides(rawFeatured);
+      const featured = [...animeFeatured, ...mediaFeatured].slice(0, 5);
+      cacheData.slides = featured;
+      setSlides(featured);
       setActive(0);
-      setLoading(false);
-      writeCache({ movies: rawMovies, tvShows: rawTvShows, anime: rawAnime, animeRecent: rawAnimeRecent, slides: rawFeatured });
-
+      writeCache(cacheData);
+    };
+    const finishRequest = () => {
+      pendingRequests -= 1;
+      if (!cancelled && pendingRequests === 0) setLoading(false);
+    };
+    const loadCatalog = (request, key, setter, filter = item => item) => {
+      request.then(result => {
+        if (cancelled) return;
+        const items = Array.isArray(result) ? result.filter(filter) : [];
+        cacheData[key] = items;
+        setter(items);
+        updateSlides();
+        if (key === 'anime') enrichFeaturedAnime(cacheData.anime.slice(0, 2));
+      }).catch(error => {
+        console.warn(`[AnimeVault] Could not load the ${key} home row:`, error);
+      }).finally(finishRequest);
+    };
+    const enrichFeaturedAnime = async animeFeatured => {
+      if (!animeFeatured.length) return;
       const animeBackdropResults = await Promise.allSettled(animeFeatured.map(async item => {
         const title = item.title?.english || item.title?.romaji || item.title?.native || item.title || item.name || '';
         const alternateTitles = [item.nativeTitle, item.title?.romaji, item.title?.native, item.title?.english].filter(Boolean);
@@ -128,21 +147,28 @@ export default function MixedHome({ mobile = false }) {
         return { ...item, backdrop: tmdbBackdrop || providerBanner || item.poster || '' };
       }));
 
-      if (!cancelled) {
-        const backdropById = new Map(animeBackdropResults
-          .filter(result => result.status === 'fulfilled')
-          .map(result => [String(result.value.anilistId || result.value.id), result.value.backdrop]));
-        const enrichedSlides = rawFeatured.map(item => {
+      if (cancelled) return;
+      const backdropById = new Map(animeBackdropResults
+        .filter(result => result.status === 'fulfilled')
+        .map(result => [String(result.value.anilistId || result.value.id), result.value.backdrop]));
+      setSlides(currentSlides => {
+        const enrichedSlides = currentSlides.map(item => {
           if (item._kind !== 'anime') return item;
           const backdrop = backdropById.get(String(item.anilistId || item.id));
           return backdrop ? { ...item, backdrop } : item;
         });
-        setSlides(enrichedSlides);
-        writeCache({ movies: rawMovies, tvShows: rawTvShows, anime: rawAnime, animeRecent: rawAnimeRecent, slides: enrichedSlides });
-      }
-    }).catch(() => { if (!cancelled) setLoading(false); });
+        cacheData.slides = enrichedSlides;
+        writeCache(cacheData);
+        return enrichedSlides;
+      });
+    };
+
+    loadCatalog(fetchLatestMovies(1), 'movies', setMovies);
+    loadCatalog(fetchLatestTVShows(1), 'tvShows', setTvShows);
+    loadCatalog(getAniPMTop('week', 12), 'anime', setAnime, item => !isHentai(item));
+    loadCatalog(getAniPMRecent(1, 12), 'animeRecent', setAnimeRecent, item => !isHentai(item));
     return () => { cancelled = true; };
-  }, [activeSubAccount]);
+  }, [activeSubAccount, cached]);
 
   useEffect(() => {
     if (tvRuntime || heroPaused || slides.length < 2) return undefined;
@@ -156,7 +182,7 @@ export default function MixedHome({ mobile = false }) {
   const mediaKind = kind === 'tv' ? 'tv' : 'movie';
   const id = isAnime ? slide?.anilistId : (slide?.tmdbId || slide?.id);
   const title = slide?.title?.english || slide?.title?.romaji || slide?.title?.native || slide?.title || slide?.name || 'AnimeVault';
-  const image = slide?.backdrop || slide?.banner || slide?.poster || slide?.coverImage?.extraLarge || '/logo.png';
+  const image = slide?.backdrop || slide?.banner || slide?.poster || slide?.coverImage?.extraLarge || assetPath('logo.png');
   const detailsPath = (item, type) => {
     const mediaId = item?.tmdbId || item?.id;
     return mediaId ? `/media/${type === 'movie' ? 'movie' : 'tv'}/${mediaId}` : '/';
@@ -210,10 +236,10 @@ export default function MixedHome({ mobile = false }) {
             {isAnime && slide.format && <span>{slide.format}</span>}
           </div>
           <p className="hero-desc-v2">{slide.overview || slide.description || (isAnime ? 'Discover trending anime on AnimeVault.' : 'Watch movies and TV shows on AnimeVault.')}</p>
-          <div className="hero-btns-v2">
+          {!tvRuntime && <div className="hero-btns-v2">
             <button type="button" className="btn-play-v2" onClick={() => navigate(watchPath)}><Play size={18} fill="currentColor" /> Play</button>
             <button type="button" className="btn-info-v2" onClick={() => navigate(infoPath)}><Info size={18} /> More info</button>
-          </div>
+          </div>}
         </div></div>
       </div>}
       {!slide && <div className="home-hero-empty" role="status">
@@ -233,28 +259,29 @@ export default function MixedHome({ mobile = false }) {
       <AutoTrain
         items={anime.slice(0, 8)}
         label="Top weekly anime"
+        rowId="weekly-anime"
         size="weekly"
+        staticMode={tvRuntime}
         renderItem={(item, index, decorative) => <Card key={`${decorative ? 'weekly-copy' : 'weekly'}-${item.anilistId}-${index}`} item={item} type="anime" decorative={decorative} />}
       />
     </section>}
 
     <div className="home-main-v2">
-      {loading ? <div className="section-loading">Loading AnimeVault…</div> : <>
-        <div className="section-v2">
-          <div className="section-header-v2"><div><h2><Play size={19} /> Recently Added Anime</h2><p>Fresh anime now available to watch.</p></div><Link to="/anime" className="view-all">Browse Anime <ChevronRight size={18} /></Link></div>
-          <AutoTrain items={animeRecent.slice(0, 12)} label="Recently added anime" renderItem={(x, i, decorative) => <Card key={`${decorative ? 'recent-copy' : 'recent'}-${x.anilistId}-${i}`} item={x} type="anime" decorative={decorative} />} />
-        </div>
+      {loading && !animeRecent.length && !movies.length && !tvShows.length && <div className="section-loading">Loading AnimeVault…</div>}
+      {animeRecent.length > 0 && <div className="section-v2">
+        <div className="section-header-v2"><div><h2><Play size={19} /> Recently Added Anime</h2><p>Fresh anime now available to watch.</p></div><Link to="/anime" className="view-all">Browse Anime <ChevronRight size={18} /></Link></div>
+        <AutoTrain items={animeRecent.slice(0, 12)} label="Recently added anime" rowId="recent-anime" staticMode={tvRuntime} renderItem={(x, i, decorative) => <Card key={`${decorative ? 'recent-copy' : 'recent'}-${x.anilistId}-${i}`} item={x} type="anime" decorative={decorative} />} />
+      </div>}
 
-        <div className="section-v2">
-          <div className="section-header-v2"><div><h2><Film size={19} /> Movies</h2><p>Latest movies and top picks.</p></div><Link to="/dramas-movies" className="view-all">Explore Movies <ChevronRight size={18} /></Link></div>
-          <AutoTrain items={movies.slice(0, 12)} label="Movies" renderItem={(x, index, decorative) => <Card key={`${decorative ? 'movie-copy' : 'movie'}-${x.id}-${index}`} item={x} type="movie" decorative={decorative} />} />
-        </div>
+      {movies.length > 0 && <div className="section-v2">
+        <div className="section-header-v2"><div><h2><Film size={19} /> Movies</h2><p>Latest movies and top picks.</p></div>{!tvRuntime && <Link to="/dramas-movies" className="view-all">Explore Movies <ChevronRight size={18} /></Link>}</div>
+        <AutoTrain items={movies.slice(0, 12)} label="Movies" rowId="movies" staticMode={tvRuntime} renderItem={(x, index, decorative) => <Card key={`${decorative ? 'movie-copy' : 'movie'}-${x.id}-${index}`} item={x} type="movie" decorative={decorative} />} />
+      </div>}
 
-        <div className="section-v2">
-          <div className="section-header-v2"><div><h2><Tv size={19} /> TV Shows</h2><p>Popular series and dramas.</p></div><Link to="/dramas-movies" className="view-all">Explore Shows <ChevronRight size={18} /></Link></div>
-          <AutoTrain items={tvShows.slice(0, 12)} label="TV shows" renderItem={(x, index, decorative) => <Card key={`${decorative ? 'tv-copy' : 'tv'}-${x.id}-${index}`} item={x} type="tv" decorative={decorative} />} />
-        </div>
-      </>}
+      {tvShows.length > 0 && <div className="section-v2">
+        <div className="section-header-v2"><div><h2><Tv size={19} /> TV Shows</h2><p>Popular series and dramas.</p></div>{!tvRuntime && <Link to="/dramas-movies" className="view-all">Explore Shows <ChevronRight size={18} /></Link>}</div>
+        <AutoTrain items={tvShows.slice(0, 12)} label="TV shows" rowId="tv-shows" staticMode={tvRuntime} renderItem={(x, index, decorative) => <Card key={`${decorative ? 'tv-copy' : 'tv'}-${x.id}-${index}`} item={x} type="tv" decorative={decorative} />} />
+      </div>}
     </div>
   </section>;
 }

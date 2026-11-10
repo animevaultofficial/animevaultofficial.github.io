@@ -5,6 +5,10 @@
 const LOCAL_API_BASE = '/api/allanime';
 const DIRECT_GRAPHQL_ENDPOINT = 'https://api.allanime.day/api';
 
+function canUseLocalApi() {
+  return typeof window !== 'undefined' && ['http:', 'https:'].includes(window.location.protocol);
+}
+
 const showIdCache = new Map();
 
 export async function queryAllAnime(query, variables = {}) {
@@ -13,20 +17,22 @@ export async function queryAllAnime(query, variables = {}) {
     activeQuery = activeQuery.replace('TranslationType!', 'VaildTranslationTypeEnumType!');
   }
 
-  try {
-    const res = await fetch(`${LOCAL_API_BASE}/graphql`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: activeQuery, variables }),
-    });
+  if (canUseLocalApi()) {
+    try {
+      const res = await fetch(`${LOCAL_API_BASE}/graphql`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: activeQuery, variables }),
+      });
 
-    if (res.ok) {
-      const json = await res.json();
-      if (json?.errors?.length) throw new Error(json.errors[0]?.message || 'AllAnime GraphQL error');
-      if (json?.data) return json.data;
-      if (json?.error) throw new Error(json.error);
-    }
-  } catch (_) {}
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.errors?.length) throw new Error(json.errors[0]?.message || 'AllAnime GraphQL error');
+        if (json?.data) return json.data;
+        if (json?.error) throw new Error(json.error);
+      }
+    } catch (_) {}
+  }
 
   try {
     const res = await fetch(DIRECT_GRAPHQL_ENDPOINT, {
@@ -166,13 +172,15 @@ export async function resolveClockUrl(clockUrl) {
     url = `https://allanime.day${url}`;
   }
 
-  try {
-    const proxyRes = await fetch(`${LOCAL_API_BASE}/clock?url=${encodeURIComponent(url)}`);
-    if (proxyRes.ok) {
-      const json = await proxyRes.json();
-      if (json && json.links) return json.links;
-    }
-  } catch (_) {}
+  if (canUseLocalApi()) {
+    try {
+      const proxyRes = await fetch(`${LOCAL_API_BASE}/clock?url=${encodeURIComponent(url)}`);
+      if (proxyRes.ok) {
+        const json = await proxyRes.json();
+        if (json && json.links) return json.links;
+      }
+    } catch (_) {}
+  }
 
   try {
     const directRes = await fetch(url, {

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bell, CalendarDays, ChevronRight, Download, Heart, Home, Library, Menu, Search, Settings, UserCircle, Users, X, History, Tv, BarChart3, Info } from 'lucide-react';
+import { Bell, CalendarDays, ChevronRight, Download, Heart, Home, Library, Menu, Search, Settings, UserCircle, Users, X, History, Tv, BarChart3, Info, Clapperboard } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { App as CapacitorApp } from '@capacitor/app';
 import RequireAuth from '../components/RequireAuth';
@@ -29,13 +29,46 @@ import SetNewPassword from '../pages/SetNewPassword';
 import { useUser } from '../api/UserContext';
 import { applyAccentColor, applyTheme } from '../utils/appearance';
 import { storage } from '../utils/storage';
+import { isTvRuntime } from '../utils/tvMode';
+import { assetPath } from '../utils/assetPath';
 import './styles/tokens.css'; import './styles/base.css'; import './styles/typography.css'; import './styles/animations.css'; import './styles/utilities.css'; import './styles/mobile-native.css'; import './styles/account.css'; import './styles/safe-area.css'; import './mobile-android-design.css'; import './mobile-v2.css'; import './mobile-v2-shell.css'; import './mobile-v2-details.css'; import './mobile-v2-player.css'; import './mobile-v2-library.css'; import './mobile-v2-downloads.css'; import './mobile-v2-notifications.css'; import './mobile-v2-community.css'; import './mobile-v2-profile.css'; import './mobile-v2-settings.css'; import './mobile-v2-schedule.css'; import './mobile-v2-account.css'; import './styles/android-v3.css'; import './styles/android-v4-fixes.css'; import './styles/android-appearance.css'; import './styles/android-static-pages.css'; import './tv-mode.css';
 const DISCOVER = [['Home', Home, '/'], ['Search', Search, '/search'], ['Library', Library, '/collections'], ['Dramas & Movies', Tv, '/dramas-movies']];
 const VAULT = [['Continue Watching', History, '/collections'], ['Favorites', Heart, '/collections'], ['Downloads', Download, '/download'], ['Notifications', Bell, '/notifications'], ['Community', Users, '/community']];
-const TV_NAV = [['Home', Home, '/'], ['Search', Search, '/search'], ['Movies & shows', Tv, '/dramas-movies'], ['Library', Library, '/collections'], ['Schedule', CalendarDays, '/schedule'], ['Downloads', Download, '/download'], ['Notifications', Bell, '/notifications'], ['Profile', UserCircle, '/profile'], ['Settings', Settings, '/settings']];
+const TV_NAV = [['Home', Home, '/'], ['Anime', Clapperboard, '/anime'], ['Movies & TV', Tv, '/dramas-movies'], ['Search', Search, '/search'], ['Library', Library, '/collections'], ['Schedule', CalendarDays, '/schedule'], ['Downloads', Download, '/download'], ['Notifications', Bell, '/notifications'], ['Profile', UserCircle, '/profile'], ['Settings', Settings, '/settings']];
+const APP_LOGO = assetPath('logo.png');
 function TvNavigationRail({ pathname, navigate }) {
   const active = path => path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(`${path}/`);
-  return <nav className="tv-navigation-rail" aria-label="Main navigation"><div className="tv-navigation-brand"><img src="/logo.png" alt="AnimeVault" /></div><div className="tv-navigation-items">{TV_NAV.map(([label, Icon, path]) => <button key={path} type="button" className="tv-navigation-item" aria-label={label} title={label} aria-current={active(path) ? 'page' : undefined} onClick={() => navigate(path)}><Icon size={23} aria-hidden="true" /></button>)}</div></nav>;
+  return (
+    <nav className="tv-navigation-rail" aria-label="TV navigation">
+      <button
+        className="tv-navigation-brand"
+        type="button"
+        aria-label="AnimeVault home"
+        title="AnimeVault home"
+        tabIndex={0}
+        onClick={() => navigate('/')}
+      >
+        <img src={APP_LOGO} alt="" />
+      </button>
+      <div className="tv-navigation-items" role="group" aria-label="Main destinations">
+        {TV_NAV.map(([label, Icon, path]) => (
+          <button
+            key={path}
+            type="button"
+            className="tv-navigation-item"
+            aria-label={label}
+            title={label}
+            aria-current={active(path) ? 'page' : undefined}
+            tabIndex={0}
+            onClick={() => navigate(path)}
+          >
+            <Icon size={23} aria-hidden="true" />
+            <span className="tv-navigation-label">{label}</span>
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
 }
 function MobileAnimeUnavailable({ id, navigate }) {
   const mobileNavigate = (route, params = {}) => {
@@ -65,6 +98,7 @@ function LegacyPage({ children, className = '' }) { return <div className={`av-m
 function MobileStats() { const { history = [], likes = [], continueWatching = [] } = useUser(); const countType = type => [...history, ...likes, ...continueWatching].filter(item => String(item?.media_type || item?.mediaType || item?.type || '').toLowerCase() === type).length; return <div className="av-mobile-page" style={{ padding: 16 }}><span className="av-eyebrow-v2">YOUR VAULT</span><h1 style={{ margin: '4px 0 6px' }}>Stats</h1><p style={{ color: 'var(--av-muted)', marginTop: 0 }}>Your movie and series activity at a glance.</p><div className="av-profile-stats" style={{ marginTop: 18 }}><div className="av-profile-stat"><strong>{history.length}</strong><span>History</span></div><div className="av-profile-stat"><strong>{continueWatching.length}</strong><span>Progress</span></div><div className="av-profile-stat"><strong>{likes.length}</strong><span>Favorites</span></div><div className="av-profile-stat"><strong>{countType('movie') + countType('tv')}</strong><span>Movie / TV</span></div></div><div className="av-profile-empty" style={{ marginTop: 14 }}><BarChart3 size={28}/><strong>Keep watching to build your stats</strong><span>Anime statistics are unavailable while that catalog is disabled.</span></div></div>; }
 export default function AppMobile() {
   const [drawerOpen, setDrawerOpen] = useState(false); const [headerHidden, setHeaderHidden] = useState(false); const location = useLocation(); const navigate = useNavigate();
+  const isTvMode = isTvRuntime();
   const menuTriggerRef = useRef(null);
   const drawerRef = useRef(null);
   const headerRef = useRef(null);
@@ -147,9 +181,9 @@ export default function AppMobile() {
   const mobileMediaMatch = location.pathname.match(/^\/(?:media|watch)\/(movie|tv|series)\/([^/]+)$/);
   const dramaMatch = location.pathname.match(/^\/drama\/([^/]+)$/);
   let content = <MixedHome mobile />;
-  if (animeWatchMatch) content = <RequireAuth><AnimeWatch mediaId={animeWatchMatch[1]} /></RequireAuth>;
+  if (animeWatchMatch) content = <RequireAuth showLoginModal={!isTvMode} allowAnonymous={isTvMode}><AnimeWatch mediaId={animeWatchMatch[1]} /></RequireAuth>;
   else if (location.pathname === '/anime' || animeDetailMatch) content = <MobileAnimeUnavailable id={animeDetailMatch?.[1]} navigate={navigate} />;
-  else if (mobileMediaMatch?.[0].startsWith('/watch/')) content = <RequireAuth><MobileWatchRoute id={mobileMediaMatch[2]} kind={mobileMediaMatch[1]} navigate={navigate} search={location.search} /></RequireAuth>;
+  else if (mobileMediaMatch?.[0].startsWith('/watch/')) content = <RequireAuth showLoginModal={!isTvMode} allowAnonymous={isTvMode}><MobileWatchRoute id={mobileMediaMatch[2]} kind={mobileMediaMatch[1]} navigate={navigate} search={location.search} /></RequireAuth>;
   else if (mobileMediaMatch) content = <DramaDetailPage params={{ id: mobileMediaMatch[2], mediaType: mobileMediaMatch[1] === 'movie' ? 'movie' : 'tv' }} goBack={() => navigate(-1)} navigate={mobileNavigate} />;
   else if (dramaMatch) content = <MobileDramaDetails id={dramaMatch[1]} navigate={mobileNavigate} search={location.search} />;
   else if (location.pathname === '/search') content = <WebSearch />;
@@ -161,7 +195,7 @@ export default function AppMobile() {
   else if (location.pathname === '/profile' || /^\/profile\/[^/]+(?:\/.*)?$/.test(location.pathname)) content = <ProfilePage navigate={mobileNavigate} />;
   else if (location.pathname === '/settings') content = <SettingsPage goBack={() => navigate(-1)} />;
   else if (location.pathname === '/dramas-movies') content = <DramasMoviesPage navigate={mobileNavigate} />;
-  else if (location.pathname === '/stats') content = <RequireAuth><MobileStats /></RequireAuth>;
+  else if (location.pathname === '/stats') content = <RequireAuth showLoginModal={!isTvMode} allowAnonymous={isTvMode}><MobileStats /></RequireAuth>;
   else if (location.pathname === '/about') content = <LegacyPage><About /></LegacyPage>;
   else if (location.pathname === '/contact') content = <LegacyPage><StaticPages page="contact" /></LegacyPage>;
   else if (location.pathname === '/faq') content = <LegacyPage><StaticPages page="faq" /></LegacyPage>;

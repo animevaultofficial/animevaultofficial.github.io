@@ -2,15 +2,17 @@
 import { useEffect } from 'react';
 import { useUser } from '../api/UserContext';
 
-export default function RequireAuth({ children }) {
+export default function RequireAuth({ children, showLoginModal = true, allowAnonymous = false }) {
   const { user, authLoading, setShowAuthModal, setAuthTab } = useUser();
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (showLoginModal && !authLoading && !user) {
       setAuthTab('login');
       setShowAuthModal(true);
     }
-  }, [authLoading, user, setAuthTab, setShowAuthModal]);
+  }, [authLoading, showLoginModal, user, setAuthTab, setShowAuthModal]);
+
+  if (allowAnonymous) return children;
 
   if (authLoading) {
     return (
@@ -35,7 +37,7 @@ export default function RequireAuth({ children }) {
           Login to Continue
         </h2>
         <p style={{ color: '#94a3b8', fontSize: '1rem' }}>
-          You need to be logged in to use this feature.
+          {showLoginModal ? 'You need to be logged in to use this feature.' : 'Sign in from the menu to use this feature.'}
         </p>
       </div>
     );

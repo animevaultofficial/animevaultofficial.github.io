@@ -83,6 +83,7 @@
 }
 
 .anime-player-video-wrap {
+  position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
@@ -107,6 +108,54 @@
   height: 100%;
   border: 0;
   background: #000;
+}
+
+.anime-player-embed-notice {
+  position: absolute;
+  inset: auto 16px 16px;
+  z-index: 1;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 10px;
+  background: rgba(8, 9, 13, .94);
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.anime-player-server-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.anime-player-server-picker button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06);
+  color: #dedee3;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.anime-player-server-picker button.active,
+.anime-player-server-picker button:focus-visible {
+  border-color: var(--brand-color, #ff397d);
+  background: color-mix(in srgb, var(--brand-color, #ff397d) 22%, #090a0e);
+  color: #fff;
+  outline: 2px solid rgba(255, 255, 255, .85);
+  outline-offset: 2px;
+}
+
+.anime-player-server-picker span {
+  color: #a7a7b2;
+  font-size: 12px;
 }
 
 .anime-player-progress-track {

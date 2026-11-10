@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Expand, ListVideo, Maximize, Moon, Play, Search, Share2 } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { getAniPMSeries, getAniPMTitle, aniPMEmbedUrl } from '../api/anipm';
+import { fetchShowId as fetchAllAnimeShowId, getDecodedEpisodeSources } from '../api/allanime';
 import { fetchAnimeEpisodeThumbnails } from '../api/movies';
 import { fetchEpisodeThumbnails } from '../api/jikan';
 import { useUser } from '../api/UserContext';
@@ -59,6 +60,10 @@ export default function AnimeWatch({ mediaId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [playerState, setPlayerState] = useState(null);
+  const [providerServers, setProviderServers] = useState([]);
+  const [selectedServer, setSelectedServer] = useState('ani-pm');
+  const [serversLoading, setServersLoading] = useState(false);
+  const [embedNotice, setEmbedNotice] = useState('');
   const [shareMessage, setShareMessage] = useState('');
   const [query, setQuery] = useState('');
   const [audioFilter, setAudioFilter] = useState('all');
@@ -187,16 +192,79 @@ export default function AnimeWatch({ mediaId }) {
         start: progress > 5 ? Math.floor(progress) : 0,
       })
     : '';
+  const selectedServerSource = providerServers.find(source => source.id === selectedServer);
+  const activeEmbedSrc = selectedServer === 'ani-pm' ? frameSrc : (selectedServerSource?.url || frameSrc);
   const playbackPercent = playerState?.duration
     ? Math.min(100, Math.max(0, (Number(playerState.currentTime || 0) / Number(playerState.duration)) * 100))
     : 0;
 
   useEffect(() => {
+    if (!series || !current) {
+      setProviderServers([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setServersLoading(true);
+    setProviderServers([]);
+    setSelectedServer('ani-pm');
+    setEmbedNotice('');
+
+    (async () => {
+      try {
+        const showId = await fetchAllAnimeShowId(
+          series.title || '',
+          series.englishTitle || '',
+          series.nativeTitle || ''
+        );
+        if (!showId) return;
+
+        const sources = await getDecodedEpisodeSources(showId, effectiveLang, String(current.number));
+        if (cancelled) return;
+        const seen = new Set();
+        const embeds = sources.flatMap((source, index) => {
+          if (source.type !== 'iframe') return [];
+          try {
+            const url = new URL(source.url);
+            if (!['https:', 'http:'].includes(url.protocol)) return [];
+            const id = `${source.serverName || 'Server'}-${index}`;
+            if (seen.has(url.href)) return [];
+            seen.add(url.href);
+            return [{ id, name: source.serverName || `Server ${index + 1}`, url: url.href }];
+          } catch {
+            return [];
+          }
+        });
+        setProviderServers(embeds);
+      } catch (serverError) {
+        if (!cancelled) console.warn('[AnimeVault] Alternate anime embed servers unavailable:', serverError);
+      } finally {
+        if (!cancelled) setServersLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [series, current?.number, effectiveLang]);
+
+  useEffect(() => {
     const onMessage = event => {
       if (event.origin !== ORIGIN || event.source !== frameRef.current?.contentWindow) return;
       const data = event.data;
+      if (data?.event === 'notice' && data.data?.code === 'sandboxed') {
+        setEmbedNotice('Ani.pm cannot run in this embedded TV player. Select another server.');
+        return;
+      }
       if (!data || data.ns !== 'anipm.player' || data.v !== 1) return;
       if (data.event) {
+        if (data.event === 'error') {
+          const messages = {
+            sandboxed: 'Ani.pm cannot run in this embedded TV player. Select another server.',
+            'media-unavailable': 'Ani.pm could not play this episode. Try another server or audio track.',
+          };
+          setEmbedNotice(messages[data.data?.code] || 'The selected Ani.pm stream could not be played.');
+        } else if (data.event !== 'timeupdate') {
+          setEmbedNotice('');
+        }
         setPlayerState(data.data || {});
         if (data.event === 'timeupdate' && data.data?.currentTime != null) {
           saveProgress(storageKey(id, episode, effectiveLang), data.data.currentTime);
@@ -232,6 +300,7 @@ export default function AnimeWatch({ mediaId }) {
   }, []);
 
   const send = (cmd, args = {}) => {
+    if (selectedServer !== 'ani-pm') return;
     frameRef.current?.contentWindow?.postMessage({ ns: 'anipm.player', v: 1, cmd, args }, ORIGIN);
   };
 
@@ -310,13 +379,33 @@ export default function AnimeWatch({ mediaId }) {
         <div className="anime-player-video-wrap">
           <iframe
             ref={frameRef}
-            key={frameSrc}
-            src={frameSrc}
+            key={`${selectedServer}:${activeEmbedSrc}`}
+            src={activeEmbedSrc}
             title={`${title} episode ${current.number}`}
             className="anime-player-iframe"
-            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media; screen-wake-lock"
             allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            onLoad={() => {
+              window.setTimeout(() => {
+                try {
+                  if (frameRef.current?.contentDocument?.URL === 'about:blank') {
+                    setEmbedNotice('This server blocked playback inside the TV app. Select another server.');
+                  } else {
+                    setEmbedNotice('');
+                  }
+                } catch {
+                  setEmbedNotice('');
+                }
+              }, 300);
+            }}
           />
+          {embedNotice && <div className="anime-player-embed-notice" role="status">{embedNotice}</div>}
+        </div>
+        <div className="anime-player-server-picker" role="group" aria-label="Anime playback servers">
+          <button type="button" className={selectedServer === 'ani-pm' ? 'active' : ''} aria-pressed={selectedServer === 'ani-pm'} onClick={() => { setSelectedServer('ani-pm'); setEmbedNotice(''); }}>Ani.pm</button>
+          {providerServers.map(source => <button key={source.id} type="button" className={selectedServer === source.id ? 'active' : ''} aria-pressed={selectedServer === source.id} onClick={() => { setSelectedServer(source.id); setEmbedNotice(''); }}>{source.name}</button>)}
+          {serversLoading && <span role="status">Finding servers…</span>}
         </div>
         <div className="anime-player-progress-track"><span style={{ width: `${playbackPercent}%` }} /></div>
         <div className="anime-player-toolbar">

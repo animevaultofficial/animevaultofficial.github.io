@@ -7,8 +7,9 @@ export function isTvRuntime() {
   const screenHeight = window.screen?.height || window.innerHeight || 0;
   const androidTvViewport = /android/i.test(ua) && Number(navigator.maxTouchPoints || 0) <= 1 &&
     screenWidth >= 960 && screenWidth / Math.max(screenHeight, 1) >= 1.5;
+  const tvUserAgent = /web0s|webos|lg browser|smart-tv|smarttv|netcast|tizen|bravia|hbbtv|android[^)]*(?:tv|leanback)|googletv|google tv|fire tv|aft[a-z0-9]+|shield android tv|silk|appletv|apple\s*tv|tv\s*os|tvos|roku/i;
   return outerQuery.get('tv') === '1' || hashQuery.get('tv') === '1' ||
-    /web0s|webos|lg browser|smart-tv|smarttv|netcast|tizen|bravia|hbbtv|android[^)]*(?:tv|leanback)|googletv|google tv|fire tv|aft[a-z0-9]+|shield android tv|silk|appletv|roku/i.test(ua) ||
+    tvUserAgent.test(ua) ||
     androidTvViewport;
 }
 

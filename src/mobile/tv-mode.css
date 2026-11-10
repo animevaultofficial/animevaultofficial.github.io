@@ -312,6 +312,27 @@ body.tv-mode button:focus {
   margin: -18px -24px 0;
   padding: 18px 24px 24px;
   box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+  scroll-padding-inline: 24px;
+  scrollbar-width: none;
+}
+
+.tv-mode .av-v2-content .auto-train-window::-webkit-scrollbar {
+  display: none;
+}
+
+.tv-mode .av-v2-content .auto-train-track {
+  width: max-content;
+  transform: none !important;
+  animation: none !important;
+  will-change: auto;
+}
+
+.tv-mode .av-v2-content .auto-train-group--copy {
+  display: none;
 }
 
 .tv-mode .av-v2-content .auto-train-group .anime-card-v2:focus {
@@ -565,5 +586,502 @@ body.tv-mode button:focus {
 
   .tv-mode .av-v2-content .auto-train-track {
     animation: none !important;
+  }
+}
+
+.tv-mode .av-v2-content .dramas-movies-page {
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 22px 30px 64px;
+}
+
+.tv-mode .dramas-movies-page .featured-showcase {
+  margin: 0 0 20px;
+}
+
+.tv-mode .dramas-movies-page .hero {
+  height: clamp(250px, 36vh, 310px) !important;
+  min-height: 250px;
+  padding: 30px 36px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 16px;
+  background-position: center 38%;
+}
+
+.tv-mode .dramas-movies-page .hero::after {
+  background: linear-gradient(90deg, rgba(0, 0, 0, .88), rgba(0, 0, 0, .52) 48%, rgba(0, 0, 0, .08));
+}
+
+.tv-mode .dramas-movies-page .hc {
+  max-width: 720px;
+}
+
+.tv-mode .dramas-movies-page .hbadge {
+  margin-bottom: 10px;
+  padding: 5px 10px;
+  font-size: 13px;
+}
+
+.tv-mode .dramas-movies-page .htitle {
+  max-width: 700px;
+  margin-bottom: 8px;
+  font-size: clamp(34px, 3.2vw, 48px);
+  line-height: 1.08;
+}
+
+.tv-mode .dramas-movies-page .hsub,
+.tv-mode .dramas-movies-page .hc p {
+  font-size: 16px !important;
+}
+
+.tv-mode .dramas-movies-page .hc p {
+  max-width: 620px;
+  max-height: 46px !important;
+  margin: 10px 0 14px !important;
+}
+
+.tv-mode .dramas-movies-page .hero .hc button {
+  min-height: 46px;
+  padding-inline: 20px !important;
+  border-radius: 10px !important;
+  font-size: 15px !important;
+}
+
+.tv-mode .dramas-movies-page .hdots {
+  right: 24px;
+  bottom: 20px;
+}
+
+.tv-mode .av-v2-content .dramas-movies-page > .sec {
+  margin-bottom: 16px;
+  padding: 0 !important;
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .search-bar {
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 12px;
+  background: #111318;
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .search-bar input {
+  min-height: 50px;
+  font-size: 16px;
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .tbar {
+  width: 100%;
+  max-width: none;
+  gap: 12px;
+  margin: 0 0 20px !important;
+  padding: 0 0 8px !important;
+  border-bottom: 1px solid #303238 !important;
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .titem {
+  min-height: 48px;
+  padding: 0 14px 10px;
+  font-size: 17px;
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .shdr {
+  margin-bottom: 10px;
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .sttl {
+  gap: 9px;
+  font-size: 19px;
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .hscroll {
+  gap: 14px;
+  padding: 8px 8px 18px;
+}
+
+.tv-mode .dramas-movies-page .card {
+  flex-basis: 152px;
+  width: 152px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 10px;
+  background: #111318;
+}
+
+.tv-mode .dramas-movies-page .card-img {
+  height: 224px;
+}
+
+.tv-mode .dramas-movies-page .card-body {
+  min-height: 68px;
+  padding: 9px 10px 10px;
+}
+
+.tv-mode .dramas-movies-page .card-title,
+.tv-mode .dramas-movies-page .gcard-title {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.tv-mode .dramas-movies-page .card-sub,
+.tv-mode .dramas-movies-page .gcard-meta {
+  font-size: 12px;
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .media-all-grid,
+.tv-mode .av-v2-content .dramas-movies-page .g3.media-all-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  align-items: start;
+  gap: 18px;
+  overflow: visible;
+  padding: 8px 8px 24px;
+}
+
+.tv-mode .dramas-movies-page .media-all-grid > .gcard {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 10px;
+  background: #111318;
+}
+
+.tv-mode .dramas-movies-page .media-all-grid .gcard-img {
+  height: auto;
+  aspect-ratio: 2 / 3;
+}
+
+.tv-mode .dramas-movies-page .gcard-title {
+  padding: 9px 10px 4px;
+}
+
+.tv-mode .dramas-movies-page .gcard-meta {
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  padding: 0 10px 10px;
+}
+
+.tv-mode .dramas-movies-page .g3:not(.media-all-grid) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 18px;
+}
+
+.tv-mode .dramas-movies-page .g3:not(.media-all-grid) .gcard {
+  width: 100%;
+  min-width: 0;
+}
+
+.tv-mode .dramas-movies-page .g3:not(.media-all-grid) .gcard-img {
+  height: auto;
+  aspect-ratio: 2 / 3;
+}
+
+.tv-mode .dramas-movies-page .gcard:focus,
+.tv-mode .dramas-movies-page .card:focus {
+  z-index: 31;
+  transform: scale(1.035);
+  outline: 3px solid #fff !important;
+  outline-offset: 3px;
+}
+
+.tv-mode .dramas-movies-page .hero {
+  animation: tv-featured-enter .45s cubic-bezier(.2, .75, .25, 1) both;
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .tbar {
+  align-items: center;
+  gap: 8px;
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .titem {
+  position: relative;
+  min-height: 48px;
+  padding: 0 16px 10px;
+  border-radius: 8px 8px 0 0;
+  transition: color .18s ease, background-color .18s ease, transform .18s ease;
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .titem::after {
+  position: absolute;
+  right: 16px;
+  bottom: -1px;
+  left: 16px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: #e50914;
+  content: "";
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform .24s cubic-bezier(.2, .75, .25, 1);
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .titem.active {
+  color: #fff;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, 0));
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .titem.active::after {
+  transform: scaleX(1);
+}
+
+.tv-mode .av-v2-content .dramas-movies-page .titem:focus-visible {
+  z-index: 31;
+  outline: 2px solid #fff !important;
+  outline-offset: 3px;
+  background-color: rgba(255, 255, 255, .1);
+}
+
+.tv-mode .dramas-movies-page .card,
+.tv-mode .dramas-movies-page .gcard {
+  transition: transform .2s cubic-bezier(.2, .75, .25, 1), border-color .2s ease, box-shadow .2s ease;
+}
+
+.tv-mode .dramas-movies-page .card-img,
+.tv-mode .dramas-movies-page .gcard-img {
+  transition: transform .28s cubic-bezier(.2, .75, .25, 1), filter .28s ease;
+}
+
+.tv-mode .dramas-movies-page .card:focus-visible,
+.tv-mode .dramas-movies-page .gcard:focus-visible {
+  transform: translateY(-5px) scale(1.035);
+  border-color: rgba(255, 255, 255, .75);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .52);
+}
+
+.tv-mode .dramas-movies-page .card:focus-visible .card-img,
+.tv-mode .dramas-movies-page .gcard:focus-visible .gcard-img {
+  filter: brightness(1.1);
+}
+
+@keyframes tv-featured-enter {
+  from {
+    opacity: .65;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-mode .dramas-movies-page .hero,
+  .tv-mode .dramas-movies-page .titem,
+  .tv-mode .dramas-movies-page .titem::after,
+  .tv-mode .dramas-movies-page .card,
+  .tv-mode .dramas-movies-page .gcard,
+  .tv-mode .dramas-movies-page .card-img,
+  .tv-mode .dramas-movies-page .gcard-img {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+.tv-mode .tv-navigation-rail {
+  width: 70px;
+  gap: 20px;
+  padding: 18px 0;
+  border-right-color: transparent;
+  background: linear-gradient(90deg, rgba(0, 0, 0, .94), rgba(0, 0, 0, .58) 72%, transparent);
+  transition: width .2s ease, background-color .2s ease;
+}
+
+.tv-mode .tv-navigation-rail:focus-within {
+  width: 220px;
+  background: #08090c;
+  border-right-color: rgba(255, 255, 255, .08);
+}
+
+.tv-mode .tv-navigation-brand {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  place-items: center;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 8px;
+  background: #08090c;
+}
+
+.tv-mode .tv-navigation-brand img {
+  display: block;
+  width: 72px;
+  height: 72px;
+  max-width: none;
+  object-fit: contain;
+  transform: translate(-12px, -6px);
+}
+
+.tv-mode .tv-navigation-items {
+  gap: 8px;
+}
+
+.tv-mode .tv-navigation-item {
+  display: flex;
+  width: calc(100% - 16px);
+  min-height: 48px;
+  flex: 0 0 48px;
+  justify-content: flex-start;
+  gap: 18px;
+  margin: 0 8px;
+  padding: 0 15px;
+  overflow: hidden;
+  border-radius: 7px;
+  box-sizing: border-box;
+  text-align: left;
+  transition: background-color .18s ease, color .18s ease;
+}
+
+.tv-mode .tv-navigation-item[aria-current="page"] {
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+}
+
+.tv-mode .tv-navigation-item[aria-current="page"]::before {
+  inset: 12px auto 12px -8px;
+}
+
+.tv-mode .tv-navigation-label {
+  overflow: hidden;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0;
+  white-space: nowrap;
+  transition: opacity .16s ease;
+}
+
+.tv-mode .tv-navigation-rail:focus-within .tv-navigation-label {
+  opacity: 1;
+}
+
+.tv-mode .av-v2-content {
+  width: calc(100% - 70px);
+  margin-left: 70px;
+  padding-right: 42px;
+  padding-left: 42px;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .hero-v2 {
+  height: min(76vh, 760px);
+  min-height: 560px;
+  background: #0a0c12;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .hero-img-wrapper img {
+  object-position: center 24%;
+  filter: saturate(1.05) brightness(.9);
+}
+
+.tv-mode .av-v2-content .home-v2-reference .hero-overlay-v2 {
+  background:
+    linear-gradient(90deg, rgba(5, 6, 9, .92) 0%, rgba(5, 6, 9, .66) 35%, rgba(5, 6, 9, .08) 78%),
+    linear-gradient(0deg, #050507 0%, rgba(5, 5, 7, .5) 17%, transparent 58%);
+}
+
+.tv-mode .av-v2-content .home-v2-reference .hero-content-v2 {
+  align-items: flex-end;
+  padding: 60px 5vw 58px;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .hero-info-v2 {
+  width: min(720px, 58vw);
+  gap: 16px;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .hero-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .hero-title-v2 {
+  max-width: 720px;
+  font-size: clamp(44px, 5.2vw, 82px);
+  line-height: 1.02;
+  letter-spacing: -.035em;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .hero-meta-v2 span {
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(20, 20, 20, .58);
+  font-size: 14px;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .hero-desc-v2 {
+  max-width: 640px;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .hero-btns-v2 button {
+  min-height: 54px;
+  border-radius: 5px;
+  font-size: 17px;
+  transition: transform .18s ease, background-color .18s ease;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .home-featured-rail {
+  margin-top: -218px;
+  padding-right: 4vw;
+  padding-left: 4vw;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .home-main-v2 {
+  gap: 32px;
+  padding: 32px 4vw 72px;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .section-v2 {
+  gap: 12px;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .section-header-v2 h2,
+.tv-mode .av-v2-content .home-v2-reference .home-featured-heading h2 {
+  font-size: 24px;
+}
+
+.tv-mode .av-v2-content .auto-train-group .anime-card-v2 {
+  flex-basis: 182px;
+}
+
+.tv-mode .av-v2-content .auto-train-group--weekly .anime-card-v2 {
+  flex-basis: 164px;
+}
+
+.tv-mode .av-v2-content .auto-train-window {
+  scroll-padding-inline: 12px;
+}
+
+.tv-mode .av-v2-content .auto-train-group .anime-card-v2:focus-visible {
+  outline: 3px solid #fff !important;
+  outline-offset: 4px;
+  transform: translateY(-5px) scale(1.045) !important;
+}
+
+.tv-mode .av-v2-content .home-v2-reference .home-featured-heading a,
+.tv-mode .av-v2-content .home-v2-reference .section-header-v2 .view-all {
+  min-height: 40px;
+  padding: 0 8px;
+}
+
+.tv-mode .tv-navigation-rail:focus-within ~ .av-v2-content .home-v2-reference .auto-train-window {
+  scroll-margin-left: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-mode .tv-navigation-rail,
+  .tv-mode .tv-navigation-label,
+  .tv-mode .av-v2-content .home-v2-reference .hero-btns-v2 button {
+    transition: none !important;
   }
 }

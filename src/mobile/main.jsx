@@ -16,9 +16,9 @@ import '../styles/mobile-fixes.css';
 installChunkRecovery();
 
 const isTvDevice = isTvRuntime();
-installTvRemoteNavigation({ tvMode: isTvDevice });
+if (isTvDevice) installTvRemoteNavigation();
 
-init({ debug: false, visualDebug: false, nativeMode: false, throttle: 70 });
+init({ debug: false, visualDebug: false, nativeMode: isTvDevice, throttle: 70 });
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
