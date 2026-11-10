@@ -1,0 +1,411 @@
+/* Full TV shell. This stylesheet is loaded last so phone styling cannot leak
+   into the remote-first television layout. */
+html.tv-mode,
+body.tv-mode,
+body.tv-mode #root {
+  width: 100%;
+  min-width: 960px;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  background: #080808;
+  color: #f5f5f1;
+  color-scheme: dark;
+  font-family: Arial, Helvetica, sans-serif;
+  cursor: none !important;
+}
+
+body.tv-mode * { cursor: none !important; }
+body.tv-mode button,
+body.tv-mode input,
+body.tv-mode textarea,
+body.tv-mode select { font: inherit; }
+
+.tv-mode .av-v2-shell {
+  min-height: 100vh;
+  background: #080808;
+}
+
+/* Persistent, compact navigation rail */
+.tv-mode .tv-navigation-rail {
+  position: fixed;
+  z-index: 1500;
+  inset: 0 auto 0 0;
+  display: flex;
+  width: 86px;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+  padding: 22px 0 18px;
+  border-right: 1px solid #202020;
+  background: #080808;
+  box-sizing: border-box;
+}
+
+.tv-mode .tv-navigation-brand {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 8px;
+  background: #e50914;
+}
+
+.tv-mode .tv-navigation-brand img { width: 100%; height: 100%; object-fit: contain; }
+.tv-mode .tv-navigation-items {
+  display: flex;
+  width: 100%;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.tv-mode .tv-navigation-items::-webkit-scrollbar { display: none; }
+
+.tv-mode .tv-navigation-item {
+  position: relative;
+  display: grid;
+  width: 62px;
+  min-height: 58px;
+  flex: 0 0 58px;
+  place-items: center;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #a7a7a7;
+  transition: none;
+}
+.tv-mode .tv-navigation-item svg { width: 25px; height: 25px; stroke-width: 1.9; }
+.tv-mode .tv-navigation-item[aria-current="page"] { color: #fff; background: #202020; }
+.tv-mode .tv-navigation-item[aria-current="page"]::before {
+  position: absolute;
+  inset: 13px auto 13px -13px;
+  width: 4px;
+  border-radius: 0 3px 3px 0;
+  background: #e50914;
+  content: "";
+}
+.tv-mode .tv-navigation-item:focus { border-color: #fff; color: #fff; background: #242424; outline: none !important; }
+
+/* Main viewport and system typography */
+.tv-mode .av-v2-topbar,
+.tv-mode .av-v2-drawer,
+.tv-mode .av-v2-drawer-backdrop,
+.tv-mode .av-android-bottom-nav { display: none !important; }
+.tv-mode .av-v2-content {
+  width: calc(100% - 86px);
+  min-height: 100vh;
+  max-width: none;
+  margin: 0 0 0 86px;
+  padding: 0 42px 52px;
+  box-sizing: border-box;
+  background: #080808;
+}
+.tv-mode .av-v2-content > footer { display: none !important; }
+.tv-mode .av-v2-content h1 { font-size: clamp(32px, 3.3vw, 58px); line-height: 1.08; letter-spacing: -.035em; }
+.tv-mode .av-v2-content h2 { font-size: clamp(22px, 1.8vw, 30px); line-height: 1.2; letter-spacing: -.02em; }
+.tv-mode .av-v2-content p { line-height: 1.5; }
+
+/* White remote selector: deliberately stable, with no layout jumping. */
+.tv-mode :focus { outline: 3px solid #fff !important; outline-offset: 4px; box-shadow: none !important; }
+.tv-mode a:focus,
+.tv-mode button:focus,
+.tv-mode [role="button"]:focus,
+.tv-mode input:focus,
+.tv-mode select:focus,
+.tv-mode textarea:focus { position: relative; z-index: 80; transform: none !important; }
+.tv-mode button,
+.tv-mode a,
+.tv-mode [role="button"] { transition: none !important; }
+.tv-mode button:disabled { opacity: .42; }
+
+/* Home: one still hero, then independent scrollable poster rows. */
+.tv-mode .av-v2-content .home-v2,
+.tv-mode .av-v2-content .home-v2-reference {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  padding: 0 0 54px;
+  overflow: visible;
+  background: #080808;
+}
+.tv-mode .av-v2-content .home-v2-reference .hero-v2 {
+  position: relative;
+  width: calc(100% + 84px);
+  height: clamp(420px, 60vh, 650px);
+  min-height: 420px;
+  max-height: 650px;
+  margin: 0 -42px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #111;
+  box-shadow: none;
+  isolation: isolate;
+}
+.tv-mode .av-v2-content .hero-img-wrapper { position: absolute; inset: 0; overflow: hidden; background: #111; }
+.tv-mode .av-v2-content .hero-img-wrapper img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; filter: brightness(.66); }
+.tv-mode .av-v2-content .hero-overlay-v2 { background: rgba(0, 0, 0, .24) !important; }
+.tv-mode .av-v2-content .hero-content-v2 {
+  align-items: flex-end;
+  padding: 48px 7vw 165px;
+}
+.tv-mode .av-v2-content .hero-info-v2 {
+  width: min(720px, 62vw);
+  max-width: 720px;
+  gap: 15px;
+  padding: 22px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .68);
+}
+.tv-mode .av-v2-content .hero-title-v2 { font-size: clamp(42px, 4.4vw, 74px); line-height: 1.03; text-shadow: none; }
+.tv-mode .av-v2-content .hero-desc-v2 { max-width: 680px; color: #dedede; font-size: clamp(16px, 1.25vw, 20px); }
+.tv-mode .av-v2-content .hero-meta-v2 { gap: 15px; color: #e3e3e3; font-size: 16px; }
+.tv-mode .av-v2-content .hero-btns-v2 { gap: 12px; margin-top: 5px; }
+.tv-mode .av-v2-content .hero-btns-v2 button,
+.tv-mode .av-v2-content .hero-btns-v2 a {
+  min-width: 136px;
+  min-height: 58px;
+  justify-content: center;
+  padding: 0 24px;
+  border: 1px solid #fff;
+  border-radius: 5px;
+  background: #f5f5f1;
+  color: #111;
+  font-size: 18px;
+  font-weight: 750;
+}
+.tv-mode .av-v2-content .hero-btns-v2 .btn-info-v2 { background: #292929; color: #fff; border-color: #555; }
+.tv-mode .av-v2-content .hero-btns-v2 button:focus { background: #fff; color: #000; }
+.tv-mode .av-v2-content .carousel-dots { display: none !important; }
+.tv-mode .av-v2-content .home-featured-rail {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  margin: -142px 0 0;
+  padding: 0 5vw;
+  box-sizing: border-box;
+}
+.tv-mode .av-v2-content .home-featured-heading { min-height: 40px; margin-bottom: 8px; }
+.tv-mode .av-v2-content .home-featured-heading h2,
+.tv-mode .av-v2-content .section-header-v2 h2 { color: #f5f5f1; font-size: 24px; font-weight: 700; }
+.tv-mode .av-v2-content .home-featured-heading a,
+.tv-mode .av-v2-content .section-header-v2 .view-all { color: #ccc; font-size: 15px; }
+.tv-mode .av-v2-content .home-main-v2 { gap: 25px; padding: 34px 5vw 60px; }
+.tv-mode .av-v2-content .section-v2 { min-width: 0; }
+.tv-mode .av-v2-content .section-header-v2 { margin-bottom: 5px; }
+.tv-mode .av-v2-content .section-header-v2 p { color: #a8a8a8; font-size: 14px; }
+.tv-mode .av-v2-content .auto-train-window,
+.tv-mode .av-v2-content .av-mobile-card-rail,
+.tv-mode .av-v2-content .hscroll,
+.tv-mode .av-v2-content .media-all-grid,
+.tv-mode .av-v2-content .ply-rail-scroll {
+  display: flex;
+  width: auto;
+  min-width: 0;
+  gap: 16px;
+  margin: 0 -10px;
+  padding: 12px 12px 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-behavior: auto;
+}
+.tv-mode .av-v2-content .auto-train-window::-webkit-scrollbar,
+.tv-mode .av-v2-content .av-mobile-card-rail::-webkit-scrollbar,
+.tv-mode .av-v2-content .hscroll::-webkit-scrollbar,
+.tv-mode .av-v2-content .media-all-grid::-webkit-scrollbar { display: none; }
+.tv-mode .av-v2-content .auto-train-track { width: max-content; animation: none !important; transform: none !important; will-change: auto !important; }
+.tv-mode .av-v2-content .auto-train-group--copy { display: none !important; }
+.tv-mode .av-v2-content .auto-train-group { gap: 16px; padding-right: 0; }
+.tv-mode .av-v2-content .anime-card-v2,
+.tv-mode .av-v2-content .av-anime-card,
+.tv-mode .av-v2-content .av-explore-card,
+.tv-mode .av-v2-content .dramas-movies-page .card,
+.tv-mode .av-v2-content .dramas-movies-page .gcard {
+  flex: 0 0 184px;
+  width: 184px;
+  min-width: 184px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #f3f3f3;
+  text-align: left;
+  transition: none !important;
+}
+.tv-mode .av-v2-content .anime-card-v2:focus,
+.tv-mode .av-v2-content .av-anime-card:focus,
+.tv-mode .av-v2-content .av-explore-card:focus,
+.tv-mode .av-v2-content .dramas-movies-page .card:focus,
+.tv-mode .av-v2-content .dramas-movies-page .gcard:focus { outline-offset: 4px; }
+.tv-mode .av-v2-content .anime-card-v2 .card-media,
+.tv-mode .av-v2-content .av-anime-media,
+.tv-mode .av-v2-content .av-explore-poster,
+.tv-mode .av-v2-content .dramas-movies-page .card-img,
+.tv-mode .av-v2-content .dramas-movies-page .gcard-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border: 1px solid #2d2d2d;
+  border-radius: 7px;
+  background: #181818;
+}
+.tv-mode .av-v2-content .anime-card-v2 .card-media img,
+.tv-mode .av-v2-content .av-anime-media img,
+.tv-mode .av-v2-content .av-explore-poster img,
+.tv-mode .av-v2-content .dramas-movies-page .card-img img,
+.tv-mode .av-v2-content .dramas-movies-page .gcard-img img { width: 100%; height: 100%; object-fit: cover; }
+.tv-mode .av-v2-content .anime-card-v2 .card-info,
+.tv-mode .av-v2-content .av-anime-info { display: flex; flex-direction: column; gap: 5px; padding: 9px 2px 0; }
+.tv-mode .av-v2-content .anime-card-v2 .card-title,
+.tv-mode .av-v2-content .av-anime-info strong,
+.tv-mode .av-v2-content .av-explore-card strong,
+.tv-mode .av-v2-content .dramas-movies-page .card-title,
+.tv-mode .av-v2-content .dramas-movies-page .gcard-title { color: #f2f2f2; font-size: 15px; line-height: 1.3; }
+.tv-mode .av-v2-content .anime-card-v2 .card-meta,
+.tv-mode .av-v2-content .av-anime-info small,
+.tv-mode .av-v2-content .av-explore-card small,
+.tv-mode .av-v2-content .dramas-movies-page .card-sub,
+.tv-mode .av-v2-content .dramas-movies-page .gcard-meta { color: #aaa; font-size: 12px; }
+.tv-mode .av-v2-content .av-mobile-section { margin: 28px 0; }
+.tv-mode .av-v2-content .av-mobile-section-header { margin-bottom: 8px; }
+.tv-mode .av-v2-content .av-mobile-section-header h2 { font-size: 24px; }
+.tv-mode .av-v2-content .av-mobile-card-grid,
+.tv-mode .av-v2-content .av-explore-grid,
+.tv-mode .av-v2-content .av-profile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap: 20px; }
+
+/* Search and browse: large readable controls and predictable poster grid. */
+.tv-mode .av-v2-content .av-explore,
+.tv-mode .av-v2-content .dramas-movies-page,
+.tv-mode .av-v2-content .av-mobile-page,
+.tv-mode .av-v2-content .av-v2-library,
+.tv-mode .av-v2-content .av-v2-settings,
+.tv-mode .av-v2-content .av-v2-profile,
+.tv-mode .av-v2-content .av-notifications-v2 {
+  width: 100%;
+  max-width: 1700px;
+  margin: 0 auto;
+  padding: 34px 24px 64px;
+  box-sizing: border-box;
+}
+.tv-mode .av-v2-content .av-explore-head { margin-bottom: 24px; }
+.tv-mode .av-v2-content .av-explore h1 { font-size: 42px; }
+.tv-mode .av-v2-content .av-explore-head p,
+.tv-mode .av-v2-content .av-explore-section header p { color: #aaa; font-size: 16px; }
+.tv-mode .av-v2-content .av-explore-search-wrap { height: 62px; gap: 14px; padding: 0 18px; border: 1px solid #383838; border-radius: 6px; background: #181818; box-shadow: none; }
+.tv-mode .av-v2-content .av-explore-search-wrap input { font-size: 20px; }
+.tv-mode .av-v2-content .av-explore-section { padding-top: 26px; }
+.tv-mode .av-v2-content .av-explore-section h2 { font-size: 24px; }
+.tv-mode .av-v2-content .av-explore-grid { grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap: 24px 18px; }
+.tv-mode .av-v2-content .av-filter-scroll { gap: 10px; }
+.tv-mode .av-v2-content .av-filter-scroll button,
+.tv-mode .av-v2-content .av-history > div button,
+.tv-mode .av-v2-content .dramas-movies-page .titem {
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid #3a3a3a;
+  border-radius: 5px;
+  background: #1b1b1b;
+  color: #ddd;
+  font-size: 15px;
+}
+.tv-mode .av-v2-content .av-filter-scroll button.active,
+.tv-mode .av-v2-content .dramas-movies-page .titem.active { border-color: #fff; background: #fff; color: #111; }
+.tv-mode .av-v2-content .dramas-movies-page .featured-showcase { margin: 0 0 26px; }
+.tv-mode .av-v2-content .dramas-movies-page .hero { height: clamp(350px, 48vh, 520px) !important; min-height: 350px; padding: 42px; border-radius: 6px; }
+.tv-mode .av-v2-content .dramas-movies-page .hero::after { background: rgba(0, 0, 0, .38); }
+.tv-mode .av-v2-content .dramas-movies-page .htitle { font-size: clamp(38px, 4vw, 64px); }
+.tv-mode .av-v2-content .dramas-movies-page .tbar { display: flex; gap: 10px; width: auto; max-width: none; margin: 18px 0 24px !important; padding: 0 !important; border: 0 !important; overflow: visible; }
+.tv-mode .av-v2-content .dramas-movies-page .hscroll { padding: 12px 12px 22px; }
+.tv-mode .av-v2-content .dramas-movies-page .media-all-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); overflow: visible; padding: 12px 0 24px; }
+
+/* Detail pages, account forms, profile and notifications */
+.tv-mode .av-v2-content .mobile-content,
+.tv-mode .av-v2-content .av-mobile-legacy-page { max-width: 1500px; margin: 0 auto; }
+.tv-mode .av-v2-content .av-v2-settings-head,
+.tv-mode .av-v2-content .av-notifications-head,
+.tv-mode .av-v2-content .av-v2-library-head,
+.tv-mode .av-v2-content .av-profile-head { margin-bottom: 24px; }
+.tv-mode .av-v2-content .av-v2-settings-tab,
+.tv-mode .av-v2-content .av-v2-back,
+.tv-mode .av-v2-content .av-v2-save,
+.tv-mode .av-v2-content .av-mobile-see-all,
+.tv-mode .av-v2-content .av-profile-tabs button { min-height: 50px; padding: 0 18px; border-radius: 5px; font-size: 15px; }
+.tv-mode .av-v2-content .av-v2-settings-section,
+.tv-mode .av-v2-content .av-profile-library,
+.tv-mode .av-v2-content .av-notification-section,
+.tv-mode .av-v2-content .av-notification-card { border-color: #2d2d2d; border-radius: 6px; background: #121212; }
+.tv-mode .av-v2-content input,
+.tv-mode .av-v2-content textarea,
+.tv-mode .av-v2-content select { min-height: 50px; border: 1px solid #424242; border-radius: 5px; background: #171717; color: #fff; font-size: 17px; }
+.tv-mode .av-v2-content .av-profile-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.tv-mode .av-v2-content .av-profile-stat { min-height: 96px; border: 1px solid #303030; border-radius: 6px; background: #151515; }
+
+/* Playback gets the full panel and large, separated remote controls. */
+.tv-mode .player-screen,
+.tv-mode .player-screen-v2,
+.tv-mode .av-android-watch-v2 {
+  position: fixed;
+  z-index: 1800;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  padding: 0;
+  background: #050505;
+}
+.tv-mode .player-topbar-v2,
+.tv-mode .av-android-watchbar-v2 { min-height: 68px; padding: 8px 30px; background: #101010; }
+.tv-mode .player-source-bar { min-height: 62px; padding: 8px 28px !important; gap: 12px !important; background: #101010; }
+.tv-mode .player-source-bar button,
+.tv-mode .ply-rail-scroll button,
+.tv-mode .ply-rail-nav,
+.tv-mode .player-topbar-v2 button { min-width: 56px; min-height: 48px; border-radius: 5px !important; font-size: 16px !important; }
+.tv-mode .player-source-bar button:focus,
+.tv-mode .ply-rail-scroll button:focus { background: #fff !important; color: #111 !important; }
+.tv-mode .player-frame-wrap,
+.tv-mode .player-frame-wrap-v2 { flex: 1; min-height: 0; display: grid; place-items: center; background: #000; }
+.tv-mode .player-frame-wrap .av-native-player-v2 { width: min(100%, 1600px); height: auto; max-height: 100%; aspect-ratio: 16 / 9; }
+.tv-mode .player-frame-wrap iframe { width: 100%; height: 100%; }
+.tv-mode .av-native-controls-v2 { gap: 16px; }
+.tv-mode .av-native-controls-v2 button { width: 58px; height: 58px; border: 1px solid #555; border-radius: 50%; background: #171717; }
+.tv-mode .av-native-controls-v2 .av-native-main-btn-v2 { width: 72px; height: 72px; border-color: #fff; background: #fff; color: #111; }
+.tv-mode .av-native-loading-v2,
+.tv-mode .av-native-error-v2 { font-size: 20px; }
+.tv-mode .player-episode-rail { min-height: 68px; max-height: 82px; gap: 12px; padding: 9px 24px; background: #111; }
+.tv-mode .ply-rail-scroll { flex: 1; padding: 8px 12px; }
+
+/* TV form and modal interaction */
+.tv-mode .auth-overlay { z-index: 2400; background: rgba(0, 0, 0, .8); }
+.tv-mode .auth-dialog { width: min(720px, 72vw); max-width: 720px; border: 1px solid #444; border-radius: 8px; background: #141414; box-shadow: none; }
+.tv-mode .auth-heading { font-size: 34px; }
+.tv-mode .auth-subheading,
+.tv-mode .auth-form-panel label { font-size: 17px; }
+.tv-mode .auth-input { min-height: 58px; font-size: 18px; }
+.tv-mode .auth-submit,
+.tv-mode .auth-guest,
+.tv-mode .auth-tab { min-height: 56px; font-size: 17px; }
+
+/* Motion is reserved for remote focus scrolling; no automatic card train. */
+.tv-mode .auto-train-track,
+.tv-mode .av-explore-skeleton,
+.tv-mode .loading-shimmer,
+.tv-mode .hero-carousel-v2 .carousel-slide { animation: none !important; transition: none !important; }
+.tv-mode .av-v2-content .auto-train-window:focus-within,
+.tv-mode .av-v2-content .av-mobile-card-rail:focus-within,
+.tv-mode .av-v2-content .hscroll:focus-within { scroll-behavior: auto !important; }
+
+@media (max-height: 700px) {
+  .tv-mode .av-v2-content .home-v2-reference .hero-v2 { height: 52vh; min-height: 350px; }
+  .tv-mode .av-v2-content .home-featured-rail { margin-top: -110px; }
+  .tv-mode .tv-navigation-rail { gap: 12px; padding-top: 10px; }
+  .tv-mode .tv-navigation-items { gap: 4px; }
+  .tv-mode .tv-navigation-item { min-height: 48px; flex-basis: 48px; }
+}
