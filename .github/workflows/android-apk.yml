@@ -185,11 +185,19 @@ jobs:
           test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
           BADGING="$($ANDROID_HOME/build-tools/35.0.0/aapt2 dump badging "$APK")"
-          printf '%s\n' "$BADGING" | grep -q "package: name='com.animevault.app'"
-          printf '%s\n' "$BADGING" | grep -q "application-label:'Anime Vault'"
-          printf '%s\n' "$BADGING" | grep -q "android.software.leanback"
-          unzip -l "$APK" | grep -q 'assets/public/index.html'
-          unzip -l "$APK" | grep -q 'animevault_tv_banner.png'
+          for expected in "package: name='com.animevault.app'" "application-label:'Anime Vault'" "android.software.leanback"; do
+            if ! grep -Fq "$expected" <<< "$BADGING"; then
+              echo "::error::Android package metadata is missing: $expected"
+              exit 1
+            fi
+          done
+          unzip -l "$APK" > apk-contents.txt
+          for expected in 'assets/public/index.html' 'animevault_tv_banner.png'; do
+            if ! grep -Fq "$expected" apk-contents.txt; then
+              echo "::error::Android package is missing: $expected"
+              exit 1
+            fi
+          done
           echo "Verified dedicated mobile web shell is packaged"
       - name: Rename APK for distribution
         run: |
